@@ -1,0 +1,138 @@
+name: Android APK
+
+# Builds a release APK for the Flutter customer app on every commit.
+#
+# Repo layout assumed: this file lives at the repository root, and the Flutter
+# project is in `mobile_app/`. If you push ONLY `mobile_app/` as the repository,
+# move this file to `mobile_app/.github/workflows/` and delete every
+# `working-directory: mobile_app` line and the `mobile_app/` path prefixes below.
+#
+# SIGNING: `android/app/build.gradle.kts` currently signs the release build with
+# the DEBUG keystore ("TODO: Add your own signing config"). The APK this workflow
+# produces is therefore fine for testing and internal distribution, but Google
+# Play will reject it. See the "Release signing" section in the PR/README notes
+# for the two changes needed to sign with a real upload key from secrets.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    # Building on literally every commit is the intent. If you later want to skip
+    # runs for backend/admin-only commits, uncomment this filter:
+    # paths:
+    #   - 'mobile_app/**'
+    #   - '.github/workflows/android-apk.yml'
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+
+# A newer commit on the same branch makes an in-flight build pointless.
+# Tag builds are never cancelled (they produce releases).
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  FLUTTER_VERSION: '3.41.7'   # matches the developer machine; bump both together
+  JAVA_VERSION: '17'          # required by AGP 8.7.3 / Gradle 8.12
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile_app/android/**/*.gradle*', 'mobile_app/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Resolve dependencies
+        working-directory: mobile_app
+        run: flutter pub get
+
+      # Fails on errors and warnings (currently zero). Infos are not fatal —
+      # the project has ~60 style infos that must not block an APK build.
+      - name: Analyze
+        working-directory: mobile_app
+        run: flutter analyze --no-fatal-infos
+
+      - name: Build release APK
+        working-directory: mobile_app
+        run: flutter build apk --release --build-number ${{ github.run_number }}
+
+      - name: Name the artifact
+        id: apk
+        working-directory: mobile_app
+        run: |
+          set -euo pipefail
+          src="build/app/outputs/flutter-apk/app-release.apk"
+          test -f "$src" || { echo "::error::APK not found at $src"; exit 1; }
+
+          ref="${GITHUB_REF_NAME//\//-}"          # slashes are illegal in filenames
+          sha="${GITHUB_SHA::7}"
+          name="playsher-${ref}-${sha}-b${{ github.run_number }}.apk"
+
+          mkdir -p ../artifacts
+          cp "$src" "../artifacts/${name}"
+
+          size="$(du -h "$src" | cut -f1)"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "### Playsher APK :iphone:"        >> "$GITHUB_STEP_SUMMARY"
+          echo "| | |"                            >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|"                        >> "$GITHUB_STEP_SUMMARY"
+          echo "| File | \`${name}\` |"           >> "$GITHUB_STEP_SUMMARY"
+          echo "| Size | ${size} |"               >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | \`${sha}\` |"          >> "$GITHUB_STEP_SUMMARY"
+          echo "| Signing | debug keystore (not Play-ready) |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: artifacts/${{ steps.apk.outputs.name }}
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    name: Attach APK to GitHub Release
+    # Only for tag pushes like v2.0.0 — normal commits stop after `build`.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
+          generate_release_notes: true
