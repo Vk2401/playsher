@@ -18,7 +18,7 @@ Three codebases in this directory, one product:
 
 | Directory      | Product                                   | Stack                                        |
 | -------------- | ----------------------------------------- | -------------------------------------------- |
-| `backend api/` | REST API (`app.playsher.com`)             | Node 18+ · Express 4 · Sequelize 6 · MariaDB  |
+| `backend-api/` | REST API (`app.playsher.com`)             | Node 18+ · Express 4 · Sequelize 6 · MariaDB  |
 | `adminui/`     | Admin **and** Ground Owner panels (one SPA at `admin.playsher.com`) | React 18 · Vite 5 · MUI 6 · TanStack Query 5 |
 | `mobile_app/`  | Customer app (Android + iOS)              | Flutter 3.22 · Dart 3.4 · Riverpod · GoRouter |
 
@@ -75,7 +75,7 @@ refresh-token → retry → logout flow. Never construct a second client or set 
 - Admin UI: `npm run dev` (5173, proxies `/api` → localhost:3000), `npm run build`,
   `npm run lint` (`--max-warnings 0` — it must stay clean).
 - Flutter: `flutter analyze` must be clean; `flutter run`. `flutter_lints` is on.
-- Secrets live in `.env` (`backend api/.env`, `adminui/.env`) and are **not** committed.
+- Secrets live in `.env` (`backend-api/.env`, `adminui/.env`) and are **not** committed.
   Never hardcode a host, key, or credential — `AppConstants.baseUrl` and
   `VITE_API_BASE_URL` are the only places a backend URL may appear.
   `AppConstants.razorpayKeyId` currently holds a **test** key; it must move to a build-time
@@ -87,8 +87,9 @@ refresh-token → retry → logout flow. Never construct a second client or set 
 
 State them plainly if relevant; don't silently paper over them.
 
-- OTP is stored **in memory** (`otp.controller.js`), so it does not survive a restart and
-  breaks across multiple workers. Moving it to a table is planned work.
+- OTP now lives in the `otps` table (`otp.controller.js`), so it survives restarts and works
+  across multiple processes. `OTP_DEV_BYPASS=true` makes any 6-digit code valid for a correctly
+  formatted Indian mobile — a demo-only setting that must be `false` in production.
 - Twilio, Razorpay live keys, Google Maps key and DLT registration are all **pending** —
   OTP prints to the server console until Twilio is configured.
 - Several Flutter `ApiClient` methods are **stubs returning empty data**: notifications,
@@ -96,7 +97,7 @@ State them plainly if relevant; don't silently paper over them.
   not bugs. Implement the endpoint before "fixing" the screen.
 - Push notifications (FCM) are Phase 2 and not wired anywhere.
 - `sequelize.sync({ alter: false })` runs outside production only; schema changes go through
-  SQL migration files in `backend api/database/`, never through `sync({ alter: true })`.
+  SQL migration files in `backend-api/database/`, never through `sync({ alter: true })`.
 
 ## 6. Skills
 
@@ -104,7 +105,7 @@ Load the matching skill before non-trivial work — each carries the concrete fi
 
 | Skill                 | Use when                                                     |
 | --------------------- | ------------------------------------------------------------ |
-| `playsher-backend`    | any change under `backend api/` — endpoints, models, auth     |
+| `playsher-backend`    | any change under `backend-api/` — endpoints, models, auth     |
 | `playsher-admin-panel`| any change under `adminui/` — pages, tables, forms            |
 | `playsher-flutter`    | Flutter architecture — providers, models, routing, API calls  |
 | `playsher-mobile-ui`  | any Flutter **UI** work — screens, widgets, theming, motion   |

@@ -108,10 +108,10 @@ By default the database only accepts connections from inside Hostinger. Vercel i
 3. Run these four files **in this order** — open each file in your code editor, copy all of it,
    paste into the SQL box, press **Go**, and wait for the green success message before the next:
 
-   1. `backend api/database/schema.sql` — the 20 core tables
-   2. `backend api/database/migrations/add_schedule_templates.sql`
-   3. `backend api/database/migrations/add_bank_details.sql`
-   4. `backend api/database/migrations/add_otps_table.sql`
+   1. `backend-api/database/schema.sql` — the 20 core tables
+   2. `backend-api/database/migrations/add_schedule_templates.sql`
+   3. `backend-api/database/migrations/add_bank_details.sql`
+   4. `backend-api/database/migrations/add_otps_table.sql`
 
 4. Confirm the sidebar now lists **23 tables**, including `otps`, `bank_details` and
    `schedule_templates`.
@@ -128,7 +128,7 @@ If you want sports, amenities and a test ground to exist, run this locally once,
 the Hostinger database:
 
 ```bash
-cd "backend api"
+cd "backend-api"
 # temporarily set the Hostinger DB values in your local .env, then:
 node database/seed.js
 ```
@@ -172,7 +172,7 @@ git push origin main
 
 1. Go to [vercel.com/new](https://vercel.com/new) → **Import** the `playsher` repository.
 2. **Project Name**: `playsher-api`
-3. **Root Directory**: click **Edit** and select the **`backend api`** folder. This is the
+3. **Root Directory**: click **Edit** and select the **`backend-api`** folder. This is the
    single most important setting — Vercel must build from inside the backend folder, not the
    repo root.
 4. **Framework Preset**: `Other`. Leave the build/output commands empty.

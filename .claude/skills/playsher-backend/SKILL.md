@@ -1,6 +1,6 @@
 ---
 name: playsher-backend
-description: Architecture and code patterns for the Playsher Node/Express/Sequelize API in `backend api/`. Load before adding or changing an endpoint, controller, model, validator, migration, auth rule, or Swagger doc — it carries the exact file layout, the response envelope, the role model, and the transaction/slot-booking rules.
+description: Architecture and code patterns for the Playsher Node/Express/Sequelize API in `backend-api/`. Load before adding or changing an endpoint, controller, model, validator, migration, auth rule, or Swagger doc — it carries the exact file layout, the response envelope, the role model, and the transaction/slot-booking rules.
 ---
 
 # Playsher backend — how this API is built
