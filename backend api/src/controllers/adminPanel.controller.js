@@ -59,7 +59,7 @@ exports.listSports = async (req, res) => {
 /** POST /admin/sports — create (with optional image upload) */
 exports.createSport = async (req, res) => {
   try {
-    const image = req.file ? `/uploads/sports/${req.file.filename}` : req.body.image;
+    const image = req.file ? req.file.publicUrl : req.body.image;
     const sport = await Sport.create({ ...req.body, image });
     return success(res, 'Sport created.', sport, 201);
   } catch (err) { return error(res, err.message, 500); }
@@ -70,7 +70,7 @@ exports.updateSport = async (req, res) => {
   try {
     const sport = await Sport.findByPk(req.params.id);
     if (!sport) return error(res, 'Sport not found.', 404);
-    const image = req.file ? `/uploads/sports/${req.file.filename}` : (req.body.image || sport.image);
+    const image = req.file ? req.file.publicUrl : (req.body.image || sport.image);
     await sport.update({ ...req.body, image });
     return success(res, 'Sport updated.', sport);
   } catch (err) { return error(res, err.message, 500); }
@@ -113,7 +113,7 @@ exports.listAmenities = async (req, res) => {
 /** POST /admin/amenities — create (with optional icon upload) */
 exports.createAmenity = async (req, res) => {
   try {
-    const icon = req.file ? `/uploads/amenities/${req.file.filename}` : req.body.icon;
+    const icon = req.file ? req.file.publicUrl : req.body.icon;
     const amenity = await Amenity.create({
       name: req.body.name,
       type: req.body.type,
@@ -129,7 +129,7 @@ exports.updateAmenity = async (req, res) => {
   try {
     const amenity = await Amenity.findByPk(req.params.id);
     if (!amenity) return error(res, 'Amenity not found.', 404);
-    const icon = req.file ? `/uploads/amenities/${req.file.filename}` : (req.body.icon || amenity.icon);
+    const icon = req.file ? req.file.publicUrl : (req.body.icon || amenity.icon);
     await amenity.update({ ...req.body, icon });
     return success(res, 'Amenity updated.', amenity);
   } catch (err) { return error(res, err.message, 500); }
@@ -175,7 +175,7 @@ exports.getCoach = async (req, res) => {
 /** POST /admin/coaches — create (with optional profile_image upload) */
 exports.createCoach = async (req, res) => {
   try {
-    const profile_picture = req.file ? `/uploads/coaches/${req.file.filename}` : req.body.profile_picture;
+    const profile_picture = req.file ? req.file.publicUrl : req.body.profile_picture;
     const coach = await Coach.create({ ...req.body, profile_picture });
     return success(res, 'Coach created.', coach, 201);
   } catch (err) { return error(res, err.message, 500); }
@@ -187,7 +187,7 @@ exports.updateCoach = async (req, res) => {
     const coach = await Coach.findByPk(req.params.id);
     if (!coach) return error(res, 'Coach not found.', 404);
     const profile_picture = req.file
-      ? `/uploads/coaches/${req.file.filename}`
+      ? req.file.publicUrl
       : (req.body.profile_picture || coach.profile_picture);
     await coach.update({ ...req.body, profile_picture });
     return success(res, 'Coach updated.', coach);

@@ -1,18 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
-function makeStorage(subdir) {
-  const dest = path.join(process.cwd(), 'uploads', subdir);
-  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-  return multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, dest),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-      cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-    },
-  });
-}
+const storage = require('../utils/storage.utils');
 
 const imageFilter = (_req, file, cb) => {
   if (/^image\//i.test(file.mimetype)) cb(null, true);
@@ -21,8 +10,43 @@ const imageFilter = (_req, file, cb) => {
 
 const limits = { fileSize: 5 * 1024 * 1024 }; // 5 MB
 
-exports.uploadSport    = multer({ storage: makeStorage('sports'),    fileFilter: imageFilter, limits }).single('image');
-exports.uploadAmenity  = multer({ storage: makeStorage('amenities'), fileFilter: imageFilter, limits }).single('icon');
-exports.uploadCoach    = multer({ storage: makeStorage('coaches'),   fileFilter: imageFilter, limits }).single('profile_image');
-exports.uploadGround   = multer({ storage: makeStorage('grounds'),   fileFilter: imageFilter, limits }).single('main_image');
-exports.uploadGroundImg = multer({ storage: makeStorage('grounds'),  fileFilter: imageFilter, limits }).single('image');
+function diskStorage(subdir) {
+  const dest = path.join(process.cwd(), 'uploads', subdir);
+  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+  return multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, dest),
+    filename: (_req, file, cb) => cb(null, storage.randomFilename(file.originalname)),
+  });
+}
+
+/**
+ * Runs after multer and puts the stored file's public URL on `req.file.publicUrl`,
+ * which is what controllers persist. With the ftp driver this is where the bytes
+ * actually leave the process.
+ */
+function persist(subdir) {
+  return async (req, _res, next) => {
+    if (!req.file) return next();
+    try {
+      if (storage.driver === 'ftp') {
+        req.file.filename = storage.randomFilename(req.file.originalname);
+        await storage.uploadToFtp(req.file.buffer, subdir, req.file.filename);
+      }
+      req.file.publicUrl = storage.publicUrlFor(subdir, req.file.filename);
+      next();
+    } catch (err) {
+      next(new Error(`Image upload failed: ${err.message}`));
+    }
+  };
+}
+
+function uploader(subdir, field) {
+  const engine = storage.driver === 'ftp' ? multer.memoryStorage() : diskStorage(subdir);
+  return [multer({ storage: engine, fileFilter: imageFilter, limits }).single(field), persist(subdir)];
+}
+
+exports.uploadSport     = uploader('sports',    'image');
+exports.uploadAmenity   = uploader('amenities', 'icon');
+exports.uploadCoach     = uploader('coaches',   'profile_image');
+exports.uploadGround    = uploader('grounds',   'main_image');
+exports.uploadGroundImg = uploader('grounds',   'image');

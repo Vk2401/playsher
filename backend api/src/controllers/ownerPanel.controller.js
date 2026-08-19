@@ -62,7 +62,7 @@ exports.createGround = async (req, res) => {
     if (req.file) {
       await GroundImage.create({
         ground_id: ground.id,
-        image: `/uploads/grounds/${req.file.filename}`,
+        image: req.file.publicUrl,
         is_primary: true,
       });
     }
@@ -100,7 +100,7 @@ exports.addImage = async (req, res) => {
 
     let imagePath;
     if (req.file) {
-      imagePath = `/uploads/grounds/${req.file.filename}`;
+      imagePath = req.file.publicUrl;
     } else if (req.body.image) {
       imagePath = req.body.image;
     } else {

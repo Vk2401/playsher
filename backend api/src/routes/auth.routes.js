@@ -227,7 +227,7 @@ const { verifyToken: authMiddleware } = require('../middleware/auth');
  *       200: { description: OTP sent successfully }
  *       422: { description: mobile is required }
  */
-router.post('/send-otp',              authLimiter, otpCtrl.sendOtp);
+router.post('/send-otp',              authLimiter, v.sendOtp, validate, otpCtrl.sendOtp);
 
 /**
  * @swagger
@@ -282,7 +282,7 @@ router.post('/send-otp',              authLimiter, otpCtrl.sendOtp);
  *       401: { description: Invalid or expired OTP }
  *       422: { description: mobile and otp are required }
  */
-router.post('/verify-otp',            authLimiter, otpCtrl.verifyOtp);
+router.post('/verify-otp',            authLimiter, v.verifyOtp, validate, otpCtrl.verifyOtp);
 
 /**
  * @swagger
@@ -321,7 +321,7 @@ router.post('/verify-otp',            authLimiter, otpCtrl.verifyOtp);
  *       403: { description: OTP not verified for this mobile }
  *       422: { description: name and mobile are required }
  */
-router.post('/complete-registration', authLimiter, otpCtrl.completeRegistration);
+router.post('/complete-registration', authLimiter, v.completeRegistration, validate, otpCtrl.completeRegistration);
 
 /**
  * @swagger

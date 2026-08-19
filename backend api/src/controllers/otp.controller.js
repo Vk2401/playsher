@@ -1,21 +1,44 @@
 /**
  * OTP Controller — mobile-number based auth for the Flutter app
- * For production: replace console.log with actual SMS gateway (Twilio, etc.)
+ * OTPs are stored in the `otps` table so they survive restarts and work across
+ * multiple processes. For production: configure the SMS gateway in sms.utils
+ * and make sure OTP_DEV_BYPASS is unset.
  */
 const bcrypt = require('bcryptjs');
-const { User, RefreshToken } = require('../models');
+const { User, RefreshToken, Otp } = require('../models');
 const { generateAccessToken, generateRefreshToken } = require('../utils/jwt.utils');
 const { success, error } = require('../utils/response');
 const { REFRESH_EXPIRES_DAYS } = require('../config/jwt');
 const { sendSms } = require('../utils/sms.utils');
 
 const SALT_ROUNDS = 12;
+const OTP_TTL_MS  = 5 * 60 * 1000;
 
-// In-memory OTP store: mobile -> { otp, expiresAt, verified }
-const otpStore = new Map();
+// Development bypass: accept ANY 6-digit OTP for a valid Indian mobile number,
+// so the app can be demoed before Twilio/DLT are live. The number itself is
+// still validated (validators/auth.validator.js). Must stay false in production.
+const DEV_OTP_BYPASS = process.env.OTP_DEV_BYPASS === 'true';
 
 function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+/**
+ * Placeholder user for a mobile we haven't seen before.
+ * name is NOT NULL, so it holds a temporary value until complete-registration.
+ */
+async function findOrCreateUser(mobile) {
+  const [user] = await User.findOrCreate({
+    where: { mobile },
+    defaults: {
+      name: 'User',
+      mobile,
+      password_hash: await bcrypt.hash(mobile + Date.now(), SALT_ROUNDS),
+      is_active: true,
+      is_verified: false,
+    },
+  });
+  return user;
 }
 
 function refreshExpiry() {
@@ -42,23 +65,21 @@ async function storeRefreshToken(userId, userType, token) {
 exports.sendOtp = async (req, res) => {
   try {
     const { mobile } = req.body;
-    if (!mobile) return error(res, 'mobile is required.', 422);
 
-    // Create a placeholder user record if this mobile hasn't been seen before.
-    // name is required (NOT NULL) so we use a temporary placeholder.
-    await User.findOrCreate({
-      where: { mobile },
-      defaults: {
-        name: 'User',
-        mobile,
-        password_hash: await bcrypt.hash(mobile + Date.now(), SALT_ROUNDS),
-        is_active: true,
-        is_verified: false,
-      },
-    });
+    await findOrCreateUser(mobile);
 
     const otp = generateOtp();
-    otpStore.set(mobile, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
+    await Otp.upsert({
+      mobile,
+      otp,
+      expires_at:  new Date(Date.now() + OTP_TTL_MS),
+      is_verified: false,
+    });
+
+    if (DEV_OTP_BYPASS) {
+      console.log(`[OTP] mobile=${mobile}  any 6-digit code will be accepted (OTP_DEV_BYPASS)`);
+      return success(res, 'OTP sent successfully.');
+    }
 
     console.log(`[OTP] mobile=${mobile}  otp=${otp}`);
     await sendSms(mobile, `Your Playsher OTP is ${otp}. Valid for 5 minutes.`);
@@ -78,15 +99,24 @@ exports.sendOtp = async (req, res) => {
 exports.verifyOtp = async (req, res) => {
   try {
     const { mobile, otp } = req.body;
-    if (!mobile || !otp) return error(res, 'mobile and otp are required.', 422);
 
-    const stored = otpStore.get(mobile);
-    if (!stored || stored.otp !== String(otp) || Date.now() > stored.expiresAt) {
-      return error(res, 'Invalid or expired OTP.', 401);
+    if (DEV_OTP_BYPASS) {
+      // Any 6-digit code passes; the mobile number was already validated.
+      await findOrCreateUser(mobile);
+      await Otp.upsert({
+        mobile,
+        otp:         String(otp),
+        expires_at:  new Date(Date.now() + OTP_TTL_MS),
+        is_verified: true,
+      });
+    } else {
+      const stored = await Otp.findOne({ where: { mobile } });
+      if (!stored || stored.otp !== String(otp) || Date.now() > new Date(stored.expires_at).getTime()) {
+        return error(res, 'Invalid or expired OTP.', 401);
+      }
+      // Mark verified so complete-registration can proceed without re-sending OTP
+      await stored.update({ is_verified: true });
     }
-
-    // Mark verified so complete-registration can proceed without re-sending OTP
-    otpStore.set(mobile, { ...stored, verified: true });
 
     // User always exists (created in sendOtp). Check if profile is complete.
     const user = await User.findOne({ where: { mobile, deleted_at: null } });
@@ -103,7 +133,7 @@ exports.verifyOtp = async (req, res) => {
     }
 
     // Existing user — issue tokens
-    otpStore.delete(mobile);
+    await Otp.destroy({ where: { mobile } });
     const payload = { id: user.id, role: 'user' };
     const accessToken = generateAccessToken(payload);
     const refreshTokenStr = generateRefreshToken(payload);
@@ -150,10 +180,9 @@ exports.updateLocation = async (req, res) => {
 exports.completeRegistration = async (req, res) => {
   try {
     const { name, email, mobile } = req.body;
-    if (!name || !mobile) return error(res, 'name and mobile are required.', 422);
 
-    const stored = otpStore.get(mobile);
-    if (!stored?.verified) {
+    const stored = await Otp.findOne({ where: { mobile } });
+    if (!stored?.is_verified) {
       return error(res, 'OTP not verified for this mobile. Please verify OTP first.', 403);
     }
 
@@ -161,7 +190,7 @@ exports.completeRegistration = async (req, res) => {
     let user = await User.findOne({ where: { mobile, deleted_at: null } });
     if (!user) return error(res, 'User not found. Please request OTP again.', 404);
 
-    otpStore.delete(mobile);
+    await Otp.destroy({ where: { mobile } });
 
     // Update placeholder with real profile details
     await user.update({

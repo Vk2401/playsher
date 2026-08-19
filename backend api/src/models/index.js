@@ -21,6 +21,7 @@ const Review           = require('./Review')(sequelize);
 const Favorite         = require('./Favorite')(sequelize);
 const UserSportPreference = require('./UserSportPreference')(sequelize);
 const RefreshToken     = require('./RefreshToken')(sequelize);
+const Otp              = require('./Otp')(sequelize);
 const BankDetails      = require('./BankDetails')(sequelize);
 const ScheduleTemplate = require('./ScheduleTemplate')(sequelize);
 
@@ -145,6 +146,7 @@ module.exports = {
   Favorite,
   UserSportPreference,
   RefreshToken,
+  Otp,
   BankDetails,
   ScheduleTemplate,
 };

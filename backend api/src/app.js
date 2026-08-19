@@ -20,10 +20,13 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .map((o) => o.trim())
   .filter(Boolean);
 
+// An empty list or a literal '*' means allow every origin.
+const allowAllOrigins = allowedOrigins.length === 0 || allowedOrigins.includes('*');
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      if (!origin || allowAllOrigins || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
