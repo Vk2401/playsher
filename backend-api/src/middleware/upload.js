@@ -12,9 +12,17 @@ const limits = { fileSize: 5 * 1024 * 1024 }; // 5 MB
 
 function diskStorage(subdir) {
   const dest = path.join(process.cwd(), 'uploads', subdir);
-  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
   return multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, dest),
+    // Created on first upload, not at import: the module also loads on hosts with
+    // a read-only filesystem, where an import-time mkdir crashes the whole app.
+    destination: (_req, _file, cb) => {
+      try {
+        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+        cb(null, dest);
+      } catch (err) {
+        cb(err);
+      }
+    },
     filename: (_req, file, cb) => cb(null, storage.randomFilename(file.originalname)),
   });
 }

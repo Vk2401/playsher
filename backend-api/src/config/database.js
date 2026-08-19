@@ -1,4 +1,7 @@
 const { Sequelize } = require('sequelize');
+// Required explicitly so bundlers that trace imports statically (Vercel) include
+// it — Sequelize resolves its dialect dynamically, which they cannot follow.
+const mysql2 = require('mysql2');
 
 // Serverless hosts run many short-lived instances, each with its own pool, while
 // shared-hosting MySQL caps total connections low — keep DB_POOL_MAX at 2 there.
@@ -17,6 +20,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT) || 3306,
     dialect: 'mysql',
+    dialectModule: mysql2,
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     dialectOptions,
     pool: {
