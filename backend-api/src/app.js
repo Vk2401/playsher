@@ -70,8 +70,10 @@ app.get('/api-docs', (_req, res) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      `style-src 'self' 'unsafe-inline' ${SWAGGER_CDN}`,
-      `script-src 'self' 'unsafe-inline' ${SWAGGER_CDN}`,
+      // Trailing slash matters: without it CSP requires an exact path match and
+      // blocks every file under the directory.
+      `style-src 'self' 'unsafe-inline' ${SWAGGER_CDN}/`,
+      `script-src 'self' 'unsafe-inline' ${SWAGGER_CDN}/`,
       "img-src 'self' data:",
       "connect-src 'self'",
     ].join('; ')
