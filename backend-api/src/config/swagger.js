@@ -1,3 +1,4 @@
+const path = require('path');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const options = {
@@ -10,14 +11,9 @@ const options = {
       contact: { name: 'Playsher Team' },
     },
     servers: [
-      {
-        url: `http://localhost:${process.env.PORT || 3000}/api/v1`,
-        description: 'Development server',
-      },
-      {
-        url: 'https://playsher.com/api/v1',
-        description: 'Production server',
-      },
+      // Relative: Swagger UI resolves it against the host serving the page, so
+      // "Try it out" targets this deployment whether local or on Vercel.
+      { url: '/api/v1', description: 'This deployment' },
     ],
     components: {
       securitySchemes: {
@@ -65,7 +61,20 @@ const options = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ['./src/routes/*.js'],
+  apis: [path.join(__dirname, '..', 'routes', '*.js')],
 };
 
-module.exports = swaggerJsdoc(options);
+// Bundlers used by serverless hosts inline the route files, so this glob finds
+// nothing there and the spec comes out empty. scripts/generate-swagger.js writes
+// the spec at build time; fall back to it whenever the scan yields no paths.
+let spec = swaggerJsdoc(options);
+
+if (!spec.paths || Object.keys(spec.paths).length === 0) {
+  try {
+    spec = { ...require('./swagger.generated.json'), servers: options.definition.servers };
+  } catch {
+    // No pre-generated spec available — serve whatever the scan produced.
+  }
+}
+
+module.exports = spec;

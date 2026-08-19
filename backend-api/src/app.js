@@ -3,7 +3,6 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const swaggerUi = require('swagger-ui-express');
 
 const swaggerSpec = require('./config/swagger');
 const routes = require('./routes');
@@ -59,8 +58,45 @@ app.use(
   })
 );
 
-// Swagger docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// ── Swagger docs ──────────────────────────────────────────────────────────────
+// The UI is loaded from a CDN rather than swagger-ui-express: serverless
+// bundlers drop swagger-ui-dist's static assets, which leaves the page blank.
+const SWAGGER_CDN = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14';
+
+app.get('/api-docs.json', (_req, res) => res.json(swaggerSpec));
+
+app.get('/api-docs', (_req, res) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      `style-src 'self' 'unsafe-inline' ${SWAGGER_CDN}`,
+      `script-src 'self' 'unsafe-inline' ${SWAGGER_CDN}`,
+      "img-src 'self' data:",
+      "connect-src 'self'",
+    ].join('; ')
+  );
+  res.type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playsher API</title>
+  <link rel="stylesheet" href="${SWAGGER_CDN}/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="${SWAGGER_CDN}/swagger-ui-bundle.js"></script>
+  <script>
+    window.ui = SwaggerUIBundle({
+      url: '/api-docs.json',
+      dom_id: '#swagger-ui',
+      persistAuthorization: true,
+    });
+  </script>
+</body>
+</html>`);
+});
 
 // API routes
 app.use('/api/v1', routes);

@@ -1,0 +1,5779 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Playsher API",
+    "version": "1.0.0",
+    "description": "REST API for the Playsher sports booking platform",
+    "contact": {
+      "name": "Playsher Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "This deployment"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "totalPages": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/admin/grounds": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all grounds (admin — includes unapproved)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "is_approved",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "is_active",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated grounds list"
+          }
+        }
+      }
+    },
+    "/admin/grounds/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get ground by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Delete a ground (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground deleted"
+          }
+        }
+      }
+    },
+    "/admin/grounds/{id}/approve": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Approve a ground (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground approved"
+          }
+        }
+      }
+    },
+    "/admin/grounds/{id}/toggle-status": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Toggle ground active status (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status toggled"
+          }
+        }
+      }
+    },
+    "/admin/ground-owners": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all ground owners (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "is_approved",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated ground owners list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Create a ground owner account (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "mobile",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ground owner created"
+          }
+        }
+      }
+    },
+    "/admin/ground-owners/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get ground owner by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground owner detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Delete a ground owner (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/admin/ground-owners/{id}/approve": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Approve a ground owner (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved"
+          }
+        }
+      }
+    },
+    "/admin/ground-owners/{id}/toggle-status": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Toggle ground owner active status (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status toggled"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all users (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "is_active",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated user list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Create a user account (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "mobile",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get user by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Soft-delete a user (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/toggle-status": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Toggle user active/inactive (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status toggled"
+          }
+        }
+      }
+    },
+    "/admin/sports": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all sports (admin — includes unapproved)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "is_approved",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated sports list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Create a sport with icon upload (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "short_description": {
+                    "type": "string"
+                  },
+                  "place_type": {
+                    "type": "string",
+                    "enum": [
+                      "ground",
+                      "court"
+                    ]
+                  },
+                  "sports_type": {
+                    "type": "string",
+                    "enum": [
+                      "indoor",
+                      "outdoor"
+                    ]
+                  },
+                  "icon": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sport created"
+          }
+        }
+      }
+    },
+    "/admin/sports/{id}": {
+      "put": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Update a sport (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "short_description": {
+                    "type": "string"
+                  },
+                  "place_type": {
+                    "type": "string",
+                    "enum": [
+                      "ground",
+                      "court"
+                    ]
+                  },
+                  "sports_type": {
+                    "type": "string",
+                    "enum": [
+                      "indoor",
+                      "outdoor"
+                    ]
+                  },
+                  "icon": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Delete a sport (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/admin/sports/{id}/approve": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Approve a sport (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved"
+          }
+        }
+      }
+    },
+    "/admin/amenities": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all amenities (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "venue",
+                "sport"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Amenities list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Create an amenity with icon upload (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "type"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "venue",
+                      "sport"
+                    ]
+                  },
+                  "icon": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Amenity created"
+          }
+        }
+      }
+    },
+    "/admin/amenities/{id}": {
+      "put": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Update an amenity (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "venue",
+                      "sport"
+                    ]
+                  },
+                  "icon": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Delete an amenity (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/admin/coaches": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all coaches (admin — includes unapproved)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "is_approved",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coaches list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Create a coach with photo upload (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "sport_id"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "sport_id": {
+                    "type": "integer"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "experience": {
+                    "type": "integer"
+                  },
+                  "hourly_rate": {
+                    "type": "number"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Coach created"
+          }
+        }
+      }
+    },
+    "/admin/coaches/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get coach by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coach detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Update a coach (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "experience": {
+                    "type": "integer"
+                  },
+                  "hourly_rate": {
+                    "type": "number"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Delete a coach (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/admin/coaches/{id}/approve": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Approve a coach (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved"
+          }
+        }
+      }
+    },
+    "/admin/bookings": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all bookings (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "cancelled",
+                "completed"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "ground_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated bookings list"
+          }
+        }
+      }
+    },
+    "/admin/bookings/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get booking by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/admin/bookings/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Cancel a booking (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cancellation_reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking cancelled"
+          }
+        }
+      }
+    },
+    "/admin/payments": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all payments (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "payment_status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "success",
+                "failed",
+                "refunded"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated payments list"
+          }
+        }
+      }
+    },
+    "/admin/payments/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get payment by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment detail"
+          }
+        }
+      }
+    },
+    "/admin/payments/{id}/status": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Update payment status (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "payment_status"
+                ],
+                "properties": {
+                  "payment_status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "success",
+                      "failed",
+                      "refunded"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated"
+          }
+        }
+      }
+    },
+    "/admin/games": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all games (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "visibility",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "private"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Games list"
+          }
+        }
+      }
+    },
+    "/admin/games/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get game by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Game detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Delete a game (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/admin/reviews": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List all reviews (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "review_type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ground",
+                "sport",
+                "coach",
+                "application"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "ground_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviews list"
+          }
+        }
+      }
+    },
+    "/admin/reviews/{id}": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get review by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review detail"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Delete a review (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/admin/vendors": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List vendors with settlement stats (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendors list with earnings"
+          }
+        }
+      }
+    },
+    "/admin/vendors/{id}/bookings": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get vendor's bookings (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor bookings"
+          },
+          "404": {
+            "description": "Vendor not found"
+          }
+        }
+      }
+    },
+    "/admin/vendors/{id}/stats": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Get vendor statistics (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor stats"
+          },
+          "404": {
+            "description": "Vendor not found"
+          }
+        }
+      }
+    },
+    "/amenities": {
+      "get": {
+        "tags": [
+          "Amenities"
+        ],
+        "summary": "List amenities (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "venue",
+                "sport"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of amenities"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Amenities"
+        ],
+        "summary": "Create an amenity (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "type"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Parking"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "venue",
+                      "sport"
+                    ]
+                  },
+                  "icon": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Icon image file"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Amenity created"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/amenities/{id}": {
+      "get": {
+        "tags": [
+          "Amenities"
+        ],
+        "summary": "Get amenity by ID (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Amenity"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Amenities"
+        ],
+        "summary": "Update an amenity (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "venue",
+                      "sport"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Amenities"
+        ],
+        "summary": "Delete an amenity (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/auth/admin/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register first admin (requires ADMIN_SECRET)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "mobile",
+                  "password",
+                  "admin_secret"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "admin_secret": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Admin registered"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "403": {
+            "description": "Invalid admin secret"
+          }
+        }
+      }
+    },
+    "/auth/admin/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Admin login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/auth/user/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a new user",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "mobile",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/auth/user/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "User login (mobile + password)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "mobile",
+                  "password"
+                ],
+                "properties": {
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/auth/ground-owner/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register as ground owner (pending approval)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "mobile",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration submitted"
+          }
+        }
+      }
+    },
+    "/auth/ground-owner/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Ground owner login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful"
+          },
+          "403": {
+            "description": "Pending approval"
+          }
+        }
+      }
+    },
+    "/auth/refresh-token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Rotate refresh token",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "refresh_token"
+                ],
+                "properties": {
+                  "refresh_token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed"
+          },
+          "401": {
+            "description": "Invalid/expired token"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Logout (revoke refresh token)",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refresh_token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged out"
+          }
+        }
+      }
+    },
+    "/auth/send-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send OTP to mobile number (mobile app)",
+        "description": "Creates a placeholder user record if mobile is new, then sends a 6-digit OTP (logged to console in dev).",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "mobile"
+                ],
+                "properties": {
+                  "mobile": {
+                    "type": "string",
+                    "example": "+919943840844"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent successfully"
+          },
+          "422": {
+            "description": "mobile is required"
+          }
+        }
+      }
+    },
+    "/auth/verify-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify OTP (mobile app)",
+        "description": "Validates the 6-digit OTP. Returns tokens if existing verified user, or new_user=true if profile is incomplete (call complete-registration next).",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "mobile",
+                  "otp"
+                ],
+                "properties": {
+                  "mobile": {
+                    "type": "string",
+                    "example": "+919943840844"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "example": "482910"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified — returns tokens (existing user) or new_user=true (new user)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "access_token": {
+                              "type": "string"
+                            },
+                            "refresh_token": {
+                              "type": "string"
+                            },
+                            "user": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mobile": {
+                                  "type": "string"
+                                },
+                                "email": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "new_user": {
+                              "type": "boolean",
+                              "example": true
+                            },
+                            "mobile": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired OTP"
+          },
+          "422": {
+            "description": "mobile and otp are required"
+          }
+        }
+      }
+    },
+    "/auth/complete-registration": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Complete profile after OTP verification (mobile app)",
+        "description": "Mobile must have a verified OTP (via verify-otp) before calling this. Updates the placeholder user record with real profile details and issues tokens.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "mobile"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Ahmed Khan"
+                  },
+                  "mobile": {
+                    "type": "string",
+                    "example": "+919943840844"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration complete — returns tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "access_token": {
+                          "type": "string"
+                        },
+                        "refresh_token": {
+                          "type": "string"
+                        },
+                        "user": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "OTP not verified for this mobile"
+          },
+          "422": {
+            "description": "name and mobile are required"
+          }
+        }
+      }
+    },
+    "/auth/update-location": {
+      "patch": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Update authenticated user's current GPS location",
+        "description": "Saves latitude and longitude to the user's record in the database.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "latitude",
+                  "longitude"
+                ],
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 28.6139
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 77.209
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Location updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "latitude and longitude are required"
+          }
+        }
+      }
+    },
+    "/bookings": {
+      "get": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "List bookings (admin=all, owner=their grounds, user=own)",
+        "responses": {
+          "200": {
+            "description": "List of bookings"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Create a booking (user)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ground_sport_id",
+                  "slot_date",
+                  "slot_ids"
+                ],
+                "properties": {
+                  "ground_sport_id": {
+                    "type": "integer"
+                  },
+                  "slot_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "slot_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "is_game": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created"
+          },
+          "400": {
+            "description": "Slots unavailable or validation error"
+          }
+        }
+      }
+    },
+    "/bookings/{id}": {
+      "get": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Get booking by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Update a booking (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "confirmed",
+                      "cancelled",
+                      "completed"
+                    ]
+                  },
+                  "cancellation_reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Delete a booking record (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/bookings/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Cancel a booking (user — own | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cancellation_reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cancelled"
+          }
+        }
+      }
+    },
+    "/coaches": {
+      "get": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "List approved coaches (public)",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Coaches list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "Create a coach (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "sport_id"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "sport_id": {
+                    "type": "integer"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "experience": {
+                    "type": "integer",
+                    "description": "Years of experience"
+                  },
+                  "hourly_rate": {
+                    "type": "number"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Coach created"
+          }
+        }
+      }
+    },
+    "/coaches/{id}": {
+      "get": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "Get coach by ID (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coach detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "Update a coach (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "experience": {
+                    "type": "integer"
+                  },
+                  "hourly_rate": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "Delete a coach (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/coaches/{id}/approve": {
+      "patch": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "Approve a coach (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/favorites": {
+      "get": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Get own favorites (user)",
+        "responses": {
+          "200": {
+            "description": "Favorites list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Add a ground to favorites (user)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ground_id"
+                ],
+                "properties": {
+                  "ground_id": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Added to favorites"
+          }
+        }
+      }
+    },
+    "/favorites/{groundId}": {
+      "delete": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Remove a ground from favorites (user)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed"
+          }
+        }
+      }
+    },
+    "/games": {
+      "get": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "List public games",
+        "security": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "visibility",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "private"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "ground_id",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Games list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Create a game (user | ground_owner)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "game_name",
+                  "booking_id"
+                ],
+                "properties": {
+                  "game_name": {
+                    "type": "string"
+                  },
+                  "booking_id": {
+                    "type": "integer"
+                  },
+                  "max_participants": {
+                    "type": "integer"
+                  },
+                  "game_level": {
+                    "type": "string"
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "public",
+                      "private"
+                    ]
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Game created"
+          }
+        }
+      }
+    },
+    "/games/{id}": {
+      "get": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Get a game by ID (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Game detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Update a game (creator | ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "game_name": {
+                    "type": "string"
+                  },
+                  "max_participants": {
+                    "type": "integer"
+                  },
+                  "game_level": {
+                    "type": "string"
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "public",
+                      "private"
+                    ]
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Delete a game (creator | ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/games/{id}/join": {
+      "post": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Join a public game (user)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Joined game"
+          },
+          "400": {
+            "description": "Game full or already joined"
+          },
+          "403": {
+            "description": "Game is private"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/games/{id}/leave": {
+      "delete": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Leave a game (user)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Left game"
+          },
+          "404": {
+            "description": "Not in this game"
+          }
+        }
+      }
+    },
+    "/games/{id}/invite": {
+      "post": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Invite users to a game (creator | ground_owner)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_ids"
+                ],
+                "properties": {
+                  "user_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      2,
+                      5,
+                      9
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitations sent"
+          }
+        }
+      }
+    },
+    "/games/{id}/invite/{userId}/respond": {
+      "patch": {
+        "tags": [
+          "Games"
+        ],
+        "summary": "Respond to a game invitation (user)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "accepted",
+                      "declined"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response recorded"
+          },
+          "404": {
+            "description": "Invitation not found"
+          }
+        }
+      }
+    },
+    "/grounds": {
+      "get": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "List approved grounds (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "sport_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lat",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lng",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "radius_km",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of grounds"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Create a ground (ground_owner)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "about": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "type": "number"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "venue_rules": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ground created"
+          }
+        }
+      }
+    },
+    "/grounds/{id}": {
+      "get": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Get a ground by ID (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Update a ground (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Soft-delete a ground (admin | owner with no active bookings)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/grounds/{id}/approve": {
+      "patch": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Approve a ground (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved"
+          }
+        }
+      }
+    },
+    "/grounds/{id}/toggle-status": {
+      "patch": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Toggle active status (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status toggled"
+          }
+        }
+      }
+    },
+    "/grounds/{id}/images": {
+      "post": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Add images to a ground (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Images added"
+          }
+        }
+      }
+    },
+    "/grounds/{id}/images/{imgId}": {
+      "delete": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Remove an image from a ground (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "imgId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image removed"
+          },
+          "404": {
+            "description": "Image not found"
+          }
+        }
+      }
+    },
+    "/grounds/{id}/amenities": {
+      "post": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Attach amenities to a ground (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amenity_ids"
+                ],
+                "properties": {
+                  "amenity_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      1,
+                      2,
+                      3
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Amenities attached"
+          }
+        }
+      }
+    },
+    "/grounds/{id}/amenities/{aId}": {
+      "delete": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Remove an amenity from a ground (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "aId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Amenity removed"
+          }
+        }
+      }
+    },
+    "/grounds/{groundId}/sports": {
+      "get": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "List sports for a ground (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground sports list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Add a sport to a ground (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sport_id",
+                  "price_per_slot"
+                ],
+                "properties": {
+                  "sport_id": {
+                    "type": "integer"
+                  },
+                  "price_per_slot": {
+                    "type": "number",
+                    "example": 500
+                  },
+                  "slot_duration": {
+                    "type": "integer",
+                    "example": 60,
+                    "description": "Duration in minutes"
+                  },
+                  "max_players": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ground sport created"
+          }
+        }
+      }
+    },
+    "/grounds/{groundId}/sports/{id}": {
+      "get": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Get a single ground sport by ID (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground sport detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Update a ground sport (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "price_per_slot": {
+                    "type": "number"
+                  },
+                  "slot_duration": {
+                    "type": "integer"
+                  },
+                  "max_players": {
+                    "type": "integer"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Grounds"
+        ],
+        "summary": "Remove a sport from a ground (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/ground-owners": {
+      "get": {
+        "tags": [
+          "GroundOwners"
+        ],
+        "summary": "List all ground owners (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search by name or email"
+          },
+          {
+            "in": "query",
+            "name": "is_approved",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated ground owner list"
+          }
+        }
+      }
+    },
+    "/ground-owners/{id}": {
+      "get": {
+        "tags": [
+          "GroundOwners"
+        ],
+        "summary": "Get ground owner by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground owner detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "GroundOwners"
+        ],
+        "summary": "Delete a ground owner (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/ground-owners/{id}/approve": {
+      "patch": {
+        "tags": [
+          "GroundOwners"
+        ],
+        "summary": "Approve a ground owner's registration (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground owner approved"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/ground-owners/{id}/toggle-status": {
+      "patch": {
+        "tags": [
+          "GroundOwners"
+        ],
+        "summary": "Toggle ground owner active/inactive status (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status toggled"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "List own grounds",
+        "responses": {
+          "200": {
+            "description": "List of owner's grounds"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Create a new ground",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "about": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "type": "number"
+                  },
+                  "venue_rules": {
+                    "type": "string"
+                  },
+                  "cover_image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ground created (pending approval)"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{id}": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Get a specific own ground by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground detail"
+          },
+          "403": {
+            "description": "Not your ground"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Update own ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "about": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "venue_rules": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Delete own ground (no active bookings)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{id}/images": {
+      "post": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Upload images for a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Images uploaded"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{id}/images/{imageId}": {
+      "delete": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Remove a ground image",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image removed"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{id}/amenities": {
+      "post": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Attach amenities to a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amenity_ids"
+                ],
+                "properties": {
+                  "amenity_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Amenities attached"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{id}/amenities/{amenityId}": {
+      "delete": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Remove an amenity from a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "amenityId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Amenity removed"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{id}/sports": {
+      "post": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Add a sport to a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sport_id",
+                  "price_per_slot"
+                ],
+                "properties": {
+                  "sport_id": {
+                    "type": "integer"
+                  },
+                  "price_per_slot": {
+                    "type": "number"
+                  },
+                  "slot_duration": {
+                    "type": "integer",
+                    "example": 60
+                  },
+                  "max_players": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sport added to ground"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{id}/sports/{sportId}": {
+      "delete": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Remove a sport from a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sportId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sport removed"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{groundId}/slots": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "List all slots for a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slots list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Create a slot for a ground sport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ground_sport_id",
+                  "start_time",
+                  "end_time",
+                  "day_of_week"
+                ],
+                "properties": {
+                  "ground_sport_id": {
+                    "type": "integer"
+                  },
+                  "start_time": {
+                    "type": "string",
+                    "example": "08:00"
+                  },
+                  "end_time": {
+                    "type": "string",
+                    "example": "09:00"
+                  },
+                  "day_of_week": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6
+                  },
+                  "is_available": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Slot created"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{groundId}/slots/{slotId}": {
+      "put": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Update a slot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slotId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "start_time": {
+                    "type": "string"
+                  },
+                  "end_time": {
+                    "type": "string"
+                  },
+                  "is_available": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Delete a slot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slotId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{groundId}/slots/{slotId}/toggle": {
+      "patch": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Toggle slot availability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slotId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Availability toggled"
+          }
+        }
+      }
+    },
+    "/ground-owner/grounds/{groundId}/schedule": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Get weekly schedule templates for a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Schedule templates for each ground sport"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Upsert weekly schedule for a ground sport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groundId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ground_sport_id",
+                  "schedules"
+                ],
+                "properties": {
+                  "ground_sport_id": {
+                    "type": "integer"
+                  },
+                  "schedules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "day_of_week": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 6
+                        },
+                        "start_time": {
+                          "type": "string",
+                          "example": "06:00:00"
+                        },
+                        "end_time": {
+                          "type": "string",
+                          "example": "22:00:00"
+                        },
+                        "is_closed": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Schedule saved"
+          }
+        }
+      }
+    },
+    "/ground-owner/bookings": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "List all bookings on own grounds",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "cancelled",
+                "completed"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bookings list"
+          }
+        }
+      }
+    },
+    "/ground-owner/bookings/{id}": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Get a specific booking on own ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking detail"
+          },
+          "403": {
+            "description": "Not your booking"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/ground-owner/bookings/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Cancel a booking on own ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cancellation_reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking cancelled"
+          }
+        }
+      }
+    },
+    "/ground-owner/games": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "List games on own grounds",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Games list"
+          }
+        }
+      }
+    },
+    "/payments": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "List all payments (admin)",
+        "responses": {
+          "200": {
+            "description": "Payments list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create a payment for a booking (user)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "booking_id",
+                  "payment_method",
+                  "amount"
+                ],
+                "properties": {
+                  "booking_id": {
+                    "type": "integer"
+                  },
+                  "payment_method": {
+                    "type": "string"
+                  },
+                  "payment_mode": {
+                    "type": "string",
+                    "enum": [
+                      "online",
+                      "offline"
+                    ]
+                  },
+                  "transaction_id": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment created"
+          }
+        }
+      }
+    },
+    "/payments/{id}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get payment by ID (admin | owner user)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment"
+          }
+        }
+      }
+    },
+    "/payments/razorpay/create-order": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create a Razorpay order for a booking (user)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "booking_id"
+                ],
+                "properties": {
+                  "booking_id": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Razorpay order created"
+          }
+        }
+      }
+    },
+    "/payments/razorpay/verify": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Verify Razorpay payment signature (user)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "razorpay_order_id",
+                  "razorpay_payment_id",
+                  "razorpay_signature"
+                ],
+                "properties": {
+                  "razorpay_order_id": {
+                    "type": "string"
+                  },
+                  "razorpay_payment_id": {
+                    "type": "string"
+                  },
+                  "razorpay_signature": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment verified"
+          }
+        }
+      }
+    },
+    "/payments/{id}/status": {
+      "patch": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Update payment status (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "payment_status"
+                ],
+                "properties": {
+                  "payment_status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "success",
+                      "failed",
+                      "refunded"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated"
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Get own profile",
+        "responses": {
+          "200": {
+            "description": "Profile data"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Update own profile",
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      }
+    },
+    "/profile/sport-preferences": {
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Add sport preferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sport_ids"
+                ],
+                "properties": {
+                  "sport_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferences added"
+          }
+        }
+      }
+    },
+    "/profile/sport-preferences/{sportId}": {
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Remove a sport preference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sportId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed"
+          }
+        }
+      }
+    },
+    "/reviews": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "List reviews (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "review_type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ground",
+                "sport",
+                "coach",
+                "application"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "ground_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sport_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "coach_id",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviews list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Create a review (user — requires completed booking for ground/sport)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "review_type",
+                  "rating"
+                ],
+                "properties": {
+                  "review_type": {
+                    "type": "string",
+                    "enum": [
+                      "ground",
+                      "sport",
+                      "coach",
+                      "application"
+                    ]
+                  },
+                  "rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "comment": {
+                    "type": "string"
+                  },
+                  "ground_id": {
+                    "type": "integer"
+                  },
+                  "ground_sport_id:{ type": "integer }",
+                  "coach_id": {
+                    "type": "integer"
+                  },
+                  "booking_id": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review created"
+          }
+        }
+      }
+    },
+    "/reviews/{id}": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Get review by ID (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Update a review (owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "comment": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Delete a review (owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "403": {
+            "description": "Not authorized"
+          }
+        }
+      }
+    },
+    "/ground-sports/{gsId}/slots": {
+      "get": {
+        "tags": [
+          "Slots"
+        ],
+        "summary": "List slots for a ground sport (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gsId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slots list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Slots"
+        ],
+        "summary": "Create a slot for a ground sport (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gsId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "start_time",
+                  "end_time",
+                  "day_of_week"
+                ],
+                "properties": {
+                  "start_time": {
+                    "type": "string",
+                    "example": "08:00",
+                    "description": "HH:MM format"
+                  },
+                  "end_time": {
+                    "type": "string",
+                    "example": "09:00",
+                    "description": "HH:MM format"
+                  },
+                  "day_of_week": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6,
+                    "description": "0=Sunday … 6=Saturday"
+                  },
+                  "is_available": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Slot created"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/ground-sports/{gsId}/slots/{id}": {
+      "put": {
+        "tags": [
+          "Slots"
+        ],
+        "summary": "Update a slot (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gsId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "start_time": {
+                    "type": "string"
+                  },
+                  "end_time": {
+                    "type": "string"
+                  },
+                  "day_of_week": {
+                    "type": "integer"
+                  },
+                  "is_available": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Slots"
+        ],
+        "summary": "Delete a slot (ground_owner | admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gsId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/sports": {
+      "get": {
+        "tags": [
+          "Sports"
+        ],
+        "summary": "List active sports (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of sports"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Create a sport (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "short_description": {
+                    "type": "string"
+                  },
+                  "place_type": {
+                    "type": "string",
+                    "enum": [
+                      "ground",
+                      "court"
+                    ]
+                  },
+                  "sports_type": {
+                    "type": "string",
+                    "enum": [
+                      "indoor",
+                      "outdoor"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sport created"
+          }
+        }
+      }
+    },
+    "/sports/{id}": {
+      "get": {
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Get sport by ID (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sport detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Update a sport (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Delete a sport (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/sports/{id}/approve": {
+      "patch": {
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Approve a sport (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved"
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List all users (admin)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search by name, email, or mobile"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated user list"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get user by ID (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a user (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Soft-delete a user (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/users/{id}/toggle-status": {
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Toggle user active/inactive status (admin)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status toggled"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "AdminPanel",
+      "description": "Admin panel — full platform management (requires admin role)"
+    },
+    {
+      "name": "Amenities",
+      "description": "Amenity management"
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints"
+    },
+    {
+      "name": "Bookings",
+      "description": "Booking management"
+    },
+    {
+      "name": "Coaches",
+      "description": "Coach management"
+    },
+    {
+      "name": "Favorites",
+      "description": "User favorite grounds"
+    },
+    {
+      "name": "Games",
+      "description": "Game management"
+    },
+    {
+      "name": "Grounds",
+      "description": "Ground management"
+    },
+    {
+      "name": "GroundOwners",
+      "description": "Ground owner management (admin)"
+    },
+    {
+      "name": "OwnerPanel",
+      "description": "Ground owner panel — manage own grounds, slots, bookings and games (requires ground_owner role)"
+    },
+    {
+      "name": "Payments",
+      "description": "Payment management"
+    },
+    {
+      "name": "Profile",
+      "description": "Authenticated user's own profile"
+    },
+    {
+      "name": "Reviews",
+      "description": "Review management"
+    },
+    {
+      "name": "Slots",
+      "description": "Slot management for a ground sport"
+    },
+    {
+      "name": "Sports",
+      "description": "Sport management"
+    },
+    {
+      "name": "Users",
+      "description": "User management (admin) and profile (user)"
+    }
+  ]
+}
