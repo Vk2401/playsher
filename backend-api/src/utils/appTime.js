@@ -74,6 +74,31 @@ function isPastSlot(slotDate, startTime, at = new Date()) {
 }
 
 /**
+ * Has this booking's last slot already finished in the app timezone?
+ *
+ * Separate from [isPastSlot] because "may I still book this?" and "is this
+ * over?" are different questions: a slot that started ten minutes ago is past
+ * for booking but still being played.
+ *
+ * An end time at or before the start means the range wrapped past midnight, so
+ * it finishes on the *next* calendar day and cannot be over while that day is
+ * still the booking's own date. Unparseable times are treated as not finished,
+ * so a malformed row is left alone rather than silently marked complete.
+ */
+function isPastSlotEnd(slotDate, startTime, endTime, at = new Date()) {
+  const now = appNow(at);
+  if (slotDate < now.date) return true;
+  if (slotDate > now.date) return false;
+
+  const endMinutes = timeToMinutes(endTime);
+  const startMinutes = timeToMinutes(startTime);
+  if (Number.isNaN(endMinutes) || Number.isNaN(startMinutes)) return false;
+  if (endMinutes <= startMinutes) return false;
+
+  return endMinutes <= now.minutes;
+}
+
+/**
  * Day of week for a YYYY-MM-DD string, 0=Sun … 6=Sat.
  * Anchored to UTC midnight so the result depends only on the date string —
  * `new Date('2026-08-20T00:00:00')` parses in *server* local time and lands on
@@ -83,4 +108,6 @@ function dayOfWeek(dateString) {
   return new Date(`${dateString}T00:00:00Z`).getUTCDay();
 }
 
-module.exports = { APP_TIMEZONE, appNow, appToday, timeToMinutes, isPastSlot, dayOfWeek };
+module.exports = {
+  APP_TIMEZONE, appNow, appToday, timeToMinutes, isPastSlot, isPastSlotEnd, dayOfWeek,
+};

@@ -12,6 +12,7 @@ const {
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
+const { completeFinishedBookings } = require('../utils/bookingCompletion');
 
 const SALT_ROUNDS = 12;
 
@@ -455,6 +456,7 @@ exports.listVendors = async (req, res) => {
 exports.getVendorBookings = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
+    await completeFinishedBookings({ Booking });
     const owner = await GroundOwner.findByPk(req.params.id, {
       include: [{ model: Ground, as: 'grounds', attributes: ['id'] }],
     });

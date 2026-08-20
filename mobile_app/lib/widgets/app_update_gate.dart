@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_version_model.dart';
 import '../providers/app_version_provider.dart';
+import '../router.dart';
 import 'update_required_dialog.dart';
 
 /// Shows the update prompt whenever the app is opened.
@@ -67,14 +68,23 @@ class _AppUpdateGateState extends ConsumerState<AppUpdateGate>
     if (_showing || !check.shouldPrompt) return;
     _showing = true;
 
-    // Wait for the first frame so there is a Navigator to host the dialog.
+    // Wait for the first frame so the router's navigator exists.
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) {
       _showing = false;
       return;
     }
 
-    await UpdateRequiredDialog.show(context, check);
+    // This widget's own context is above the router's Navigator — showing a
+    // dialog with it throws. Host the dialog on the root navigator instead.
+    final navigator = rootNavigatorKey.currentContext;
+    if (navigator == null || !navigator.mounted) {
+      // No navigator yet; the next check (or an app resume) will retry.
+      _showing = false;
+      return;
+    }
+
+    await UpdateRequiredDialog.show(navigator, check);
     if (!mounted) return;
 
     _showing = false;

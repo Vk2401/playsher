@@ -11,6 +11,7 @@ const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
 const { releaseExpiredHolds } = require('../utils/slotHolds');
+const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
@@ -362,6 +363,7 @@ exports.toggleSlot = async (req, res) => {
 exports.listBookings = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
+    await completeFinishedBookings({ Booking });
     const { count, rows } = await Booking.findAndCountAll({
       include: [
         {
@@ -381,6 +383,8 @@ exports.listBookings = async (req, res) => {
 /** GET /ground-owner/bookings/:id */
 exports.getBooking = async (req, res) => {
   try {
+    await completeFinishedBookings({ Booking }, { bookingId: req.params.id });
+
     const booking = await Booking.findOne({
       where: { id: req.params.id },
       include: [

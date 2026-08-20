@@ -37,14 +37,19 @@ class _AuthRouterNotifier extends ChangeNotifier {
   }
 }
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+/// The router's root navigator.
+///
+/// Public because `AppUpdateGate` lives in `MaterialApp.router`'s `builder`,
+/// whose context sits *above* this navigator — `showDialog` with that context
+/// throws "does not include a Navigator". The gate hosts its dialog here.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthRouterNotifier(ref);
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: notifier,
     redirect: (ctx, state) {
