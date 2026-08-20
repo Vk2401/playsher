@@ -160,6 +160,50 @@ exports.groundOwnerLogin = async (req, res) => {
 
 // ── Token rotation ────────────────────────────────────────────────────────────
 
+// PATCH /auth/change-password
+// Any role that actually has a password. Customers sign in with an OTP and
+// have no password to change, so they are refused with a clear reason rather
+// than a generic 403.
+exports.changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+
+    const models = { admin: Admin, ground_owner: GroundOwner };
+    const Model = models[req.user.role];
+    if (!Model) {
+      return error(res, 'Your account signs in with an OTP and has no password.', 400);
+    }
+
+    const account = await Model.findByPk(req.user.id);
+    if (!account) return error(res, 'Account not found.', 404);
+
+    // Proving possession of the current password is what stops a stolen access
+    // token from being upgraded into permanent account takeover.
+    if (!(await bcrypt.compare(current_password, account.password_hash || ''))) {
+      return error(res, 'Your current password is incorrect.', 401);
+    }
+
+    // Re-using the same password would make the "signed out everywhere" below
+    // a pure annoyance with no security gain.
+    if (await bcrypt.compare(new_password, account.password_hash || '')) {
+      return error(res, 'The new password must be different from the current one.');
+    }
+
+    await account.update({ password_hash: await bcrypt.hash(new_password, SALT_ROUNDS) });
+
+    // Whoever else holds a refresh token for this account loses it — that is the
+    // point of changing a password you believe is compromised.
+    await RefreshToken.update(
+      { is_revoked: true },
+      { where: { user_id: account.id, user_type: req.user.role, is_revoked: false } },
+    );
+
+    return success(res, 'Password changed. Other sessions have been signed out.');
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
 exports.refreshToken = async (req, res) => {
   try {
     const { refresh_token } = req.body;

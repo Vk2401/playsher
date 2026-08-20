@@ -86,6 +86,12 @@ const refreshToken = [
   body('refresh_token').notEmpty().withMessage('Refresh token is required.'),
 ];
 
+const changePassword = [
+  body('current_password').notEmpty().withMessage('Your current password is required.'),
+  body('new_password')
+    .isLength({ min: 8 }).withMessage('New password must be at least 8 characters.'),
+];
+
 module.exports = {
   registerUser,
   loginUser,
@@ -97,4 +103,5 @@ module.exports = {
   sendOtp,
   verifyOtp,
   completeRegistration,
+  changePassword,
 };

@@ -25,6 +25,10 @@ const paymentCtrl     = require('../controllers/payment.controller');
 
 // Admin-specific controllers
 const ap = require('../controllers/adminPanel.controller');
+const appVersionCtrl = require('../controllers/appVersion.controller');
+
+const validate = require('../middleware/validate');
+const { upsertVersion } = require('../validators/appVersion.validator');
 
 const admin = [verifyToken, requireRole('admin')];
 
@@ -936,5 +940,173 @@ router.get   ('/vendors/:id/bookings',   ...admin, ap.getVendorBookings);
  *       404: { description: Vendor not found }
  */
 router.get   ('/vendors/:id/stats',      ...admin, ap.getVendorStats);
+
+/**
+ * @swagger
+ * /admin/ground-owners/{id}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Update a ground owner's profile and moderation flags
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:        { type: string }
+ *               email:       { type: string }
+ *               mobile:      { type: string }
+ *               is_active:   { type: boolean }
+ *               is_approved: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/ground-owners/:id',          ...admin, ap.updateGroundOwner);
+
+/**
+ * @swagger
+ * /admin/ground-owners/{id}/password:
+ *   patch:
+ *     tags: [AdminPanel]
+ *     summary: Reset a ground owner's password and sign them out everywhere
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password: { type: string, minLength: 8 }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.patch ('/ground-owners/:id/password', ...admin, ap.resetGroundOwnerPassword);
+
+/**
+ * @swagger
+ * /admin/users/{id}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Update a customer's profile
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:      { type: string }
+ *               email:     { type: string }
+ *               mobile:    { type: string }
+ *               is_active: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/users/:id',                  ...admin, ap.updateUser);
+
+/**
+ * @swagger
+ * /admin/grounds/{id}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Update any ground, including its owner and approval state
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:        { type: string }
+ *               address:     { type: string }
+ *               is_active:   { type: boolean }
+ *               is_approved: { type: boolean }
+ *               owner_id:    { type: integer }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/grounds/:id',                ...admin, ap.updateGround);
+
+// ── App versions ──────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /admin/app-versions:
+ *   get:
+ *     tags: [AdminPanel]
+ *     summary: List the version thresholds for every platform
+ *     description: >
+ *       Always returns a row for both android and ios, filled with nulls and
+ *       is_active false for a platform never configured, so the panel can offer
+ *       it for editing.
+ *     responses:
+ *       200: { description: App versions retrieved }
+ *       403: { description: Admin role required }
+ */
+router.get   ('/app-versions',               ...admin, appVersionCtrl.list);
+
+/**
+ * @swagger
+ * /admin/app-versions/{platform}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Set the update thresholds for one platform
+ *     description: >
+ *       Admin only — these values decide whether every installed app prompts or
+ *       is blocked, so nothing below the admin role may write them. Raising
+ *       min_supported_version retires every older build on the next launch.
+ *     parameters:
+ *       - in: path
+ *         name: platform
+ *         required: true
+ *         schema: { type: string, enum: [android, ios] }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [latest_version, min_supported_version]
+ *             properties:
+ *               latest_version:        { type: string,  example: '1.4.0' }
+ *               min_supported_version: { type: string,  example: '1.2.0' }
+ *               update_url:            { type: string,  nullable: true }
+ *               release_notes:         { type: string,  nullable: true }
+ *               is_active:             { type: boolean, example: true }
+ *     responses:
+ *       200: { description: App version updated }
+ *       400: { description: Minimum newer than latest }
+ *       403: { description: Admin role required }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/app-versions/:platform',     ...admin, upsertVersion, validate, appVersionCtrl.upsert);
 
 module.exports = router;

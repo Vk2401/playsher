@@ -88,6 +88,16 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     super.dispose();
   }
 
+  /// Width for one of the six boxes, derived from the viewport so the row
+  /// never overflows on a narrow phone.
+  static double _pinBoxWidth(BuildContext context) {
+    const horizontalPadding = 28.0 * 2;
+    const gaps = 8.0 * 5;
+    final available =
+        MediaQuery.sizeOf(context).width - horizontalPadding - gaps;
+    return (available / 6).clamp(40.0, 54.0);
+  }
+
   String get _maskedMobile {
     final m = widget.mobile;
     if (m.length > 6) return '${m.substring(0, m.length - 6)}XXXXXX';
@@ -153,37 +163,61 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         ),
                       ),
                       const SizedBox(height: 40),
-                      PinCodeTextField(
-                        appContext: context,
-                        length: 6,
-                        controller: _ctrl,
-                        keyboardType: TextInputType.number,
-                        animationType: AnimationType.scale,
-                        enabled: !_verifying,
-                        autoFocus: true,
-                        textStyle: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: colors.textPrimary,
+                      // pin_code_fields keeps a hidden TextField behind the
+                      // boxes and never sets `filled: false` on it, so it
+                      // inherits the app's `filled: true` and paints a grey
+                      // slab across the row. Clearing the inherited decoration
+                      // for this subtree is what removes it.
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          inputDecorationTheme: const InputDecorationTheme(
+                            filled: false,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
-                        pinTheme: PinTheme(
-                          shape: PinCodeFieldShape.box,
-                          borderRadius: BorderRadius.circular(12),
-                          fieldHeight: 58,
-                          fieldWidth: 46,
-                          activeColor: AppColors.primary,
-                          selectedColor: AppColors.primary,
-                          inactiveColor: colors.border,
-                          activeFillColor:
-                              AppColors.primary.withValues(alpha: 0.05),
-                          selectedFillColor:
-                              AppColors.primary.withValues(alpha: 0.08),
-                          inactiveFillColor: colors.input,
+                        child: PinCodeTextField(
+                          appContext: context,
+                          length: 6,
+                          controller: _ctrl,
+                          keyboardType: TextInputType.number,
+                          animationType: AnimationType.fade,
+                          animationDuration: const Duration(milliseconds: 120),
+                          enabled: !_verifying,
+                          autoFocus: true,
+                          autoDismissKeyboard: false,
+                          enablePinAutofill: true,
+                          hapticFeedbackTypes: HapticFeedbackTypes.light,
+                          useHapticFeedback: true,
+                          cursorColor: AppColors.primary,
+                          textStyle: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: colors.textPrimary,
+                          ),
+                          pinTheme: PinTheme(
+                            shape: PinCodeFieldShape.box,
+                            borderRadius: BorderRadius.circular(14),
+                            // Sized from the viewport so six boxes always fit,
+                            // including on a 360dp phone at large text scale.
+                            fieldHeight: 56,
+                            fieldWidth: _pinBoxWidth(context),
+                            borderWidth: 1.5,
+                            activeColor: AppColors.primary,
+                            selectedColor: AppColors.primary,
+                            inactiveColor: colors.border,
+                            disabledColor: colors.border,
+                            activeFillColor: colors.input,
+                            selectedFillColor:
+                                AppColors.primary.withValues(alpha: 0.10),
+                            inactiveFillColor: colors.input,
+                          ),
+                          enableActiveFill: true,
+                          onCompleted: _verify,
+                          onChanged: (_) {},
                         ),
-                        enableActiveFill: true,
-                        onCompleted: _verify,
-                        onChanged: (_) {},
                       ),
+
                       const SizedBox(height: 24),
                       Center(
                         child: _seconds > 0

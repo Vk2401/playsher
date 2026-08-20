@@ -1,4 +1,15 @@
 const { Slot, ScheduleTemplate } = require('../models');
+const { appToday, isPastSlot, dayOfWeek } = require('./appTime');
+
+/**
+ * Slots whose start time has already passed are dropped.
+ * They cannot be booked, and listing them made the day look full of options
+ * that all failed on tap. "Passed" is judged in the app timezone, not the
+ * server's — see utils/appTime.js.
+ */
+function dropPastSlots(slots, slotDate) {
+  return slots.filter((slot) => !isPastSlot(slotDate, slot.slot_start_time));
+}
 
 /**
  * Ensure concrete Slot rows exist for a given GroundSport + date.
@@ -13,7 +24,7 @@ const { Slot, ScheduleTemplate } = require('../models');
  */
 async function ensureSlotsForDate(groundSportId, slotDate, transaction) {
   // Guard: refuse past dates
-  const today = new Date().toISOString().split('T')[0];
+  const today = appToday();
   if (slotDate < today) return [];
 
   // Check if slots already exist for this date
@@ -22,12 +33,12 @@ async function ensureSlotsForDate(groundSportId, slotDate, transaction) {
     order: [['slot_start_time', 'ASC']],
     ...(transaction ? { transaction } : {}),
   });
-  if (existing.length > 0) return existing;
+  if (existing.length > 0) return dropPastSlots(existing, slotDate);
 
   // Look up the schedule template for this day_of_week
-  const dayOfWeek = new Date(slotDate + 'T00:00:00').getDay(); // 0=Sun … 6=Sat
+  const day = dayOfWeek(slotDate); // 0=Sun … 6=Sat
   const template = await ScheduleTemplate.findOne({
-    where: { ground_sport_id: groundSportId, day_of_week: dayOfWeek },
+    where: { ground_sport_id: groundSportId, day_of_week: day },
     ...(transaction ? { transaction } : {}),
   });
 
@@ -64,11 +75,12 @@ async function ensureSlotsForDate(groundSportId, slotDate, transaction) {
   });
 
   // Re-fetch to get IDs and actual state
-  return Slot.findAll({
+  const created = await Slot.findAll({
     where: { ground_sport_id: groundSportId, slot_date: slotDate },
     order: [['slot_start_time', 'ASC']],
     ...(transaction ? { transaction } : {}),
   });
+  return dropPastSlots(created, slotDate);
 }
 
-module.exports = { ensureSlotsForDate };
+module.exports = { ensureSlotsForDate, dropPastSlots };

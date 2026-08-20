@@ -17,6 +17,7 @@ import EmailIcon from '@mui/icons-material/Email'
 import BadgeIcon from '@mui/icons-material/Badge'
 
 import PageHeader from '../../components/ui/PageHeader.jsx'
+import ChangePasswordCard from '../../components/ui/ChangePasswordCard.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 
@@ -167,6 +168,10 @@ export default function OwnerProfile() {
               )}
             </Grid>
           </Paper>
+        </Grid>
+
+        <Grid item xs={12}>
+          <ChangePasswordCard />
         </Grid>
       </Grid>
     </Box>

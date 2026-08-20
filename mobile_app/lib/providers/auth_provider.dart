@@ -159,6 +159,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Re-read the profile from the API and refresh cached user state.
+  ///
+  /// Called after an edit so every screen watching `authProvider` — the home
+  /// header, the profile tab, Razorpay's prefill — shows the new values without
+  /// needing a sign-out.
+  Future<void> refreshUser() async {
+    try {
+      final res = await ApiClient.getProfile();
+      final data = res['data'] as Map<String, dynamic>?;
+      if (data == null) return;
+      await StorageService.saveUser(data);
+      state = state.copyWith(user: UserModel.fromJson(data));
+    } catch (e) {
+      // A failed refresh must not clear a valid session; the edit already
+      // succeeded server-side and the next load will pick it up.
+      if (kDebugMode) debugPrint('[Auth] refreshUser failed: $e');
+    }
+  }
+
   Future<void> logout() async {
     try {
       final refreshToken = await StorageService.getRefreshToken();

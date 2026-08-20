@@ -60,25 +60,43 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      // The pencil looked like a button but was a bare
+                      // Container — tapping it did nothing, and there was no
+                      // other way into editing.
                       Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.accent.withValues(alpha: 0.4),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                        bottom: -4,
+                        right: -4,
+                        child: Semantics(
+                          label: 'Edit profile',
+                          button: true,
+                          child: GestureDetector(
+                            onTap: () => context.push('/profile/edit'),
+                            behavior: HitTestBehavior.opaque,
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.accent
+                                            .withValues(alpha: 0.4),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(Icons.edit_rounded,
+                                      size: 18, color: AppColors.onPrimary),
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                          child: const Icon(Icons.edit_rounded,
-                              size: 18, color: AppColors.onPrimary),
                         ),
                       ),
                     ],

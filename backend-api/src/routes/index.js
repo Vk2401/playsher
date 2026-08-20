@@ -15,6 +15,7 @@ router.use('/games',         require('./game.routes'));
 router.use('/coaches',       require('./coach.routes'));
 router.use('/reviews',       require('./review.routes'));
 router.use('/favorites',     require('./favorite.routes'));
+router.use('/app-version',   require('./appVersion.routes'));
 
 // Bank details (authenticated — any role with bank account)
 const bankDetailsCtrl = require('../controllers/bankDetails.controller');

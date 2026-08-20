@@ -5,6 +5,7 @@ import 'core/app_colors.dart';
 import 'core/theme.dart';
 import 'providers/theme_provider.dart';
 import 'router.dart';
+import 'widgets/app_update_gate.dart';
 
 class PlaysherApp extends ConsumerWidget {
   const PlaysherApp({super.key});
@@ -21,8 +22,11 @@ class PlaysherApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
-      builder: (context, child) =>
-          _SystemBars(child: child ?? const SizedBox()),
+      // The update gate sits above the router so a retired build is blocked on
+      // every route, including login.
+      builder: (context, child) => AppUpdateGate(
+        child: _SystemBars(child: child ?? const SizedBox()),
+      ),
     );
   }
 }

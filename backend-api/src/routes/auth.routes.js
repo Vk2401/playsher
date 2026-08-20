@@ -347,4 +347,36 @@ router.post('/complete-registration', authLimiter, v.completeRegistration, valid
  */
 router.patch('/update-location',      authMiddleware, otpCtrl.updateLocation);
 
+/**
+ * @swagger
+ * /auth/change-password:
+ *   patch:
+ *     tags: [Auth]
+ *     summary: Change your own password
+ *     description: >
+ *       For roles that sign in with a password — admin and ground_owner. Customers
+ *       authenticate by OTP and have nothing to change, so they get a 400 saying so.
+ *       Requires the current password: an access token alone must not be enough to
+ *       take over an account permanently. On success every other session for the
+ *       account is signed out.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [current_password, new_password]
+ *             properties:
+ *               current_password: { type: string }
+ *               new_password:     { type: string, minLength: 8 }
+ *     responses:
+ *       200: { description: Password changed and other sessions revoked }
+ *       400: { description: OTP-only account, or the new password matches the old one }
+ *       401: { description: Not signed in, or the current password is wrong }
+ *       422: { description: Validation failed }
+ */
+router.patch('/change-password',      authLimiter, authMiddleware, v.changePassword, validate, ctrl.changePassword);
+
 module.exports = router;

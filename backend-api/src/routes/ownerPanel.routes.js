@@ -15,6 +15,8 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const { uploadGround, uploadGroundImg } = require('../middleware/upload');
 const op = require('../controllers/ownerPanel.controller');
 const schedule = require('../controllers/schedule.controller');
+const validate = require('../middleware/validate');
+const { updateOwnerGroundSport } = require('../validators/ground.validator');
 
 const owner = [verifyToken, requireRole('ground_owner')];
 
@@ -238,6 +240,45 @@ router.delete('/grounds/:id/amenities/:amenityId', ...owner, op.removeAmenity);
  *       201: { description: Sport added to ground }
  */
 router.post  ('/grounds/:id/sports',              ...owner, op.addSport);
+
+/**
+ * @swagger
+ * /ground-owner/grounds/{id}/sports/{sportId}:
+ *   put:
+ *     tags: [OwnerPanel]
+ *     summary: Update a ground's sport settings (price, slot limits, availability)
+ *     description: >
+ *       sportId is the ground_sport row id, not the sport id. The sport itself
+ *       cannot be changed here — remove the row and add the other sport instead.
+ *       Note that removing a row cascades away its schedule and slots.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: path
+ *         name: sportId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               price_per_half_hour: { type: number }
+ *               min_slots:           { type: integer }
+ *               max_slots:           { type: integer }
+ *               player_counts:       { type: string }
+ *               cancellation_policy: { type: string }
+ *               is_active:           { type: boolean }
+ *     responses:
+ *       200: { description: Sport updated }
+ *       404: { description: Ground or ground sport not found }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/grounds/:id/sports/:sportId',     ...owner, updateOwnerGroundSport, validate, op.updateSport);
 
 /**
  * @swagger

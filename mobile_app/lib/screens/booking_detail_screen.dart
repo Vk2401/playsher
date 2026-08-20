@@ -157,9 +157,22 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                     items: [
                       _InfoItem(
                         icon: Icons.attach_money_rounded,
-                        label: 'Total Amount',
+                        label: 'Booking total',
                         value: booking.formattedPrice,
                       ),
+                      if (booking.advanceAmount > 0)
+                        _InfoItem(
+                          icon: Icons.check_circle_outline_rounded,
+                          label:
+                              booking.hasBalanceDue ? 'Advance paid' : 'Paid',
+                          value: booking.formattedAdvance,
+                        ),
+                      if (booking.hasBalanceDue)
+                        _InfoItem(
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: 'Due at the ground',
+                          value: booking.formattedBalance,
+                        ),
                       _InfoItem(
                         icon: Icons.payment_rounded,
                         label: 'Payment Method',

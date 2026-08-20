@@ -5,7 +5,9 @@ export const groundsApi = {
   getAll: (params) => apiClient.get('/admin/grounds', { params }),
   getById: (id) => apiClient.get(`/admin/grounds/${id}`),
   adminCreate: (data) => apiClient.post('/grounds', data),
-  adminUpdate: (id, data) => apiClient.put(`/grounds/${id}`, data),
+  // Admin-scoped update: wider whitelist than the owner's own (approval state
+  // and owner reassignment included).
+  adminUpdate: (id, data) => apiClient.put(`/admin/grounds/${id}`, data),
   approve: (id) => apiClient.patch(`/admin/grounds/${id}/approve`),
   toggleStatus: (id) => apiClient.patch(`/admin/grounds/${id}/toggle-status`),
   delete: (id) => apiClient.delete(`/admin/grounds/${id}`),
@@ -32,6 +34,11 @@ export const groundsApi = {
   // Ground Sports (ground_sports mapping) — sportId here is the ground_sport row id
   addSport: (groundId, data) =>
     apiClient.post(`/ground-owner/grounds/${groundId}/sports`, data),
+  // Edit price / slot limits / availability in place. Without this the only
+  // way to change a price was to remove the sport and re-add it, which
+  // cascade-deletes its weekly schedule and every generated slot.
+  updateSport: (groundId, groundSportId, data) =>
+    apiClient.put(`/ground-owner/grounds/${groundId}/sports/${groundSportId}`, data),
   removeSport: (groundId, groundSportId) =>
     apiClient.delete(`/ground-owner/grounds/${groundId}/sports/${groundSportId}`),
 
