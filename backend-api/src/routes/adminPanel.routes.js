@@ -25,6 +25,10 @@ const paymentCtrl     = require('../controllers/payment.controller');
 
 // Admin-specific controllers
 const ap = require('../controllers/adminPanel.controller');
+const appVersionCtrl = require('../controllers/appVersion.controller');
+
+const validate = require('../middleware/validate');
+const { upsertVersion } = require('../validators/appVersion.validator');
 
 const admin = [verifyToken, requireRole('admin')];
 
@@ -1051,5 +1055,58 @@ router.put   ('/users/:id',                  ...admin, ap.updateUser);
  *       422: { description: Validation failed }
  */
 router.put   ('/grounds/:id',                ...admin, ap.updateGround);
+
+// ── App versions ──────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /admin/app-versions:
+ *   get:
+ *     tags: [AdminPanel]
+ *     summary: List the version thresholds for every platform
+ *     description: >
+ *       Always returns a row for both android and ios, filled with nulls and
+ *       is_active false for a platform never configured, so the panel can offer
+ *       it for editing.
+ *     responses:
+ *       200: { description: App versions retrieved }
+ *       403: { description: Admin role required }
+ */
+router.get   ('/app-versions',               ...admin, appVersionCtrl.list);
+
+/**
+ * @swagger
+ * /admin/app-versions/{platform}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Set the update thresholds for one platform
+ *     description: >
+ *       Admin only — these values decide whether every installed app prompts or
+ *       is blocked, so nothing below the admin role may write them. Raising
+ *       min_supported_version retires every older build on the next launch.
+ *     parameters:
+ *       - in: path
+ *         name: platform
+ *         required: true
+ *         schema: { type: string, enum: [android, ios] }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [latest_version, min_supported_version]
+ *             properties:
+ *               latest_version:        { type: string,  example: '1.4.0' }
+ *               min_supported_version: { type: string,  example: '1.2.0' }
+ *               update_url:            { type: string,  nullable: true }
+ *               release_notes:         { type: string,  nullable: true }
+ *               is_active:             { type: boolean, example: true }
+ *     responses:
+ *       200: { description: App version updated }
+ *       400: { description: Minimum newer than latest }
+ *       403: { description: Admin role required }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/app-versions/:platform',     ...admin, upsertVersion, validate, appVersionCtrl.upsert);
 
 module.exports = router;

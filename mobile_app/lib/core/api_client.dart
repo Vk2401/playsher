@@ -525,6 +525,23 @@ class ApiClient {
 
   static Future<Map<String, dynamic>> getPriceFilters() async => {'data': []};
 
+  // ── App version ───────────────────────────────────────────────────────────
+  // GET /app-version?platform=&version=
+  // Public — no token needed. Deliberately so: the check has to work before
+  // login, and a build old enough to be blocked must be told even though its
+  // stored token is already being rejected.
+  static Future<Map<String, dynamic>> checkAppVersion({
+    required String platform,
+    required String version,
+  }) async {
+    final res = await instance.get(
+      '/app-version',
+      queryParameters: {'platform': platform, 'version': version},
+    );
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? {}};
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> _post(
       String path, Map<String, dynamic> data) async {
