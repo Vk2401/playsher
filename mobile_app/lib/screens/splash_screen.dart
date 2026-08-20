@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../core/storage.dart';
+import '../providers/app_version_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -27,6 +28,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _scale = Tween<double>(begin: 0.8, end: 1.0)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
     _ctrl.forward();
+
+    // Start the version check while the splash animates. The 2.2s below is
+    // dead time anyway, so the answer is usually ready before the first real
+    // screen appears and the prompt does not arrive late over the top of it.
+    // Fire-and-forget: the provider resolves failures to "nothing to do", and
+    // splash must never wait on the network to let someone into the app.
+    ref.read(appVersionCheckProvider.future).ignore();
+
     _navigate();
   }
 
