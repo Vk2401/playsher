@@ -12,6 +12,7 @@ import '../providers/grounds_provider.dart';
 import '../widgets/error_view.dart';
 import '../widgets/review_card.dart';
 import '../widgets/shimmer_loader.dart';
+import '../widgets/sport_glyph.dart';
 import '../widgets/sticky_bottom_bar.dart';
 import '../widgets/slot_tile.dart';
 
@@ -34,25 +35,6 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
 
   // Sport pill selection (replaces tab bar)
   int _contentSection = 0; // 0=Overview, 1=Amenities, 2=Reviews
-
-  static const _sportEmojis = {
-    'cricket': '\u{1F3CF}',
-    'football': '\u26BD',
-    'soccer': '\u26BD',
-    'basketball': '\u{1F3C0}',
-    'volleyball': '\u{1F3D0}',
-    'badminton': '\u{1F3F8}',
-    'tennis': '\u{1F3BE}',
-    'hockey': '\u{1F3D1}',
-    'swimming': '\u{1F3CA}',
-    'kabaddi': '\u{1F93C}',
-    'gym': '\u{1F4AA}',
-  };
-
-  String _emoji(String name) => _sportEmojis.entries
-      .firstWhere((e) => name.toLowerCase().contains(e.key),
-          orElse: () => const MapEntry('', '\u{1F3C6}'))
-      .value;
 
   @override
   void dispose() {
@@ -100,6 +82,15 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
     // venue the user is about to pay for. An empty list renders the themed
     // placeholder below.
     final images = ground.images.map((i) => i.image).toList();
+
+    // Default to the ground's first sport. With nothing selected the screen
+    // renders no calendar, no slots and no booking bar — the ground looks
+    // unbookable, and nothing on screen hints that tapping a sport pill is
+    // what unlocks it. Assigning during build is safe here: the value is used
+    // by this same build and the operation is idempotent.
+    if (_selectedGroundSport == null && ground.groundSports.isNotEmpty) {
+      _selectedGroundSport = ground.groundSports.first;
+    }
 
     final hasSelection =
         _selectedGroundSport != null && _selectedSlots.isNotEmpty;
@@ -208,10 +199,27 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                       ),
                     ),
                   ),
+                  // The rounded sheet-top, drawn as the last 20px of the hero
+                  // rather than by translating the content sliver up over it.
+                  // A paint-only transform left the content's layout box where
+                  // it was, so the ground name rendered underneath the image.
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 20,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24)),
+                      ),
+                    ),
+                  ),
                   // Page dots
                   if (images.length > 1)
                     Positioned(
-                      bottom: 16,
+                      bottom: 28,
                       left: 0,
                       right: 0,
                       child: Row(
@@ -241,12 +249,7 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
           // ── Content (overlapping card style) ────────────────────────────
           SliverToBoxAdapter(
             child: Container(
-              decoration: BoxDecoration(
-                color: colors.background,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(40)),
-              ),
-              transform: Matrix4.translationValues(0, -40, 0),
+              decoration: BoxDecoration(color: colors.background),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -413,16 +416,29 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                   width: sel ? 2 : 1,
                                 ),
                               ),
-                              child: Text(
-                                '${_emoji(gs.sport?.name ?? '')}  ${gs.sport?.name ?? 'Sport'}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: sel
-                                      ? AppColors.primary
-                                      : colors.textSecondary,
-                                ),
-                                textAlign: TextAlign.center,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SportGlyph(
+                                      name: gs.sport?.name ?? 'Sport',
+                                      imageUrl: gs.sport?.image,
+                                      size: 16),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      gs.sport?.name ?? 'Sport',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: sel
+                                            ? AppColors.primary
+                                            : colors.textSecondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           );

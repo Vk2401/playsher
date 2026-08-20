@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../providers/amenities_provider.dart';
 import '../providers/grounds_provider.dart';
+import '../widgets/sport_glyph.dart';
 
 class VenueFilterScreen extends ConsumerStatefulWidget {
   const VenueFilterScreen({super.key});
@@ -22,20 +23,6 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
   static const _distances = [2, 5, 10, 20];
   static const _ratings = [3.0, 3.5, 4.0, 4.5, 5.0];
 
-  static const _sportEmojis = {
-    'cricket': '\u{1F3CF}',
-    'football': '\u26BD',
-    'soccer': '\u26BD',
-    'basketball': '\u{1F3C0}',
-    'volleyball': '\u{1F3D0}',
-    'badminton': '\u{1F3F8}',
-    'tennis': '\u{1F3BE}',
-    'hockey': '\u{1F3D1}',
-    'swimming': '\u{1F3CA}',
-    'kabaddi': '\u{1F93C}',
-    'gym': '\u{1F4AA}',
-  };
-
   static const _amenityIcons = {
     'parking': Icons.local_parking_rounded,
     'changing room': Icons.checkroom_rounded,
@@ -47,14 +34,6 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
     'wifi': Icons.wifi_rounded,
     'locker': Icons.lock_rounded,
   };
-
-  String _emojiFor(String name) {
-    final lower = name.toLowerCase();
-    for (final e in _sportEmojis.entries) {
-      if (lower.contains(e.key)) return e.value;
-    }
-    return '\u{1F3C6}';
-  }
 
   IconData _amenityIcon(String name) {
     final lower = name.toLowerCase();
@@ -187,7 +166,8 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                     children: sports.map((s) {
                       final sel = _selectedSportIds.contains(s.id);
                       return _ChipButton(
-                        label: '${_emojiFor(s.name)}  ${s.name}',
+                        label: s.name,
+                        imageUrl: s.image,
                         selected: sel,
                         onTap: () => setState(() {
                           sel
@@ -406,10 +386,14 @@ class _ChipButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// Sport icon from the API; falls back to a name-matched emoji.
+  final String? imageUrl;
+
   const _ChipButton({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.imageUrl,
   });
 
   @override
@@ -428,13 +412,24 @@ class _ChipButton extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? AppColors.onPrimary : colors.textPrimary,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SportGlyph(name: label, imageUrl: imageUrl, size: 16),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? AppColors.onPrimary : colors.textPrimary,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
