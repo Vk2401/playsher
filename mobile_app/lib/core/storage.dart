@@ -81,6 +81,22 @@ class StorageService {
     await prefs.setString('user_city', city);
   }
 
+  /// Last fix we managed to read, cached so a cold start can show distances
+  /// immediately instead of blank-then-pop once the GPS answers.
+  static Future<void> setLastLatLng(double latitude, double longitude) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('last_latitude', latitude);
+    await prefs.setDouble('last_longitude', longitude);
+  }
+
+  static Future<(double, double)?> getLastLatLng() async {
+    final prefs = await SharedPreferences.getInstance();
+    final latitude = prefs.getDouble('last_latitude');
+    final longitude = prefs.getDouble('last_longitude');
+    if (latitude == null || longitude == null) return null;
+    return (latitude, longitude);
+  }
+
   // ── Clear ─────────────────────────────────────────────────────────────────
   static Future<void> clearAll() => _storage.deleteAll();
 

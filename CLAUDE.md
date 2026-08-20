@@ -68,8 +68,9 @@ refresh-token → retry → logout flow. Never construct a second client or set 
 
 ## 4. Working in this repo
 
-- **No test suites exist** in any of the three projects. Do not claim tests pass. Verify with
-  the checks below and say plainly what you did and did not verify.
+- **Only `mobile_app/` has tests** — `flutter test` runs ~120 of them (models, layout/overflow
+  guards, navigation). Run it for any Flutter change. `backend-api/` and `adminui/` have no test
+  suite at all; there, verify with the checks below and say plainly what you did and did not verify.
 - Backend: `npm run dev` (nodemon, port 3000), `npm run lint`. Swagger at `/api-docs` — a new
   endpoint without a `@swagger` JSDoc block on its route is incomplete.
 - Admin UI: `npm run dev` (5173, proxies `/api` → localhost:3000), `npm run build`,
