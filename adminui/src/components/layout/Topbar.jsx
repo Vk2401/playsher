@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useThemeContext } from '../../contexts/ThemeContext.jsx'
 import { PALETTE_SWATCHES } from '../../theme/index.js'
+import InstallAppButton from '../ui/InstallAppButton.jsx'
 
 import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
@@ -89,6 +90,8 @@ export default function Topbar({ onSidebarToggle }) {
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
         {/* Notification bell */}
+        <InstallAppButton variant="icon" />
+
         <IconButton size="small" sx={{ color: 'text.secondary' }}>
           <NotificationsNoneIcon />
         </IconButton>

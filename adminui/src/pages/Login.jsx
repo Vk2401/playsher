@@ -6,6 +6,7 @@ import {
 import { useTheme } from '@mui/material/styles'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import InstallAppButton from '../components/ui/InstallAppButton.jsx'
 
 import EmailIcon from '@mui/icons-material/Email'
 import LockIcon from '@mui/icons-material/Lock'
@@ -196,6 +197,13 @@ export default function Login() {
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
+          </Box>
+
+          {/* The login screen is where most people first arrive, and browsers
+              no longer surface installation on their own — so offer it here.
+              Renders nothing when already installed or not installable. */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2.5 }}>
+            <InstallAppButton />
           </Box>
         </Box>
       </Paper>

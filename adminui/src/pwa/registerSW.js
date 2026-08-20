@@ -1,4 +1,5 @@
 import { registerSW } from 'virtual:pwa-register'
+import { captureInstallPrompt } from './useInstallPrompt'
 
 /**
  * Service-worker registration, kept out of React so it runs once per page load
@@ -40,6 +41,10 @@ export function dismissOfflineReady() {
 }
 
 export function initPwa() {
+  // Listen before React mounts: `beforeinstallprompt` often fires during the
+  // initial load, and an event missed then never comes back on its own.
+  captureInstallPrompt()
+
   // No SW in dev (devOptions.enabled is false) and none without browser support.
   if (import.meta.env.DEV || !('serviceWorker' in navigator)) return
 
