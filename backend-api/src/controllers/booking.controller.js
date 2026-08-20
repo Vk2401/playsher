@@ -3,6 +3,7 @@ const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
 const { releaseExpiredHolds, holdDeadline } = require('../utils/slotHolds');
+const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { splitPayment } = require('../utils/pricing');
 const { isPastSlot } = require('../utils/appTime');
 
@@ -44,6 +45,13 @@ exports.list = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
     const where = {};
+
+    // Settle anything that has finished being played before reading, so a past
+    // booking is never listed as still upcoming.
+    await completeFinishedBookings(
+      { Booking },
+      req.user.role === 'user' ? { userId: req.user.id } : {},
+    );
 
     if (req.user.role === 'user') {
       where.user_id = req.user.id;
@@ -88,6 +96,8 @@ exports.list = async (req, res) => {
 
 exports.show = async (req, res) => {
   try {
+    await completeFinishedBookings({ Booking }, { bookingId: req.params.id });
+
     const booking = await Booking.findByPk(req.params.id, {
       include: [
         { model: User, as: 'user', attributes: ['id', 'name', 'mobile', 'email'] },

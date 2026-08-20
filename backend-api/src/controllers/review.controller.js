@@ -1,6 +1,7 @@
 const { Review, User, Ground, Coach, Booking } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
+const { completeFinishedBookings } = require('../utils/bookingCompletion');
 
 exports.list = async (req, res) => {
   try {
@@ -39,6 +40,10 @@ exports.create = async (req, res) => {
   try {
     // For ground/sport reviews, verify a completed booking exists
     if (['ground', 'sport'].includes(req.body.review_type) && req.body.booking_id) {
+      // The gate below is the `completed` status itself, so settle this booking
+      // before reading it — otherwise someone who just played cannot review.
+      await completeFinishedBookings({ Booking }, { bookingId: req.body.booking_id });
+
       const booking = await Booking.findOne({
         where: { id: req.body.booking_id, user_id: req.user.id, status: 'completed' },
       });
