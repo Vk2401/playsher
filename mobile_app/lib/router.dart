@@ -19,6 +19,7 @@ import 'screens/booking_confirm_screen.dart';
 import 'screens/bookings_screen.dart';
 import 'screens/booking_detail_screen.dart';
 import 'screens/games_screen.dart';
+import 'screens/edit_profile_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/game_detail_screen.dart';
 import 'screens/host_game_screen.dart';
@@ -181,6 +182,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ── Profile sub-routes ─────────────────────────────────────────────────
+      GoRoute(
+        path: '/profile/edit',
+        builder: (_, __) => const EditProfileScreen(),
+      ),
       GoRoute(
         path: '/settings',
         builder: (_, __) => const SettingsScreen(),

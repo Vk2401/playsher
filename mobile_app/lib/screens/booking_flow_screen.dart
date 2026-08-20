@@ -279,6 +279,45 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     });
   }
 
+  /// Back from the booking screen.
+  ///
+  /// Back used to be disabled outright whenever `_loading` was set — which is
+  /// most of the payment flow — so it read as "back does nothing". Leaving is
+  /// safe now that an unpaid booking's slots are held on a deadline rather than
+  /// forever, so back always works; it only asks first when a payment is
+  /// genuinely in flight.
+  Future<void> _handleBack() async {
+    if (!_loading) {
+      context.pop();
+      return;
+    }
+
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave payment?'),
+        content: Text(
+          _hasPendingBooking
+              ? 'Your slots stay held for a few more minutes. You can come back '
+                  'and finish paying from My Bookings.'
+              : 'Your booking has not been created yet.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+
+    if (leave == true && mounted) context.pop();
+  }
+
   static String _formatHold(Duration d) {
     final m = d.inMinutes.remainder(60).toString();
     final sec = d.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -307,7 +346,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: _loading ? null : () => context.pop(),
+          onPressed: _handleBack,
         ),
         title: const Text(
           'Confirm Booking',
