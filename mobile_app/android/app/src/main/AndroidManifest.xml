@@ -57,5 +57,15 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="market"/>
         </intent>
+
+        <!-- UPI. Razorpay's checkout enumerates installed UPI apps to offer the
+             intent flow (GPay, PhonePe, Paytm...). Under Android 11+ package
+             visibility it cannot see them without this, so UPI either does not
+             appear or dead-ends on tap — on the one method most Indian users
+             actually pay with. Required by Razorpay's Android setup. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="upi" android:host="pay"/>
+        </intent>
     </queries>
 </manifest>
