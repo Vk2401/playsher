@@ -9,6 +9,7 @@ const {
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
+const { ensureSlotsForDate } = require('../utils/slotGenerator');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
@@ -260,6 +261,16 @@ exports.listSlots = async (req, res) => {
       include: [{ model: Sport, as: 'sport', attributes: ['id', 'name'] }],
     });
     const gsIds = groundSports.map((gs) => gs.id);
+
+    // Slots are generated on demand from the weekly schedule, so a future date
+    // holds no rows until someone asks for it. Generate here too, otherwise the
+    // owner sees an empty day while customers see a bookable one — and cannot
+    // close an individual slot ahead of time.
+    if (req.query.date) {
+      for (const gsId of gsIds) {
+        await ensureSlotsForDate(gsId, req.query.date);
+      }
+    }
 
     const where = gsIds.length ? { ground_sport_id: { [Op.in]: gsIds } } : { ground_sport_id: -1 };
     if (req.query.date) where.slot_date = req.query.date;

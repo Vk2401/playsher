@@ -9,6 +9,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 
+import SlotManager from '../../components/owner/SlotManager.jsx'
+
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditIcon from '@mui/icons-material/Edit'
@@ -400,6 +402,7 @@ export default function GroundDetail() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable">
           <Tab label="Details" />
           <Tab label="Sports & Pricing" />
+          <Tab label="Slots" />
           <Tab label="Amenities" />
           <Tab label="Images" />
         </Tabs>
@@ -604,8 +607,13 @@ export default function GroundDetail() {
         />
       </TabPanel>
 
-      {/* ── Tab 2: Amenities ─────────────────────────────────────────────── */}
+      {/* ── Tab 2: Slots ─────────────────────────────────────────────────── */}
       <TabPanel value={tab} index={2}>
+        <SlotManager groundId={id} />
+      </TabPanel>
+
+      {/* ── Tab 3: Amenities ─────────────────────────────────────────────── */}
+      <TabPanel value={tab} index={3}>
         <Box display="flex" justifyContent="flex-end" mb={2}>
           <Button variant="contained" startIcon={<AddIcon />}
             onClick={() => { setSelectedAmenityId(''); setAddAmenityOpen(true) }}>
@@ -688,7 +696,7 @@ export default function GroundDetail() {
       </TabPanel>
 
       {/* ── Tab 3: Images ───────────────────────────────────────────────── */}
-      <TabPanel value={tab} index={3}>
+      <TabPanel value={tab} index={4}>
         <Box display="flex" justifyContent="flex-end" mb={2} gap={2}>
           <Button
             variant="contained" startIcon={<AddIcon />}
