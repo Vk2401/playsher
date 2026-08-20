@@ -103,7 +103,8 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
       backgroundColor: colors.background,
       appBar: AppBar(title: const Text('Host a Game')),
       body: bookings.when(
-        loading: () => const ListShimmer(count: 2),
+        loading: () => ShimmerList(
+            count: 2, itemBuilder: () => const BookingCardShimmer()),
         error: (e, _) => ErrorView(
           message: apiErrorMessage(e, fallback: 'Could not load your bookings'),
           onRetry: () => ref.invalidate(bookingsProvider),

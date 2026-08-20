@@ -192,7 +192,8 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                     backgroundColor: colors.card,
                     onRefresh: () async => ref.invalidate(gamesProvider),
                     child: gamesAsync.when(
-                      loading: () => const ListShimmer(count: 3),
+                      loading: () => ShimmerList(
+                          count: 3, itemBuilder: () => const GameCardShimmer()),
                       error: (e, _) => ErrorView(
                         message: apiErrorMessage(e,
                             fallback: 'Could not load games'),

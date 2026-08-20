@@ -125,8 +125,9 @@ class CoachingScreen extends ConsumerWidget {
             ),
             // Coaches list
             coachesAsync.when(
-              loading: () =>
-                  const SliverToBoxAdapter(child: ListShimmer(count: 3)),
+              loading: () => SliverToBoxAdapter(
+                  child: ShimmerList(
+                      count: 3, itemBuilder: () => const CoachCardShimmer())),
               error: (e, _) => SliverToBoxAdapter(
                   child: ErrorView(
                       message: apiErrorMessage(e,

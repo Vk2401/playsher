@@ -12,6 +12,7 @@ import '../providers/grounds_provider.dart';
 import '../widgets/error_view.dart';
 import '../widgets/review_card.dart';
 import '../widgets/shimmer_loader.dart';
+import '../widgets/sticky_bottom_bar.dart';
 import '../widgets/slot_tile.dart';
 
 class GroundDetailScreen extends ConsumerStatefulWidget {
@@ -100,504 +101,490 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
     // placeholder below.
     final images = ground.images.map((i) => i.image).toList();
 
+    final hasSelection =
+        _selectedGroundSport != null && _selectedSlots.isNotEmpty;
+
     return Scaffold(
       backgroundColor: colors.background,
-      body: Stack(
-        children: [
-          CustomScrollView(
-            slivers: [
-              // ── Hero SliverAppBar ──────────────────────────────────────────
-              SliverAppBar(
-                expandedHeight: 384,
-                pinned: true,
-                backgroundColor: colors.background,
-                leading: IconButton(
-                  onPressed: () => context.pop(),
-                  tooltip: 'Back',
-                  icon: Container(
-                    width: 36,
-                    height: 36,
+      body: CustomScrollView(
+        slivers: [
+          // ── Hero SliverAppBar ──────────────────────────────────────────
+          SliverAppBar(
+            expandedHeight: 384,
+            pinned: true,
+            backgroundColor: colors.background,
+            leading: IconButton(
+              onPressed: () => context.pop(),
+              tooltip: 'Back',
+              icon: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            actions: [
+              Consumer(
+                builder: (context, ref, _) {
+                  final isFav = ref
+                      .watch(favoritesProvider.notifier)
+                      .isFavorite(ground.id);
+                  return Container(
+                    margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.4),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 18,
-                      color: Colors.white,
+                    child: IconButton(
+                      icon: Icon(
+                        isFav
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        size: 20,
+                        color: isFav ? AppColors.error : Colors.white,
+                      ),
+                      tooltip: isFav ? 'Remove from saved' : 'Save this ground',
+                      onPressed: () => ref
+                          .read(favoritesProvider.notifier)
+                          .toggle(ground.id),
                     ),
-                  ),
-                ),
-                actions: [
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final isFav = ref
-                          .watch(favoritesProvider.notifier)
-                          .isFavorite(ground.id);
-                      return Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: Icon(
-                            isFav
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            size: 20,
-                            color: isFav ? AppColors.error : Colors.white,
-                          ),
-                          tooltip:
-                              isFav ? 'Remove from saved' : 'Save this ground',
-                          onPressed: () => ref
-                              .read(favoritesProvider.notifier)
-                              .toggle(ground.id),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (images.isEmpty)
-                        Container(
+                  );
+                },
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (images.isEmpty)
+                    Container(
+                      color: colors.input,
+                      child: Icon(
+                        Icons.sports_soccer_rounded,
+                        size: 64,
+                        color: colors.border,
+                      ),
+                    )
+                  else
+                    PageView.builder(
+                      controller: _pageCtrl,
+                      itemCount: images.length,
+                      onPageChanged: (i) => setState(() => _imgIndex = i),
+                      itemBuilder: (_, i) => CachedNetworkImage(
+                        imageUrl: images[i],
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(color: colors.input),
+                        errorWidget: (_, __, ___) => Container(
                           color: colors.input,
                           child: Icon(
                             Icons.sports_soccer_rounded,
                             size: 64,
                             color: colors.border,
                           ),
-                        )
-                      else
-                        PageView.builder(
-                          controller: _pageCtrl,
-                          itemCount: images.length,
-                          onPageChanged: (i) => setState(() => _imgIndex = i),
-                          itemBuilder: (_, i) => CachedNetworkImage(
-                            imageUrl: images[i],
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) =>
-                                Container(color: colors.input),
-                            errorWidget: (_, __, ___) => Container(
-                              color: colors.input,
-                              child: Icon(
-                                Icons.sports_soccer_rounded,
-                                size: 64,
-                                color: colors.border,
-                              ),
-                            ),
-                          ),
-                        ),
-                      // Gradient overlay
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.4),
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.7),
-                              ],
-                              stops: const [0.0, 0.4, 1.0],
-                            ),
-                          ),
                         ),
                       ),
-                      // Page dots
-                      if (images.length > 1)
-                        Positioned(
-                          bottom: 16,
-                          left: 0,
-                          right: 0,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              images.length,
-                              (i) => AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 3),
-                                width: i == _imgIndex ? 16 : 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: i == _imgIndex
-                                      ? Colors.white
-                                      : Colors.white.withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // ── Content (overlapping card style) ────────────────────────────
-              SliverToBoxAdapter(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colors.background,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(40)),
-                  ),
-                  transform: Matrix4.translationValues(0, -40, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-
-                      // Title + rating
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                ground.name,
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: colors.textPrimary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            if (ground.avgRating > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.star_rounded,
-                                        size: 14, color: AppColors.onPrimary),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      ground.avgRating.toStringAsFixed(1),
-                                      style: const TextStyle(
-                                        color: AppColors.onPrimary,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                    ),
+                  // Gradient overlay
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.4),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.7),
                           ],
+                          stops: const [0.0, 0.4, 1.0],
                         ),
                       ),
-
-                      const SizedBox(height: 10),
-
-                      // Location row
-                      if ((ground.address ?? '').isNotEmpty ||
-                          (ground.city ?? '').isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.location_on_rounded,
-                                  size: 14, color: AppColors.primary),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  [ground.address, ground.city]
-                                      .where((s) => s != null && s.isNotEmpty)
-                                      .join(', '),
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: colors.textSecondary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                    ),
+                  ),
+                  // Page dots
+                  if (images.length > 1)
+                    Positioned(
+                      bottom: 16,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          images.length,
+                          (i) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: i == _imgIndex ? 16 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: i == _imgIndex
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
                           ),
                         ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
 
-                      const SizedBox(height: 20),
+          // ── Content (overlapping card style) ────────────────────────────
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: BoxDecoration(
+                color: colors.background,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(40)),
+              ),
+              transform: Matrix4.translationValues(0, -40, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
 
-                      // Stats row
-                      Container(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 4),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                  // Title + rating
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            ground.name,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        if (ground.avgRating > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded,
+                                    size: 14, color: AppColors.onPrimary),
+                                const SizedBox(width: 3),
+                                Text(
+                                  ground.avgRating.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: AppColors.onPrimary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Location row
+                  if ((ground.address ?? '').isNotEmpty ||
+                      (ground.city ?? '').isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on_rounded,
+                              size: 14, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              [ground.address, ground.city]
+                                  .where((s) => s != null && s.isNotEmpty)
+                                  .join(', '),
+                              style: TextStyle(
+                                  fontSize: 13, color: colors.textSecondary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 20),
+
+                  // Stats row
+                  Container(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: colors.input,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Expanded(
+                          child: _StatBox(
+                            icon: Icons.star_rounded,
+                            value: ground.avgRating.toStringAsFixed(1),
+                            label: 'RATING',
+                          ),
+                        ),
+                        const _VertDivider(),
+                        Expanded(
+                          child: _StatBox(
+                            icon: Icons.rate_review_rounded,
+                            value: '${ground.reviewCount}',
+                            label: 'REVIEWS',
+                          ),
+                        ),
+                        const _VertDivider(),
+                        Expanded(
+                          child: _StatBox(
+                            icon: Icons.attach_money_rounded,
+                            value: ground.startingPrice > 0
+                                ? '\u20b9${ground.startingPrice.toStringAsFixed(0)}'
+                                : '\u2014',
+                            label: 'FROM/SLOT',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Sport pills (select sport for slots)
+                  if (ground.groundSports.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                      child: Text(
+                        'Select Sport',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 44,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        children: ground.groundSports.map((gs) {
+                          final sel = gs.id == _selectedGroundSport?.id;
+                          return GestureDetector(
+                            onTap: () => setState(() {
+                              _selectedGroundSport = gs;
+                              _selectedSlots.clear();
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: const EdgeInsets.only(right: 8),
+                              constraints: const BoxConstraints(minWidth: 100),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: sel
+                                    ? AppColors.primary.withValues(alpha: 0.1)
+                                    : colors.input,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color:
+                                      sel ? AppColors.primary : colors.border,
+                                  width: sel ? 2 : 1,
+                                ),
+                              ),
+                              child: Text(
+                                '${_emoji(gs.sport?.name ?? '')}  ${gs.sport?.name ?? 'Sport'}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: sel
+                                      ? AppColors.primary
+                                      : colors.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Slot calendar + grid
+                  if (_selectedGroundSport != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
                         decoration: BoxDecoration(
-                          color: colors.input,
+                          color: colors.card,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: colors.border),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            Expanded(
-                              child: _StatBox(
-                                icon: Icons.star_rounded,
-                                value: ground.avgRating.toStringAsFixed(1),
-                                label: 'RATING',
-                              ),
+                        child: TableCalendar(
+                          firstDay: DateTime.now(),
+                          lastDay: DateTime.now().add(const Duration(days: 30)),
+                          focusedDay: _focusedDay,
+                          selectedDayPredicate: (d) =>
+                              isSameDay(d, _selectedDay),
+                          onDaySelected: (sel, foc) => setState(() {
+                            _selectedDay = sel;
+                            _focusedDay = foc;
+                            _selectedSlots.clear();
+                          }),
+                          calendarStyle: CalendarStyle(
+                            selectedDecoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
                             ),
-                            const _VertDivider(),
-                            Expanded(
-                              child: _StatBox(
-                                icon: Icons.rate_review_rounded,
-                                value: '${ground.reviewCount}',
-                                label: 'REVIEWS',
-                              ),
-                            ),
-                            const _VertDivider(),
-                            Expanded(
-                              child: _StatBox(
-                                icon: Icons.attach_money_rounded,
-                                value: ground.startingPrice > 0
-                                    ? '\u20b9${ground.startingPrice.toStringAsFixed(0)}'
-                                    : '\u2014',
-                                label: 'FROM/SLOT',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Sport pills (select sport for slots)
-                      if (ground.groundSports.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                          child: Text(
-                            'Select Sport',
-                            style: TextStyle(
-                              fontSize: 14,
+                            selectedTextStyle: const TextStyle(
+                              color: AppColors.onPrimary,
                               fontWeight: FontWeight.w700,
+                            ),
+                            todayDecoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            todayTextStyle: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            defaultTextStyle:
+                                TextStyle(color: colors.textPrimary),
+                            weekendTextStyle:
+                                TextStyle(color: colors.textSecondary),
+                            outsideTextStyle: TextStyle(color: colors.border),
+                            disabledTextStyle: TextStyle(color: colors.border),
+                          ),
+                          headerStyle: HeaderStyle(
+                            formatButtonVisible: false,
+                            titleCentered: true,
+                            titleTextStyle: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
                               color: colors.textPrimary,
                             ),
+                            leftChevronIcon: Icon(Icons.chevron_left,
+                                color: colors.textSecondary),
+                            rightChevronIcon: Icon(Icons.chevron_right,
+                                color: colors.textSecondary),
                           ),
-                        ),
-                        SizedBox(
-                          height: 44,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            children: ground.groundSports.map((gs) {
-                              final sel = gs.id == _selectedGroundSport?.id;
-                              return GestureDetector(
-                                onTap: () => setState(() {
-                                  _selectedGroundSport = gs;
-                                  _selectedSlots.clear();
-                                }),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin: const EdgeInsets.only(right: 8),
-                                  constraints:
-                                      const BoxConstraints(minWidth: 100),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: sel
-                                        ? AppColors.primary
-                                            .withValues(alpha: 0.1)
-                                        : colors.input,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: sel
-                                          ? AppColors.primary
-                                          : colors.border,
-                                      width: sel ? 2 : 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '${_emoji(gs.sport?.name ?? '')}  ${gs.sport?.name ?? 'Sport'}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: sel
-                                          ? AppColors.primary
-                                          : colors.textSecondary,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                          daysOfWeekStyle: DaysOfWeekStyle(
+                            weekdayStyle: TextStyle(
+                                color: colors.textSecondary, fontSize: 12),
+                            weekendStyle: TextStyle(
+                                color: colors.textSecondary, fontSize: 12),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-
-                      // Slot calendar + grid
-                      if (_selectedGroundSport != null) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: colors.card,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: colors.border),
-                            ),
-                            child: TableCalendar(
-                              firstDay: DateTime.now(),
-                              lastDay:
-                                  DateTime.now().add(const Duration(days: 30)),
-                              focusedDay: _focusedDay,
-                              selectedDayPredicate: (d) =>
-                                  isSameDay(d, _selectedDay),
-                              onDaySelected: (sel, foc) => setState(() {
-                                _selectedDay = sel;
-                                _focusedDay = foc;
-                                _selectedSlots.clear();
-                              }),
-                              calendarStyle: CalendarStyle(
-                                selectedDecoration: const BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                selectedTextStyle: const TextStyle(
-                                  color: AppColors.onPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                todayDecoration: BoxDecoration(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                todayTextStyle: const TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                defaultTextStyle:
-                                    TextStyle(color: colors.textPrimary),
-                                weekendTextStyle:
-                                    TextStyle(color: colors.textSecondary),
-                                outsideTextStyle:
-                                    TextStyle(color: colors.border),
-                                disabledTextStyle:
-                                    TextStyle(color: colors.border),
-                              ),
-                              headerStyle: HeaderStyle(
-                                formatButtonVisible: false,
-                                titleCentered: true,
-                                titleTextStyle: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                  color: colors.textPrimary,
-                                ),
-                                leftChevronIcon: Icon(Icons.chevron_left,
-                                    color: colors.textSecondary),
-                                rightChevronIcon: Icon(Icons.chevron_right,
-                                    color: colors.textSecondary),
-                              ),
-                              daysOfWeekStyle: DaysOfWeekStyle(
-                                weekdayStyle: TextStyle(
-                                    color: colors.textSecondary, fontSize: 12),
-                                weekendStyle: TextStyle(
-                                    color: colors.textSecondary, fontSize: 12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Text(
-                            'Available Slots \u2014 ${_selectedDay.day}/${_selectedDay.month}/${_selectedDay.year}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: colors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: _SlotsGrid(
-                            groundSportId: _selectedGroundSport!.id,
-                            date:
-                                _selectedDay.toIso8601String().split('T').first,
-                            selectedSlots: _selectedSlots,
-                            onSlotToggle: (id) => setState(() {
-                              if (_selectedSlots.contains(id)) {
-                                _selectedSlots.remove(id);
-                              } else {
-                                _selectedSlots.add(id);
-                              }
-                            }),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-
-                      // Section nav pills
-                      SizedBox(
-                        height: 44,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          children: [
-                            _SectionPill('Overview', 0, _contentSection,
-                                () => setState(() => _contentSection = 0)),
-                            _SectionPill('Amenities', 1, _contentSection,
-                                () => setState(() => _contentSection = 1)),
-                            _SectionPill('Reviews', 2, _contentSection,
-                                () => setState(() => _contentSection = 2)),
-                          ],
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Available Slots \u2014 ${_selectedDay.day}/${_selectedDay.month}/${_selectedDay.year}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _SlotsGrid(
+                        groundSportId: _selectedGroundSport!.id,
+                        date: _selectedDay.toIso8601String().split('T').first,
+                        selectedSlots: _selectedSlots,
+                        onSlotToggle: (id) => setState(() {
+                          if (_selectedSlots.contains(id)) {
+                            _selectedSlots.remove(id);
+                          } else {
+                            _selectedSlots.add(id);
+                          }
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
-                      const SizedBox(height: 16),
-
-                      // Content sections
-                      if (_contentSection == 0)
-                        _OverviewSection(ground: ground),
-                      if (_contentSection == 1)
-                        _AmenitiesSection(ground: ground),
-                      if (_contentSection == 2) _ReviewsSection(ground: ground),
-
-                      // Extra bottom padding for booking bar
-                      const SizedBox(height: 100),
-                    ],
+                  // Section nav pills
+                  SizedBox(
+                    height: 44,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      children: [
+                        _SectionPill('Overview', 0, _contentSection,
+                            () => setState(() => _contentSection = 0)),
+                        _SectionPill('Amenities', 1, _contentSection,
+                            () => setState(() => _contentSection = 1)),
+                        _SectionPill('Reviews', 2, _contentSection,
+                            () => setState(() => _contentSection = 2)),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
 
-          // ── Fixed booking bar ──────────────────────────────────────────────
-          if (_selectedGroundSport != null && _selectedSlots.isNotEmpty)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _BookingBar(
-                groundSport: _selectedGroundSport!,
-                slotCount: _selectedSlots.length,
-                totalPrice: _totalPrice,
-                onBook: () => context.push(
-                  '/book/${_selectedGroundSport!.groundId}',
-                  extra: {
-                    'groundSport': _selectedGroundSport,
-                    'date': _selectedDay.toIso8601String().split('T').first,
-                    'slotIds': _selectedSlots.toList(),
-                    'totalPrice': _totalPrice,
-                  },
-                ),
+                  const SizedBox(height: 16),
+
+                  // Content sections
+                  if (_contentSection == 0) _OverviewSection(ground: ground),
+                  if (_contentSection == 1) _AmenitiesSection(ground: ground),
+                  if (_contentSection == 2) _ReviewsSection(ground: ground),
+
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
+          ),
         ],
       ),
+
+      // ── Booking bar ────────────────────────────────────────────────────────
+      // The shared widget rather than a hand-rolled copy: it already owns the
+      // bottom safe-area inset and the disabled/loading state.
+      bottomNavigationBar: !hasSelection
+          ? null
+          : StickyBottomBar(
+              priceLabel: 'TOTAL PRICE',
+              price: '\u20b9$_totalPrice',
+              buttonText:
+                  'Book Now (${_selectedSlots.length} slot${_selectedSlots.length > 1 ? 's' : ''})',
+              onPressed: () => context.push(
+                '/book/${_selectedGroundSport!.groundId}',
+                extra: {
+                  'groundSport': _selectedGroundSport,
+                  'date': _selectedDay.toIso8601String().split('T').first,
+                  'slotIds': _selectedSlots.toList(),
+                  'totalPrice': _totalPrice,
+                  // POST /bookings answers with the bare Booking row, which
+                  // carries no ground or sport name — carry them ourselves.
+                  'groundName': ground.name,
+                },
+              ),
+            ),
     );
   }
 }
@@ -878,12 +865,7 @@ class _SlotsGrid extends ConsumerWidget {
     );
 
     return slotsAsync.when(
-      loading: () => Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children:
-            List.generate(8, (_) => const ShimmerBox(height: 56, width: 100)),
-      ),
+      loading: () => const SlotGridShimmer(),
       error: (e, _) => ErrorView(
         message:
             apiErrorMessage(e, fallback: 'Could not load slots for this date'),
@@ -920,90 +902,3 @@ class _SlotsGrid extends ConsumerWidget {
 }
 
 // ── Booking bar ───────────────────────────────────────────────────────────────
-
-class _BookingBar extends StatelessWidget {
-  final GroundSportModel groundSport;
-  final int slotCount;
-  final int totalPrice;
-  final VoidCallback onBook;
-
-  const _BookingBar({
-    required this.groundSport,
-    required this.slotCount,
-    required this.totalPrice,
-    required this.onBook,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        16,
-        20,
-        MediaQuery.of(context).padding.bottom + 16,
-      ),
-      decoration: BoxDecoration(
-        color: colors.background.withValues(alpha: 0.92),
-        border: Border(top: BorderSide(color: colors.border)),
-      ),
-      child: Row(
-        children: [
-          Flexible(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'TOTAL PRICE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colors.textSecondary,
-                    letterSpacing: 1,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '\u20b9$totalPrice',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            flex: 3,
-            child: ElevatedButton(
-              onPressed: onBook,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.onPrimary,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                minimumSize: const Size(0, 52),
-              ),
-              child: Text(
-                'Book Now ($slotCount slot${slotCount > 1 ? 's' : ''})',
-                style:
-                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

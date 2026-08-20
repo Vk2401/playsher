@@ -36,6 +36,15 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   List<int> get _slotIds =>
       (widget.extra['slotIds'] as List?)?.cast<int>() ?? [];
   int get _totalPrice => widget.extra['totalPrice'] as int? ?? 0;
+  String? get _groundName => widget.extra['groundName'] as String?;
+
+  /// Fields the confirmation screen needs that the API's booking row does not
+  /// carry. Merged over the row so the screen never has to guess at aliases.
+  Map<String, dynamic> get _displayFields => {
+        if (_groundName != null) 'ground_name': _groundName,
+        if (_groundSport?.sport?.name != null)
+          'sport_name': _groundSport!.sport!.name,
+      };
 
   @override
   void initState() {
@@ -102,6 +111,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       if (_paymentMethod == 'pay_at_ground') {
         context.go('/booking-confirm', extra: {
           ...result,
+          ..._displayFields,
           'payment_method': 'Pay at Ground',
         });
         return;
@@ -115,6 +125,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         // Booking was created but doesn't need payment (unlikely path)
         context.go('/booking-confirm', extra: {
           ...result,
+          ..._displayFields,
           'payment_method': 'Online',
         });
         return;
@@ -195,6 +206,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       context.go('/booking-confirm', extra: {
         ...?_pendingBookingResult,
         ...?verifyData['booking'] as Map<String, dynamic>?,
+        ..._displayFields,
         'payment_method': 'Online',
         'razorpay_payment_id': response.paymentId,
       });
