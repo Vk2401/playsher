@@ -1,6 +1,49 @@
-const { Game, GameParticipant, Booking, User } = require('../models');
+const { Game, GameParticipant, Booking, GroundSport, Ground, Sport, User } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
+
+
+/**
+ * The booking a game runs on, with enough of the venue to render a card.
+ *
+ * A game has no price of its own: it is hosted on a booking, and the money and
+ * the venue both live there. The list query never included it, so clients had
+ * nothing to read and every game rendered as ₹0 at an unnamed ground.
+ */
+const BOOKING_INCLUDE = {
+  model: Booking,
+  as: 'booking',
+  attributes: ['id', 'slot_date', 'slot_time_from', 'slot_time_to', 'total_amount', 'status'],
+  include: [{
+    model: GroundSport,
+    as: 'groundSport',
+    attributes: ['id', 'price_per_half_hour'],
+    include: [
+      { model: Ground, as: 'ground', attributes: ['id', 'name', 'address'] },
+      { model: Sport, as: 'sport', attributes: ['id', 'name'] },
+    ],
+  }],
+};
+
+/**
+ * Attach the per-player share to a game.
+ *
+ * Computed here rather than in the client: money is never the client's to
+ * derive. Splits the booking total across the seats the host opened, which is
+ * how these games are actually settled.
+ */
+function withPricing(game) {
+  const json = typeof game.toJSON === 'function' ? game.toJSON() : game;
+  const total = parseFloat(json.booking?.total_amount ?? 0);
+  const seats = Number(json.max_participants) || 0;
+
+  json.total_amount = Number.isFinite(total) ? total : 0;
+  json.price_per_player =
+    seats > 0 && Number.isFinite(total)
+      ? Math.round((total / seats) * 100) / 100
+      : 0;
+  return json;
+}
 
 exports.list = async (req, res) => {
   try {
@@ -14,12 +57,14 @@ exports.list = async (req, res) => {
       include: [
         { model: User, as: 'hostedByUser', attributes: ['id', 'name'] },
         { model: GameParticipant, as: 'participants', attributes: ['id', 'user_id', 'status'] },
+        BOOKING_INCLUDE,
       ],
       limit,
       offset,
       distinct: true,
     });
-    return success(res, 'Games retrieved.', rows, 200, paginationMeta(count, page, limit));
+    return success(res, 'Games retrieved.', rows.map(withPricing), 200,
+      paginationMeta(count, page, limit));
   } catch (err) {
     return error(res, err.message, 500);
   }
@@ -31,11 +76,11 @@ exports.show = async (req, res) => {
       include: [
         { model: User, as: 'hostedByUser', attributes: ['id', 'name'] },
         { model: GameParticipant, as: 'participants', include: [{ model: User, as: 'user', attributes: ['id', 'name'] }] },
-        { model: Booking, as: 'booking' },
+        BOOKING_INCLUDE,
       ],
     });
     if (!game) return error(res, 'Game not found.', 404);
-    return success(res, 'Game retrieved.', game);
+    return success(res, 'Game retrieved.', withPricing(game));
   } catch (err) {
     return error(res, err.message, 500);
   }

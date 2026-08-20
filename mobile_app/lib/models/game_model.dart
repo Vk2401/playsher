@@ -43,25 +43,48 @@ class GameModel {
     this.participants = const [],
   });
 
+  /// Maps the shape `GET /games` actually returns.
+  ///
+  /// A game carries no schedule or money of its own — it is hosted on a
+  /// booking, and the date, times, venue and total all live there. This model
+  /// previously read `game_date`, `max_players`, `entry_fee` and a top-level
+  /// `groundSport`, none of which the API has ever sent, so every game rendered
+  /// with no date, no venue and a fee of zero.
   factory GameModel.fromJson(Map<String, dynamic> json) {
-    final gs = json['groundSport'] as Map<String, dynamic>? ??
+    final booking = json['booking'] as Map<String, dynamic>?;
+    final gs = booking?['groundSport'] as Map<String, dynamic>? ??
+        json['groundSport'] as Map<String, dynamic>? ??
         json['ground_sport'] as Map<String, dynamic>?;
     final sport = gs?['sport'] as Map<String, dynamic>?;
     final ground = gs?['ground'] as Map<String, dynamic>?;
-    final host = json['host'] as Map<String, dynamic>? ??
+    final host = json['hostedByUser'] as Map<String, dynamic>? ??
+        json['host'] as Map<String, dynamic>? ??
         json['user'] as Map<String, dynamic>?;
     final parts = (json['participants'] as List<dynamic>?) ?? [];
+
+    // Only participants who actually hold a seat count toward the fill bar.
+    final joined = parts.where((p) {
+      final status = (p as Map<String, dynamic>)['status']?.toString();
+      return status == null || status == 'accepted' || status == 'joined';
+    }).length;
 
     return GameModel(
       id: json['id'] as int,
       description: json['description'] as String?,
-      gameDate: json['game_date'] as String?,
-      startTime: json['start_time'] as String?,
-      endTime: json['end_time'] as String?,
-      maxPlayers: json['max_players'] as int? ?? 10,
-      currentPlayers: json['current_players'] as int? ?? 0,
-      entryFee: double.tryParse(json['entry_fee']?.toString() ?? ''),
-      status: json['status'] as String? ?? 'open',
+      gameDate:
+          booking?['slot_date'] as String? ?? json['game_date'] as String?,
+      startTime: booking?['slot_time_from'] as String? ??
+          json['start_time'] as String?,
+      endTime:
+          booking?['slot_time_to'] as String? ?? json['end_time'] as String?,
+      maxPlayers:
+          json['max_participants'] as int? ?? json['max_players'] as int? ?? 10,
+      currentPlayers: json['current_players'] as int? ?? joined,
+      // Server-computed share of the booking total. Money is never derived here.
+      entryFee: double.tryParse(json['price_per_player']?.toString() ?? '') ??
+          double.tryParse(json['entry_fee']?.toString() ?? ''),
+      status: json['status'] as String? ??
+          ((json['is_active'] as bool? ?? true) ? 'open' : 'closed'),
       sportName: sport?['name'] as String? ?? json['sport_name'] as String?,
       groundName: ground?['name'] as String? ?? json['ground_name'] as String?,
       groundCity: ground?['city'] as String? ?? json['ground_city'] as String?,
@@ -91,7 +114,12 @@ class GameModel {
 
   double get fillRate => maxPlayers > 0 ? currentPlayers / maxPlayers : 0;
 
-  String get formattedFee => entryFee != null && entryFee! > 0
-      ? '\u20b9${entryFee!.toStringAsFixed(0)}'
-      : 'Free';
+  /// Per-player share, or a dash when the booking carried no total — never
+  /// "Free", which would be a claim the API did not make.
+  String get formattedFee {
+    final fee = entryFee;
+    if (fee == null) return '\u2014';
+    if (fee <= 0) return 'Free';
+    return '\u20b9${fee.toStringAsFixed(0)}';
+  }
 }
