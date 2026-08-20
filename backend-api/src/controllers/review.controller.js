@@ -1,7 +1,7 @@
 const { Review, User, Ground, Coach, Booking, GroundSport } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
-const { completePastBookings } = require('../utils/bookingLifecycle');
+const { completeFinishedBookings } = require('../utils/bookingCompletion');
 
 exports.list = async (req, res) => {
   try {
@@ -103,30 +103,14 @@ exports.eligibility = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { review_type, rating, comment, ground_id, ground_sport_id, coach_id } = req.body;
+    // For ground/sport reviews, verify a completed booking exists
+    if (['ground', 'sport'].includes(req.body.review_type) && req.body.booking_id) {
+      // The gate below is the `completed` status itself, so settle this booking
+      // before reading it — otherwise someone who just played cannot review.
+      await completeFinishedBookings({ Booking }, { bookingId: req.body.booking_id });
 
-    // Whitelist. Spreading req.body let a client set is_active — publishing or
-    // hiding a review at will — and any other column the model happens to have.
-    const patch = {
-      review_type,
-      rating,
-      comment            : comment ?? null,
-      reviewed_by_user_id: req.user.id,
-    };
-
-    if (['ground', 'sport'].includes(review_type)) {
-      if (!ground_id) return error(res, 'ground_id is required for this review type.');
-
-      // The old check ran only `if (req.body.booking_id)`, so simply omitting
-      // that field skipped it entirely and anyone could review any ground.
-      // The booking is now looked up from the ground, never taken from the body.
-      const booking = await findQualifyingBooking(req.user.id, ground_id);
-      if (!booking) {
-        return error(res, 'Only players who have booked and played here can leave a review.', 403);
-      }
-
-      const duplicate = await Review.findOne({
-        where: { reviewed_by_user_id: req.user.id, ground_id, review_type },
+      const booking = await Booking.findOne({
+        where: { id: req.body.booking_id, user_id: req.user.id, status: 'completed' },
       });
       if (duplicate) return error(res, 'You have already reviewed this ground.', 409);
 
