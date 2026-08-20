@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../core/api_client.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../models/ground_sport_model.dart';
@@ -109,7 +110,8 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       final orderData = rawOrder['data'] as Map<String, dynamic>? ?? rawOrder;
       final orderId = orderData['order_id'] as String;
       final amountInPaise = orderData['amount'];
-      final keyId = orderData['key_id'] as String? ?? AppConstants.razorpayKeyId;
+      final keyId =
+          orderData['key_id'] as String? ?? AppConstants.razorpayKeyId;
 
       // Step 5: Open Razorpay checkout
       _razorpay.open({
@@ -118,7 +120,8 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         'currency': 'INR',
         'order_id': orderId,
         'name': AppConstants.appName,
-        'description': '${_groundSport?.sport?.name ?? 'Sport'} Booking - ${_slotIds.length} slot${_slotIds.length > 1 ? 's' : ''}',
+        'description':
+            '${_groundSport?.sport?.name ?? 'Sport'} Booking - ${_slotIds.length} slot${_slotIds.length > 1 ? 's' : ''}',
         'prefill': {
           'contact': '',
           'email': '',
@@ -165,7 +168,8 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Payment was successful but verification failed. Contact support.';
+          _error =
+              'Payment was successful but verification failed. Contact support.';
           _loading = false;
         });
       }
@@ -184,13 +188,16 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     // External wallet selected — payment flow continues via wallet app
   }
 
-  String _parseError(dynamic e) {
-    if (e is Exception) {
-      final msg = e.toString();
-      if (msg.contains('already booked')) return 'One or more slots are already booked.';
-      if (msg.contains('inactive')) return 'This ground is currently inactive.';
+  String _parseError(Object e) {
+    final msg = apiErrorMessage(e);
+    final lower = msg.toLowerCase();
+    if (lower.contains('already booked')) {
+      return 'One or more slots are already booked.';
     }
-    return 'Something went wrong. Please try again.';
+    if (lower.contains('inactive')) {
+      return 'This ground is currently inactive.';
+    }
+    return msg;
   }
 
   @override
@@ -262,9 +269,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.06),
+                  color: AppColors.primary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                  border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
@@ -315,9 +323,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.08),
+                  color: AppColors.error.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.error.withOpacity(0.2)),
+                  border:
+                      Border.all(color: AppColors.error.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
@@ -354,8 +363,8 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                   Expanded(
                     child: Text(
                       'Your payment info is secure and encrypted',
-                      style: TextStyle(
-                          fontSize: 11, color: colors.textSecondary),
+                      style:
+                          TextStyle(fontSize: 11, color: colors.textSecondary),
                     ),
                   ),
                 ],
@@ -464,7 +473,7 @@ class _SummaryCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.sports_rounded,
@@ -484,8 +493,7 @@ class _SummaryCard extends StatelessWidget {
                   ),
                   Text(
                     '\u20b9${groundSport?.pricePerSlot.toStringAsFixed(0) ?? 0} / slot',
-                    style: TextStyle(
-                        fontSize: 13, color: colors.textSecondary),
+                    style: TextStyle(fontSize: 13, color: colors.textSecondary),
                   ),
                 ],
               ),
@@ -497,9 +505,7 @@ class _SummaryCard extends StatelessWidget {
           Text(
             'SELECTED TIME',
             style: TextStyle(
-                fontSize: 10,
-                color: colors.textSecondary,
-                letterSpacing: 1),
+                fontSize: 10, color: colors.textSecondary, letterSpacing: 1),
           ),
           const SizedBox(height: 4),
           Text(
@@ -523,9 +529,10 @@ class _SummaryCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.08),
+              color: AppColors.accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.accent.withOpacity(0.2)),
+              border:
+                  Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -609,7 +616,7 @@ class _PaymentOption extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withOpacity(0.06)
+              ? AppColors.primary.withValues(alpha: 0.06)
               : colors.input,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(

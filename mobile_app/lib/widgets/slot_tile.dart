@@ -22,73 +22,83 @@ class SlotTile extends StatelessWidget {
     final available = slot.isAvailable;
     final active = available && selected;
 
-    return GestureDetector(
-      onTap: available ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.accent
-              : available
-                  ? colors.input
-                  : colors.border.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: active ? AppColors.accent : colors.border,
+    return Semantics(
+      button: available,
+      enabled: available,
+      selected: active,
+      label: available
+          ? '${slot.formattedStart} to ${slot.formattedEnd}'
+              '${active ? ', selected' : ', available'}'
+          : '${slot.formattedStart} to ${slot.formattedEnd}, already booked',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: available ? onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: active
+                ? AppColors.accent
+                : available
+                    ? colors.input
+                    : colors.border.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: active ? AppColors.accent : colors.border,
+            ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                    )
+                  ]
+                : null,
           ),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                  )
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              slot.formattedStart,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: active
-                    ? Colors.black
-                    : available
-                        ? colors.textPrimary
-                        : colors.textSecondary,
-              ),
-            ),
-            Text(
-              '\u2013',
-              style: TextStyle(
-                fontSize: 10,
-                color: active
-                    ? Colors.black54
-                    : colors.textSecondary,
-              ),
-            ),
-            Text(
-              slot.formattedEnd,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: active
-                    ? Colors.black
-                    : available
-                        ? colors.textSecondary
-                        : colors.border,
-              ),
-            ),
-            if (!available)
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                'Booked',
+                slot.formattedStart,
                 style: TextStyle(
-                    fontSize: 9, color: colors.textSecondary),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: active
+                      ? AppColors.onPrimary
+                      : available
+                          ? colors.textPrimary
+                          : colors.textSecondary,
+                ),
               ),
-          ],
+              Text(
+                '\u2013',
+                style: TextStyle(
+                  fontSize: 10,
+                  color:
+                      active ? AppColors.onPrimaryMuted : colors.textSecondary,
+                ),
+              ),
+              Text(
+                slot.formattedEnd,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: active ? AppColors.onPrimary : colors.textSecondary,
+                ),
+              ),
+              if (!available)
+                Text(
+                  'Booked',
+                  style: TextStyle(fontSize: 9, color: colors.textSecondary),
+                )
+              else if (active)
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(Icons.check_circle_rounded,
+                      size: 11, color: AppColors.onPrimary),
+                ),
+            ],
+          ),
         ),
       ),
     );

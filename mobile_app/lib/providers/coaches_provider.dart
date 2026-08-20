@@ -4,9 +4,8 @@ import '../models/coach_model.dart';
 
 final coachesProvider = FutureProvider<List<CoachModel>>((ref) async {
   final res = await ApiClient.getCoaches();
-  final list = res['data'] as List<dynamic>? ??
-      res['coaches'] as List<dynamic>? ??
-      [];
+  final list =
+      res['data'] as List<dynamic>? ?? res['coaches'] as List<dynamic>? ?? [];
   return CoachModel.listFromJson(list);
 });
 

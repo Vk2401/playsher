@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
+import '../core/api_error.dart';
 import '../core/storage.dart';
 import '../models/user_model.dart';
 
@@ -13,9 +15,9 @@ class AuthState {
 
   AuthState copyWith({UserModel? user, bool? isLoading, String? error}) =>
       AuthState(
-        user:      user      ?? this.user,
+        user: user ?? this.user,
         isLoading: isLoading ?? this.isLoading,
-        error:     error,
+        error: error,
       );
 
   bool get isAuthenticated => user != null;
@@ -32,7 +34,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final token = await StorageService.getAccessToken();
     final data = await StorageService.getUser();
     // Only restore session if we have BOTH a real token and user data
-    if (data != null && token != null && token.isNotEmpty && !token.startsWith('mock_')) {
+    if (data != null &&
+        token != null &&
+        token.isNotEmpty &&
+        !token.startsWith('mock_')) {
       state = state.copyWith(user: UserModel.fromJson(data));
     } else if (data != null && token == null) {
       // Stale user data without token — clear it
@@ -42,7 +47,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Called by ApiClient interceptor when a 401 is received.
   void _forceLogout() {
-    print('[Auth] Session expired — forcing logout');
+    if (kDebugMode) debugPrint('[Auth] Session expired — forcing logout');
     state = const AuthState();
   }
 
@@ -52,7 +57,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await ApiClient.sendOtp(mobile);
     } catch (e) {
-      print('[Auth] sendOtp error: $e');
+      if (kDebugMode) debugPrint('[Auth] sendOtp error: $e');
       // Proceed anyway — user still goes to OTP screen
     }
     state = state.copyWith(isLoading: false);
@@ -65,13 +70,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final res = await ApiClient.verifyOtp(mobile, otp);
       // playsher-api returns: { success, message, data: { ... } }
-      print('[Auth] verifyOtp response keys: ${res.keys.toList()}');
+      if (kDebugMode) debugPrint('[Auth] verifyOtp response keys: ${res.keys.toList()}');
 
       final data = res['data'] as Map<String, dynamic>?;
       if (data == null) {
         state = state.copyWith(
           isLoading: false,
-          error: res['message']?.toString() ?? 'Unexpected response from server',
+          error:
+              res['message']?.toString() ?? 'Unexpected response from server',
         );
         return false;
       }
@@ -97,14 +103,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } on DioException catch (e) {
       final errorMsg = _extractError(e);
-      print('[Auth] verifyOtp DioException: $errorMsg');
+      if (kDebugMode) debugPrint('[Auth] verifyOtp DioException: $errorMsg');
       state = state.copyWith(isLoading: false, error: errorMsg);
       // Re-throw so OTP screen can show the error
       throw Exception(errorMsg);
     } catch (e) {
-      print('[Auth] verifyOtp error: $e');
-      state = state.copyWith(isLoading: false, error: e.toString());
-      throw Exception(e.toString());
+      final errorMsg = apiErrorMessage(e);
+      state = state.copyWith(isLoading: false, error: errorMsg);
+      throw Exception(errorMsg);
     }
   }
 
@@ -112,7 +118,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       {String? email}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final res = await ApiClient.completeRegistration(name, mobile, email: email);
+      final res =
+          await ApiClient.completeRegistration(name, mobile, email: email);
       // playsher-api returns: { success, data: { access_token, refresh_token, user } }
       final data = res['data'] as Map<String, dynamic>?;
 
@@ -139,12 +146,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } on DioException catch (e) {
       final errorMsg = _extractError(e);
-      print('[Auth] completeRegistration error: $errorMsg');
+      if (kDebugMode) debugPrint('[Auth] completeRegistration error: $errorMsg');
       state = state.copyWith(isLoading: false, error: errorMsg);
       rethrow;
     } catch (e) {
-      print('[Auth] completeRegistration error: $e');
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: apiErrorMessage(e));
       rethrow;
     }
   }
@@ -161,21 +167,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Save tokens and user from playsher-api response data.
   /// Expects: { access_token, refresh_token, user: { id, name, mobile, email } }
   Future<void> _saveSession(Map<String, dynamic> data) async {
-    final accessToken  = data['access_token'] as String?;
+    final accessToken = data['access_token'] as String?;
     final refreshToken = data['refresh_token'] as String?;
-    final userJson     = data['user'] as Map<String, dynamic>?;
+    final userJson = data['user'] as Map<String, dynamic>?;
 
     if (accessToken != null && accessToken.isNotEmpty) {
       await StorageService.saveTokens(
         accessToken: accessToken,
         refreshToken: refreshToken ?? accessToken,
       );
-      print('[Auth] Token saved: ${accessToken.substring(0, accessToken.length > 20 ? 20 : accessToken.length)}...');
+      if (kDebugMode) debugPrint('[Auth] Session tokens stored');
     }
     if (userJson != null) {
       await StorageService.saveUser(userJson);
       state = state.copyWith(user: UserModel.fromJson(userJson));
-      print('[Auth] User saved: ${userJson['name']} (${userJson['mobile']})');
+      if (kDebugMode) debugPrint('[Auth] User profile stored');
     }
   }
 
@@ -184,12 +190,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
       return data['message']?.toString() ??
-             data['error']?.toString() ??
-             'Request failed';
+          data['error']?.toString() ??
+          'Request failed';
     }
     if (data is String && data.isNotEmpty) return data;
     if (e.response?.statusCode == 401) return 'Invalid OTP or session expired';
-    if (e.response?.statusCode == 422) return 'Validation failed — please check your input';
+    if (e.response?.statusCode == 422) {
+      return 'Validation failed — please check your input';
+    }
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
       return 'Connection timed out. Please try again.';

@@ -36,8 +36,7 @@ class CoachModel {
       name: json['name'] as String? ?? '',
       bio: json['bio'] as String?,
       experience: json['experience'] as int? ?? 0,
-      hourlyRate:
-          double.tryParse(json['hourly_rate']?.toString() ?? '0') ?? 0,
+      hourlyRate: double.tryParse(json['hourly_rate']?.toString() ?? '0') ?? 0,
       photo: json['photo'] as String?,
       rating: double.tryParse(json['rating']?.toString() ?? '0') ?? 0,
       reviewCount: json['review_count'] as int? ?? 0,
@@ -51,8 +50,7 @@ class CoachModel {
   static List<CoachModel> listFromJson(List<dynamic> list) =>
       list.map((e) => CoachModel.fromJson(e as Map<String, dynamic>)).toList();
 
-  String get formattedRate =>
-      '\u20b9${hourlyRate.toStringAsFixed(0)}/hr';
+  String get formattedRate => '\u20b9${hourlyRate.toStringAsFixed(0)}/hr';
 
   String get experienceLabel =>
       '$experience ${experience == 1 ? 'year' : 'years'}';

@@ -17,14 +17,12 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.wifi_off_rounded,
-                size: 56, color: colors.textSecondary),
+            Icon(Icons.wifi_off_rounded, size: 56, color: colors.textSecondary),
             const SizedBox(height: 16),
             Text(
               message ?? 'Something went wrong',
               textAlign: TextAlign.center,
-              style:
-                  TextStyle(fontSize: 15, color: colors.textSecondary),
+              style: TextStyle(fontSize: 15, color: colors.textSecondary),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 20),

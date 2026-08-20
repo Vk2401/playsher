@@ -15,13 +15,15 @@ class ReviewModel {
 
   factory ReviewModel.fromJson(Map<String, dynamic> json) {
     final reviewer = json['reviewer'] as Map<String, dynamic>? ??
-                     json['user'] as Map<String, dynamic>?;
+        json['user'] as Map<String, dynamic>?;
     return ReviewModel(
-      id:           json['id'] as int,
-      rating:       json['rating'] as int? ?? 0,
-      comment:      json['comment'] as String?,
-      reviewerName: reviewer?['name'] as String? ?? json['user_name'] as String? ?? 'Anonymous',
-      createdAt:    json['created_at'] != null
+      id: json['id'] as int,
+      rating: json['rating'] as int? ?? 0,
+      comment: json['comment'] as String?,
+      reviewerName: reviewer?['name'] as String? ??
+          json['user_name'] as String? ??
+          'Anonymous',
+      createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
     );

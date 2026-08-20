@@ -65,10 +65,12 @@ class GameModel {
       sportName: sport?['name'] as String? ?? json['sport_name'] as String?,
       groundName: ground?['name'] as String? ?? json['ground_name'] as String?,
       groundCity: ground?['city'] as String? ?? json['ground_city'] as String?,
-      groundAddress: ground?['address'] as String? ?? json['ground_address'] as String?,
+      groundAddress:
+          ground?['address'] as String? ?? json['ground_address'] as String?,
       hostName: host?['name'] as String? ?? json['host_name'] as String?,
       hostAvatar: host?['avatar'] as String? ?? json['host_avatar'] as String?,
-      gameLevel: json['game_level'] as String? ?? json['skill_level'] as String?,
+      gameLevel:
+          json['game_level'] as String? ?? json['skill_level'] as String?,
       visibility: json['visibility'] as String? ?? 'public',
       gameName: json['game_name'] as String? ?? json['name'] as String?,
       participants: ParticipantModel.listFromJson(parts),
@@ -87,8 +89,7 @@ class GameModel {
       : 'TBD';
   String get skillLevel => gameLevel ?? '';
 
-  double get fillRate =>
-      maxPlayers > 0 ? currentPlayers / maxPlayers : 0;
+  double get fillRate => maxPlayers > 0 ? currentPlayers / maxPlayers : 0;
 
   String get formattedFee => entryFee != null && entryFee! > 0
       ? '\u20b9${entryFee!.toStringAsFixed(0)}'

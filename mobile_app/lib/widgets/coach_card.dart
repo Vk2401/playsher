@@ -39,8 +39,8 @@ class CoachCard extends StatelessWidget {
                             width: 72,
                             height: 72,
                             color: colors.input,
-                            child: Icon(Icons.person,
-                                color: colors.textSecondary),
+                            child:
+                                Icon(Icons.person, color: colors.textSecondary),
                           ),
                           errorWidget: (_, __, ___) => _avatarFallback(colors),
                         )
@@ -111,8 +111,8 @@ class CoachCard extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.1),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(

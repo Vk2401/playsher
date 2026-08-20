@@ -1,22 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  // ── Legacy static aliases (used by locked screens & shimmer_loader) ──────
+  // ── Brand aliases ───────────────────────────────────────────────────────
+  // These four are identical in both themes, so exposing them here is safe.
+  // Surface/text colors are deliberately NOT aliased: they depend on
+  // brightness and must be read via `context.colors.*`.
   static const Color primary = AppColors.primary;
   static const Color accent = AppColors.accent;
   static const Color error = AppColors.error;
   static const Color star = AppColors.star;
-
-  // Dark legacy aliases
-  static const Color background = Color(0xFF000000);
-  static const Color card = Color(0xFF121212);
-  static const Color input = Color(0xFF1A1A1A);
-  static const Color elevated = Color(0xFF111111);
-  static const Color border = Color(0xFF2A2A2A);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecond = Color(0xFFA0A0A0);
-  static const Color surface = card;
 
   // ── Theme builders ──────────────────────────────────────────────────────
   static ThemeData get dark => _build(AppColors.dark, Brightness.dark);
@@ -28,9 +22,9 @@ class AppTheme {
     final colorScheme = ColorScheme(
       brightness: brightness,
       primary: AppColors.primary,
-      onPrimary: Colors.black,
+      onPrimary: AppColors.onPrimary,
       secondary: AppColors.accent,
-      onSecondary: Colors.black,
+      onSecondary: AppColors.onPrimary,
       error: AppColors.error,
       onError: Colors.white,
       surface: c.card,
@@ -56,6 +50,19 @@ class AppTheme {
         ),
         surfaceTintColor: Colors.transparent,
         iconTheme: IconThemeData(color: c.textPrimary),
+        // Status-bar glyphs must contrast with the scaffold, not with a
+        // hard-coded assumption of a dark app.
+        systemOverlayStyle: isDark
+            ? SystemUiOverlayStyle.light.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: c.background,
+                systemNavigationBarIconBrightness: Brightness.light,
+              )
+            : SystemUiOverlayStyle.dark.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: c.background,
+                systemNavigationBarIconBrightness: Brightness.dark,
+              ),
       ),
 
       cardTheme: CardThemeData(
@@ -107,12 +114,11 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
-          foregroundColor: Colors.black,
+          foregroundColor: AppColors.onPrimary,
           minimumSize: const Size(double.infinity, 52),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
-          textStyle:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           elevation: 0,
         ),
       ),
@@ -121,24 +127,25 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: c.textPrimary,
           minimumSize: const Size(double.infinity, 52),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           side: BorderSide(color: c.border),
-          textStyle:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          textStyle:
-              const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
 
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? Colors.black : Colors.white,
+        // The one genuine brightness branch: the nav bar sits flush against
+        // the gesture bar and wants pure black / pure white, not the surface tint.
+        backgroundColor:
+            isDark ? AppColors.dark.background : AppColors.light.card,
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -178,8 +185,7 @@ class AppTheme {
 
       dialogTheme: DialogThemeData(
         backgroundColor: c.card,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         titleTextStyle: TextStyle(
           color: c.textPrimary,
           fontSize: 18,
@@ -191,6 +197,27 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: c.input,
         contentTextStyle: TextStyle(color: c.textPrimary),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+
+      // A bare `Text` must never inherit a color that ignores brightness.
+      textTheme:
+          Typography.material2021(platform: TargetPlatform.android).black.apply(
+                bodyColor: c.textPrimary,
+                displayColor: c.textPrimary,
+                decorationColor: c.textPrimary,
+              ),
+
+      tabBarTheme: TabBarThemeData(
+        labelColor: AppColors.primary,
+        unselectedLabelColor: c.textSecondary,
+        indicatorColor: AppColors.primary,
+        dividerColor: c.border,
+      ),
+
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primary,
       ),
     );
   }

@@ -93,17 +93,14 @@ class GameCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   game.date,
-                  style: TextStyle(
-                      color: colors.textSecondary, fontSize: 12),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
                 const SizedBox(width: 12),
-                Icon(Icons.access_time,
-                    size: 14, color: colors.textSecondary),
+                Icon(Icons.access_time, size: 14, color: colors.textSecondary),
                 const SizedBox(width: 4),
                 Text(
                   game.time,
-                  style: TextStyle(
-                      color: colors.textSecondary, fontSize: 12),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
                 const Spacer(),
                 if (game.skillLevel.isNotEmpty)
@@ -114,8 +111,7 @@ class GameCard extends StatelessWidget {
             // Progress bar
             ProgressBar(
               value: game.fillRate,
-              label:
-                  '${game.currentPlayers}/${game.maxPlayers} players joined',
+              label: '${game.currentPlayers}/${game.maxPlayers} players joined',
             ),
             const SizedBox(height: 12),
             // Bottom: price + join

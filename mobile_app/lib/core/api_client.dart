@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show VoidCallback;
+import 'package:flutter/foundation.dart'
+    show VoidCallback, debugPrint, kDebugMode;
 import 'constants.dart';
 import 'storage.dart';
 
@@ -26,6 +27,13 @@ class ApiClient {
     return _dio;
   }
 
+  /// Debug-only logging. Bodies, tokens and headers are deliberately not
+  /// logged: in a release build these land in logcat, where any app holding
+  /// READ_LOGS can read a user's bearer token straight out of them.
+  static void _log(String Function() message) {
+    if (kDebugMode) debugPrint('[api] ${message()}');
+  }
+
   static void _init() {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -33,30 +41,18 @@ class ApiClient {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
-        try {
-          print('--- API Request --> ${options.method} ${options.uri}');
-          print('--- Auth: ${token != null ? "Bearer ${token.substring(0, token.length > 20 ? 20 : token.length)}..." : "NO TOKEN"}');
-          if (options.data != null) print('Body: ${options.data}');
-          print('------------------------------');
-        } catch (_) {}
+        _log(() => '--> ${options.method} ${options.uri} '
+            '(${token != null ? 'authenticated' : 'anonymous'})');
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        try {
-          final req = response.requestOptions;
-          print('--- API Response <-- ${response.statusCode} ${req.method} ${req.uri}');
-          print('Response data: ${response.data}');
-          print('------------------------------');
-        } catch (_) {}
+        _log(() => '<-- ${response.statusCode} '
+            '${response.requestOptions.method} ${response.requestOptions.uri}');
         return handler.next(response);
       },
       onError: (DioException err, handler) async {
-        try {
-          final req = err.requestOptions;
-          print('!!! API Error !! ${err.response?.statusCode} ${req.method} ${req.uri}');
-          print('Error response: ${err.response?.data}');
-          print('------------------------------');
-        } catch (_) {}
+        _log(() => '!!! ${err.response?.statusCode ?? err.type.name} '
+            '${err.requestOptions.method} ${err.requestOptions.uri}');
 
         // On 401: try refresh token first, then clear session
         if (err.response?.statusCode == 401 && !_handlingExpiry) {
@@ -123,14 +119,15 @@ class ApiClient {
   // POST /auth/verify-otp  { mobile, otp }
   // Returns: { success, message, data: { new_user, mobile } } or
   //          { success, message, data: { access_token, refresh_token, user } }
-  static Future<Map<String, dynamic>> verifyOtp(
-      String mobile, String otp, {String? deviceToken}) =>
+  static Future<Map<String, dynamic>> verifyOtp(String mobile, String otp,
+          {String? deviceToken}) =>
       _post('/auth/verify-otp', {'mobile': mobile, 'otp': otp});
 
   // POST /auth/complete-registration  { name, mobile, email? }
   // Returns: { success, data: { access_token, refresh_token, user } }
   static Future<Map<String, dynamic>> completeRegistration(
-          String name, String mobile, {String? email}) =>
+          String name, String mobile,
+          {String? email}) =>
       _post('/auth/complete-registration', {
         'name': name,
         'mobile': mobile,
@@ -174,7 +171,8 @@ class ApiClient {
 
   // GET /grounds (popular — same endpoint, sorted by rating/bookings)
   static Future<Map<String, dynamic>> getPopularGrounds({int page = 1}) async {
-    final res = await instance.get('/grounds', queryParameters: {'page': page, 'limit': 10});
+    final res = await instance
+        .get('/grounds', queryParameters: {'page': page, 'limit': 10});
     final raw = res.data as Map<String, dynamic>;
     return {'data': raw['data'] ?? []};
   }
@@ -201,8 +199,10 @@ class ApiClient {
   }
 
   // GET /grounds?sport_id=:id
-  static Future<Map<String, dynamic>> getGroundsByCategory(int categoryId) async {
-    final res = await instance.get('/grounds', queryParameters: {'sport_id': categoryId});
+  static Future<Map<String, dynamic>> getGroundsByCategory(
+      int categoryId) async {
+    final res = await instance
+        .get('/grounds', queryParameters: {'sport_id': categoryId});
     final raw = res.data as Map<String, dynamic>;
     return {'data': raw['data'] ?? []};
   }
@@ -224,7 +224,8 @@ class ApiClient {
 
   // ── Slots ─────────────────────────────────────────────────────────────────
   // GET /ground-sports/:groundSportId/slots?date=YYYY-MM-DD
-  static Future<Map<String, dynamic>> getSlots(int groundSportId, String date) async {
+  static Future<Map<String, dynamic>> getSlots(
+      int groundSportId, String date) async {
     final res = await instance.get(
       '/ground-sports/$groundSportId/slots',
       queryParameters: {'date': date},
@@ -306,7 +307,8 @@ class ApiClient {
       });
 
   // PATCH /bookings/:id/cancel  { cancellation_reason }
-  static Future<Map<String, dynamic>> cancelBooking(int id, String reason) async {
+  static Future<Map<String, dynamic>> cancelBooking(
+      int id, String reason) async {
     final res = await instance.patch('/bookings/$id/cancel', data: {
       'cancellation_reason': reason,
     });
@@ -314,21 +316,23 @@ class ApiClient {
   }
 
   // Cancel reasons — not available in playsher-api, return common defaults
-  static Future<Map<String, dynamic>> getCancelReasons() async =>
-      {'data': [
-        {'id': 1, 'reason': 'Change of plans'},
-        {'id': 2, 'reason': 'Found a better option'},
-        {'id': 3, 'reason': 'Weather conditions'},
-        {'id': 4, 'reason': 'Personal emergency'},
-        {'id': 5, 'reason': 'Other'},
-      ]};
+  static Future<Map<String, dynamic>> getCancelReasons() async => {
+        'data': [
+          {'id': 1, 'reason': 'Change of plans'},
+          {'id': 2, 'reason': 'Found a better option'},
+          {'id': 3, 'reason': 'Weather conditions'},
+          {'id': 4, 'reason': 'Personal emergency'},
+          {'id': 5, 'reason': 'Other'},
+        ]
+      };
 
   // ── Coupons ────────────────────────────────────────────────────────────────
   // Not available in playsher-api — stubs
   static Future<Map<String, dynamic>> getAvailableCoupons() async =>
       {'data': []};
 
-  static Future<Map<String, dynamic>> applyCoupon(int bookingId, int couponId) async =>
+  static Future<Map<String, dynamic>> applyCoupon(
+          int bookingId, int couponId) async =>
       {'success': false, 'message': 'Coupons not available yet'};
 
   // ── Reviews ───────────────────────────────────────────────────────────────
@@ -424,7 +428,7 @@ class ApiClient {
 
   // PUT /profile
   static Future<Map<String, dynamic>> updateProfile(
-          Map<String, dynamic> data) async {
+      Map<String, dynamic> data) async {
     final res = await instance.put('/profile', data: data);
     return res.data as Map<String, dynamic>;
   }
@@ -447,7 +451,8 @@ class ApiClient {
 
   // ── Bank Details ────────────────────────────────────────────────────────
   // POST /add-bank-details
-  static Future<Map<String, dynamic>> addBankDetails(Map<String, dynamic> data) =>
+  static Future<Map<String, dynamic>> addBankDetails(
+          Map<String, dynamic> data) =>
       _post('/add-bank-details', data);
 
   // GET /bank-details
@@ -480,8 +485,7 @@ class ApiClient {
 
   // ── Notifications ──────────────────────────────────────────────────────
   // Not available in playsher-api — stubs
-  static Future<Map<String, dynamic>> getNotifications() async =>
-      {'data': []};
+  static Future<Map<String, dynamic>> getNotifications() async => {'data': []};
 
   static Future<Map<String, dynamic>> markNotificationRead(int id) async =>
       {'success': true};
@@ -491,8 +495,9 @@ class ApiClient {
 
   // ── Rewards ────────────────────────────────────────────────────────────
   // Not available in playsher-api — stubs
-  static Future<Map<String, dynamic>> getAvailableCash(int points) async =>
-      {'data': {'cash': 0}};
+  static Future<Map<String, dynamic>> getAvailableCash(int points) async => {
+        'data': {'cash': 0}
+      };
 
   static Future<Map<String, dynamic>> getWithdrawHistory() async =>
       {'data': []};
@@ -511,16 +516,14 @@ class ApiClient {
 
   // ── Dashboard ────────────────────────────────────────────────────────────
   // Not a separate endpoint — aggregate from other calls
-  static Future<Map<String, dynamic>> getDashboard() async =>
-      {'data': {}};
+  static Future<Map<String, dynamic>> getDashboard() async => {'data': {}};
 
   // ── Misc ──────────────────────────────────────────────────────────────────
   // Not available in playsher-api — stubs
   static Future<Map<String, dynamic>> getAvailableCities() async =>
       {'data': []};
 
-  static Future<Map<String, dynamic>> getPriceFilters() async =>
-      {'data': []};
+  static Future<Map<String, dynamic>> getPriceFilters() async => {'data': []};
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> _post(

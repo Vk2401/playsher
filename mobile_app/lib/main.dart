@@ -9,10 +9,12 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  // Only the transparency is theme-independent. Icon brightness is owned by
+  // AppBarTheme.systemOverlayStyle so it inverts with light/dark — setting it
+  // here would pin white glyphs onto the light theme's near-white status bar.
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    statusBarBrightness: Brightness.dark,
   ));
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   runApp(const ProviderScope(child: PlaysherApp()));
 }

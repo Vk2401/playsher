@@ -15,7 +15,8 @@ class StorageService {
     required String refreshToken,
   }) async {
     await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
-    await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+    await _storage.write(
+        key: AppConstants.refreshTokenKey, value: refreshToken);
   }
 
   static Future<String?> getAccessToken() =>
@@ -51,14 +52,16 @@ class StorageService {
   // ── Theme Mode ────────────────────────────────────────────────────────────
   static Future<ThemeMode> getThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getString('theme_mode') ?? 'dark';
+    // Default to `system` so a first launch honours the device setting
+    // instead of forcing dark on a light-mode phone.
+    final value = prefs.getString('theme_mode') ?? 'system';
     switch (value) {
       case 'light':
         return ThemeMode.light;
-      case 'system':
-        return ThemeMode.system;
-      default:
+      case 'dark':
         return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
     }
   }
 

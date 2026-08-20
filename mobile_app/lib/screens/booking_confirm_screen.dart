@@ -24,7 +24,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
       duration: const Duration(milliseconds: 800),
     );
     _scaleAnim = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
-    _fadeAnim  = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
   }
 
@@ -37,13 +37,23 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final booking       = widget.bookingData ?? {};
-    final bookingRef    = booking['booking_reference']?.toString() ?? booking['id']?.toString() ?? booking['booking_id']?.toString() ?? '\u2014';
-    final amount        = booking['total_amount']?.toString() ?? booking['amount']?.toString() ?? '0';
-    final date          = booking['date']?.toString() ?? '\u2014';
-    final sport         = booking['sport']?.toString() ?? booking['sport_name']?.toString() ?? '\u2014';
-    final ground        = booking['ground']?.toString() ?? booking['ground_name']?.toString() ?? '\u2014';
-    final paymentMethod = booking['payment_method']?.toString() ?? 'Pay at Ground';
+    final booking = widget.bookingData ?? {};
+    final bookingRef = booking['booking_reference']?.toString() ??
+        booking['id']?.toString() ??
+        booking['booking_id']?.toString() ??
+        '\u2014';
+    final amount = booking['total_amount']?.toString() ??
+        booking['amount']?.toString() ??
+        '0';
+    final date = booking['date']?.toString() ?? '\u2014';
+    final sport = booking['sport']?.toString() ??
+        booking['sport_name']?.toString() ??
+        '\u2014';
+    final ground = booking['ground']?.toString() ??
+        booking['ground_name']?.toString() ??
+        '\u2014';
+    final paymentMethod =
+        booking['payment_method']?.toString() ?? 'Pay at Ground';
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -58,9 +68,10 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
               ScaleTransition(
                 scale: _scaleAnim,
                 child: Container(
-                  width: 120, height: 120,
+                  width: 120,
+                  height: 120,
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.1),
+                    color: AppColors.accent.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Container(
@@ -205,7 +216,8 @@ class _ConfirmRow extends StatelessWidget {
   final String value;
   final TextStyle? valueStyle;
 
-  const _ConfirmRow({required this.label, required this.value, this.valueStyle});
+  const _ConfirmRow(
+      {required this.label, required this.value, this.valueStyle});
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +225,8 @@ class _ConfirmRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+        Text(label,
+            style: TextStyle(fontSize: 13, color: colors.textSecondary)),
         Text(
           value,
           style: valueStyle ??

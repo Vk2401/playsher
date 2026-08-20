@@ -4,9 +4,8 @@ import '../models/game_model.dart';
 
 final gamesProvider = FutureProvider<List<GameModel>>((ref) async {
   final res = await ApiClient.getGames();
-  final list = res['data'] as List<dynamic>? ??
-      res['games'] as List<dynamic>? ??
-      [];
+  final list =
+      res['data'] as List<dynamic>? ?? res['games'] as List<dynamic>? ?? [];
   return GameModel.listFromJson(list);
 });
 
@@ -21,9 +20,8 @@ final gameDetailProvider =
 
 final myGamesProvider = FutureProvider<List<GameModel>>((ref) async {
   final res = await ApiClient.getGames();
-  final list = res['data'] as List<dynamic>? ??
-      res['games'] as List<dynamic>? ??
-      [];
+  final list =
+      res['data'] as List<dynamic>? ?? res['games'] as List<dynamic>? ?? [];
   // Filter for games user has joined (backend should support this;
   // for now return all games as placeholder)
   return GameModel.listFromJson(list);

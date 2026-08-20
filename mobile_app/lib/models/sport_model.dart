@@ -6,8 +6,8 @@ class SportModel {
   const SportModel({required this.id, required this.name, this.image});
 
   factory SportModel.fromJson(Map<String, dynamic> json) => SportModel(
-        id:    json['id'] as int,
-        name:  json['name'] as String? ?? '',
+        id: json['id'] as int,
+        name: json['name'] as String? ?? '',
         image: json['image'] as String?,
       );
 

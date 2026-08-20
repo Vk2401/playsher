@@ -213,8 +213,7 @@ class _OnboardPageView extends StatelessWidget {
                           width: 140,
                           height: 140,
                           decoration: BoxDecoration(
-                            color:
-                                AppColors.primary.withValues(alpha: 0.12),
+                            color: AppColors.primary.withValues(alpha: 0.12),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(page.icon,

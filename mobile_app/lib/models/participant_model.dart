@@ -25,10 +25,9 @@ class ParticipantModel {
     );
   }
 
-  static List<ParticipantModel> listFromJson(List<dynamic> list) =>
-      list
-          .map((e) => ParticipantModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+  static List<ParticipantModel> listFromJson(List<dynamic> list) => list
+      .map((e) => ParticipantModel.fromJson(e as Map<String, dynamic>))
+      .toList();
 
   String get initials {
     final parts = name.trim().split(' ');

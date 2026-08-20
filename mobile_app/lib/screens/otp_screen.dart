@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import '../core/theme.dart';
+import '../core/api_error.dart';
+import '../core/app_colors.dart';
 import '../providers/auth_provider.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
@@ -40,12 +41,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _resend() async {
+    if (_resending || _verifying) return;
     setState(() => _resending = true);
     await ref.read(authProvider.notifier).sendOtp(widget.mobile);
-    if (mounted) {
-      _startTimer();
-      setState(() => _resending = false);
-    }
+    if (!mounted) return;
+    _startTimer();
+    setState(() => _resending = false);
   }
 
   Future<void> _verify(String otp) async {
@@ -53,29 +54,30 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     setState(() => _verifying = true);
     try {
-      final isExisting = await ref
-          .read(authProvider.notifier)
-          .verifyOtp(widget.mobile, otp);
+      final isExisting =
+          await ref.read(authProvider.notifier).verifyOtp(widget.mobile, otp);
 
       if (!mounted) return;
-
+      // Do not clear _verifying — this screen is being replaced and the
+      // overlay must stay up until the next route is on screen.
       if (isExisting) {
-        context.go('/location'); // ask location on every new session
+        context.go('/location');
       } else {
-        context.push('/register', extra: widget.mobile);
+        context.pushReplacement('/register', extra: widget.mobile);
       }
     } catch (e) {
-      if (mounted) {
-        _ctrl.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      setState(() => _verifying = false);
+      _ctrl.clear();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
           SnackBar(
-            content: Text('Invalid OTP. Please try again.'),
-            backgroundColor: AppTheme.error,
+            content: Text(apiErrorMessage(e,
+                fallback: 'That code was not correct. Please try again.')),
+            backgroundColor: AppColors.error,
           ),
         );
-      }
-    } finally {
-      if (mounted) setState(() => _verifying = false);
     }
   }
 
@@ -88,138 +90,174 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   String get _maskedMobile {
     final m = widget.mobile;
-    if (m.length > 6) {
-      return '${m.substring(0, m.length - 6)}XXXXXX';
-    }
+    if (m.length > 6) return '${m.substring(0, m.length - 6)}XXXXXX';
     return m;
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => context.pop(),
+          tooltip: 'Back',
+          onPressed: _verifying ? null : () => context.pop(),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-
-              const Text(
-                'Verify OTP',
-                style: TextStyle(
-                  fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 10),
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(fontSize: 14, color: AppTheme.textSecond, height: 1.55),
-                  children: [
-                    const TextSpan(text: 'We sent a 6-digit code to '),
-                    TextSpan(
-                      text: _maskedMobile,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700, color: AppTheme.textPrimary,
+      // The keyboard is open on this screen; the body must scroll so the PIN
+      // field is never pushed under the fold.
+      body: Stack(
+        children: [
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+                      Text(
+                        'Verify OTP',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: colors.textPrimary,
+                        ),
                       ),
-                    ),
-                    const TextSpan(text: '.\nEnter it below to continue.'),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // PIN field
-              PinCodeTextField(
-                appContext: context,
-                length: 6,
-                controller: _ctrl,
-                keyboardType: TextInputType.number,
-                animationType: AnimationType.scale,
-                enabled: !_verifying,
-                autoFocus: true,
-                pinTheme: PinTheme(
-                  shape: PinCodeFieldShape.box,
-                  borderRadius: BorderRadius.circular(12),
-                  fieldHeight: 58,
-                  fieldWidth: 46,
-                  activeColor: AppTheme.primary,
-                  selectedColor: AppTheme.primary,
-                  inactiveColor: const Color(0xFFE5E7EB),
-                  activeFillColor: AppTheme.primary.withOpacity(0.05),
-                  selectedFillColor: AppTheme.primary.withOpacity(0.08),
-                  inactiveFillColor: Colors.white,
-                ),
-                enableActiveFill: true,
-                onCompleted: _verify,
-                onChanged: (_) {},
-              ),
-
-              const SizedBox(height: 20),
-
-              // Verifying indicator (inline, not full-screen)
-              if (_verifying)
-                const Row(
-                  children: [
-                    SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Verifying…',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textSecond),
-                    ),
-                  ],
-                ),
-
-              const Spacer(),
-
-              // Resend
-              Center(
-                child: _seconds > 0
-                    ? RichText(
+                      const SizedBox(height: 10),
+                      RichText(
                         text: TextSpan(
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecond),
+                          style: TextStyle(
+                              fontSize: 14,
+                              color: colors.textSecondary,
+                              height: 1.55),
                           children: [
-                            const TextSpan(text: 'Resend OTP in '),
+                            const TextSpan(text: 'We sent a 6-digit code to '),
                             TextSpan(
-                              text: '${_seconds}s',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700, color: AppTheme.primary,
+                              text: _maskedMobile,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: colors.textPrimary,
                               ),
                             ),
+                            const TextSpan(
+                                text: '.\nEnter it below to continue.'),
                           ],
                         ),
-                      )
-                    : _resending
-                        ? const SizedBox(
-                            width: 20, height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
-                          )
-                        : TextButton(
-                            onPressed: _resend,
-                            child: const Text('Resend OTP'),
-                          ),
+                      ),
+                      const SizedBox(height: 40),
+                      PinCodeTextField(
+                        appContext: context,
+                        length: 6,
+                        controller: _ctrl,
+                        keyboardType: TextInputType.number,
+                        animationType: AnimationType.scale,
+                        enabled: !_verifying,
+                        autoFocus: true,
+                        textStyle: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: colors.textPrimary,
+                        ),
+                        pinTheme: PinTheme(
+                          shape: PinCodeFieldShape.box,
+                          borderRadius: BorderRadius.circular(12),
+                          fieldHeight: 58,
+                          fieldWidth: 46,
+                          activeColor: AppColors.primary,
+                          selectedColor: AppColors.primary,
+                          inactiveColor: colors.border,
+                          activeFillColor:
+                              AppColors.primary.withValues(alpha: 0.05),
+                          selectedFillColor:
+                              AppColors.primary.withValues(alpha: 0.08),
+                          inactiveFillColor: colors.input,
+                        ),
+                        enableActiveFill: true,
+                        onCompleted: _verify,
+                        onChanged: (_) {},
+                      ),
+                      const SizedBox(height: 24),
+                      Center(
+                        child: _seconds > 0
+                            ? RichText(
+                                text: TextSpan(
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: colors.textSecondary),
+                                  children: [
+                                    const TextSpan(text: 'Resend OTP in '),
+                                    TextSpan(
+                                      text: '${_seconds}s',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : _resending
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.primary),
+                                  )
+                                : TextButton(
+                                    onPressed: _verifying ? null : _resend,
+                                    child: const Text('Resend OTP'),
+                                  ),
+                      ),
+                      const SizedBox(height: 36),
+                    ],
+                  ),
+                ),
               ),
-
-              const SizedBox(height: 36),
-            ],
+            ),
           ),
-        ),
+
+          // Verify auto-fires on the last digit, with the keyboard covering
+          // most of the screen — the wait has to be visible where the user is
+          // actually looking, so it is a full-screen overlay, not a spinner
+          // tucked into a button.
+          if (_verifying)
+            Positioned.fill(
+              child: ColoredBox(
+                color: colors.background.withValues(alpha: 0.86),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 3, color: AppColors.primary),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Verifying your code…',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

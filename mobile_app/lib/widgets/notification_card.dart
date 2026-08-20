@@ -34,9 +34,7 @@ class NotificationCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: notification.isRead
-                ? colors.card
-                : colors.card,
+            color: notification.isRead ? colors.card : colors.card,
             border: Border(bottom: BorderSide(color: colors.border)),
           ),
           child: Row(
@@ -122,11 +120,11 @@ class NotificationCard extends StatelessWidget {
       case 'game':
         return AppColors.accent;
       case 'payment':
-        return Colors.blue;
+        return AppColors.info;
       case 'promo':
         return Colors.purple;
       default:
-        return Colors.grey;
+        return AppColors.neutral;
     }
   }
 

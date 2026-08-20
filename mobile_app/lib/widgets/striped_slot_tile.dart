@@ -60,8 +60,8 @@ class StripedSlotTile extends StatelessWidget {
                 ),
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

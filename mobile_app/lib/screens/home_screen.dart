@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../models/sport_model.dart';
@@ -37,10 +38,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final auth = ref.watch(authProvider);
     final city = ref.watch(cityProvider);
     final sports = ref.watch(sportsProvider);
-    final grounds = ref.watch(
-        groundsProvider(GroundFilter(sportId: _selectedSportId)));
-    final unread = ref.watch(notificationsProvider
-        .select((list) => list.where((n) => !n.isRead).length));
+    final grounds =
+        ref.watch(groundsProvider(GroundFilter(sportId: _selectedSportId)));
+    final unread = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -51,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ref.invalidate(sportsProvider);
           ref.invalidate(
               groundsProvider(GroundFilter(sportId: _selectedSportId)));
+          await ref.read(notificationsProvider.notifier).load();
         },
         child: CustomScrollView(
           slivers: [
@@ -80,11 +81,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 const Icon(Icons.location_on_rounded,
                                     size: 13, color: AppColors.primary),
                                 const SizedBox(width: 3),
-                                Text(
-                                  city ?? auth.user?.city ?? 'Near You',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: colors.textSecondary,
+                                Flexible(
+                                  child: Text(
+                                    city ?? auth.user?.city ?? 'Near You',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: colors.textSecondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -95,74 +100,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Row(
                         children: [
                           // Notification bell
-                          GestureDetector(
-                            onTap: () => context.push('/notifications'),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: colors.input,
-                                    shape: BoxShape.circle,
-                                    border:
-                                        Border.all(color: colors.border),
+                          Semantics(
+                            label: unread > 0
+                                ? 'Notifications, $unread unread'
+                                : 'Notifications',
+                            button: true,
+                            child: GestureDetector(
+                              onTap: () => context.push('/notifications'),
+                              behavior: HitTestBehavior.opaque,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  const SizedBox(width: 44, height: 44),
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: colors.input,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: colors.border),
+                                    ),
+                                    child: Icon(
+                                      Icons.notifications_outlined,
+                                      size: 20,
+                                      color: colors.textSecondary,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.notifications_outlined,
-                                    size: 20,
-                                    color: colors.textSecondary,
-                                  ),
-                                ),
-                                if (unread > 0)
-                                  Positioned(
-                                    top: 0,
-                                    right: 0,
-                                    child: Container(
-                                      width: 16,
-                                      height: 16,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.error,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '$unread',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w700,
+                                  if (unread > 0)
+                                    Positioned(
+                                      top: 2,
+                                      right: 2,
+                                      child: Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.error,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            unread > 9 ? '9+' : '$unread',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () => context.go('/profile'),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.4),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  auth.user?.initials ?? '?',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.primary,
-                                    fontSize: 14,
+                          const SizedBox(width: 6),
+                          Semantics(
+                            label: 'Your profile',
+                            button: true,
+                            child: GestureDetector(
+                              onTap: () => context.go('/profile'),
+                              behavior: HitTestBehavior.opaque,
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Center(
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.4),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        auth.user?.initials ?? '?',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primary,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -210,13 +234,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // ── Categories ───────────────────────────────────────────────────
             SliverToBoxAdapter(
               child: sports.when(
-                loading: () => const SizedBox(height: 112),
-                error: (_, __) => const SizedBox.shrink(),
+                loading: () => const CategoryStripShimmer(),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: ErrorView(
+                    message:
+                        apiErrorMessage(e, fallback: 'Could not load sports'),
+                    onRetry: () => ref.invalidate(sportsProvider),
+                  ),
+                ),
                 data: (list) => _CategoriesRow(
                   sports: list,
                   selected: _selectedSportId,
-                  onSelect: (id) =>
-                      setState(() => _selectedSportId = id),
+                  onSelect: (id) => setState(() => _selectedSportId = id),
                 ),
               ),
             ),
@@ -224,11 +254,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // ── Featured carousel ────────────────────────────────────────────
             SliverToBoxAdapter(
               child: grounds.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: GroundCardShimmer(),
+                loading: () => const SizedBox(
+                  height: 300,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 20),
+                    child: Row(children: [FeaturedCardShimmer()]),
+                  ),
                 ),
-                error: (e, _) => ErrorView(message: e.toString()),
+                // The list below reports the same failure with a retry;
+                // repeating it here would stack two error blocks.
+                error: (_, __) => const SizedBox.shrink(),
                 data: (list) {
                   if (list.isEmpty) return const SizedBox.shrink();
                   final featured = list.take(5).toList();
@@ -236,8 +271,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(20, 24, 20, 14),
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 14),
                         child: Text(
                           'Featured',
                           style: TextStyle(
@@ -248,16 +282,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                       SizedBox(
-                        height: 280,
+                        // Sized off the current text scale so the card's
+                        // content cannot be clipped when the user bumps
+                        // font size in system settings.
+                        height: 300 *
+                            MediaQuery.textScalerOf(context)
+                                .clamp(maxScaleFactor: 1.4)
+                                .scale(1),
                         child: PageView.builder(
                           controller: _pageCtrl,
                           padEnds: false,
                           itemCount: featured.length,
                           itemBuilder: (_, i) => Padding(
-                            padding:
-                                EdgeInsets.only(left: i == 0 ? 20 : 0),
-                            child: GroundCard(
-                                ground: featured[i], wide: true),
+                            padding: EdgeInsets.only(left: i == 0 ? 20 : 0),
+                            child: GroundCard(ground: featured[i], wide: true),
                           ),
                         ),
                       ),
@@ -298,18 +336,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               loading: () =>
                   const SliverToBoxAdapter(child: ListShimmer(count: 2)),
               error: (e, _) => SliverToBoxAdapter(
-                  child: ErrorView(message: e.toString())),
+                child: ErrorView(
+                  message:
+                      apiErrorMessage(e, fallback: 'Could not load grounds'),
+                  onRetry: () => ref.invalidate(
+                      groundsProvider(GroundFilter(sportId: _selectedSportId))),
+                ),
+              ),
               data: (list) {
                 if (list.isEmpty) {
                   return SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Center(
-                        child: Text(
-                          'No grounds found',
-                          style:
-                              TextStyle(color: colors.textSecondary),
-                        ),
+                      padding: const EdgeInsets.fromLTRB(40, 24, 40, 40),
+                      child: Column(
+                        children: [
+                          Icon(Icons.search_off_rounded,
+                              size: 48, color: colors.textSecondary),
+                          const SizedBox(height: 12),
+                          Text(
+                            _selectedSportId == null
+                                ? 'No grounds near you yet'
+                                : 'No grounds for this sport yet',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                          if (_selectedSportId != null) ...[
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() => _selectedSportId = null),
+                              child: const Text('Show all sports'),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   );
@@ -372,7 +435,11 @@ class _CategoriesRow extends StatelessWidget {
     final allItems = [null, ...sports.map((s) => s as SportModel?)];
 
     return SizedBox(
-      height: 112,
+      height: 96 *
+              MediaQuery.textScalerOf(context)
+                  .clamp(maxScaleFactor: 1.3)
+                  .scale(1) +
+          16,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -408,9 +475,8 @@ class _CategoriesRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: isActive
-                          ? AppColors.primary
-                          : colors.textSecondary,
+                      color:
+                          isActive ? AppColors.primary : colors.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

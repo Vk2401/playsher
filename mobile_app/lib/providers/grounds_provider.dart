@@ -39,9 +39,9 @@ final groundsProvider =
     FutureProvider.family<List<GroundModel>, GroundFilter>((ref, filter) async {
   final res = await ApiClient.getGrounds(
     sportId: filter.sportId,
-    city:    filter.city,
-    search:  filter.search,
-    page:    filter.page,
+    city: filter.city,
+    search: filter.search,
+    page: filter.page,
   );
   final list = res['data'] as List<dynamic>? ?? [];
   return GroundModel.listFromJson(list);
@@ -49,7 +49,8 @@ final groundsProvider =
 
 // ── Ground detail ──────────────────────────────────────────────────────────
 
-final groundDetailProvider = FutureProvider.family<GroundModel, int>((ref, id) async {
+final groundDetailProvider =
+    FutureProvider.family<GroundModel, int>((ref, id) async {
   final res = await ApiClient.getGround(id);
   final data = res['data'] as Map<String, dynamic>? ?? res;
   return GroundModel.fromJson(data);
@@ -84,7 +85,8 @@ class SlotQuery {
 
 final slotsProvider =
     FutureProvider.family<List<SlotModel>, SlotQuery>((ref, query) async {
-  final res  = await ApiClient.getSlots(query.groundSportId, query.date);
-  final list = res['data'] as List<dynamic>? ?? res['slots'] as List<dynamic>? ?? [];
+  final res = await ApiClient.getSlots(query.groundSportId, query.date);
+  final list =
+      res['data'] as List<dynamic>? ?? res['slots'] as List<dynamic>? ?? [];
   return SlotModel.listFromJson(list);
 });

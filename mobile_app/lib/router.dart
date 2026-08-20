@@ -46,7 +46,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: notifier,
-
     redirect: (ctx, state) {
       final auth = ref.read(authProvider);
       final loc = state.matchedLocation;
@@ -67,24 +66,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       return null;
     },
-
     routes: [
       // ── Splash ─────────────────────────────────────────────────────────────
-      GoRoute(
-          path: '/splash', builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
 
       // ── Onboarding ─────────────────────────────────────────────────────────
       GoRoute(
-          path: '/onboarding',
-          builder: (_, __) => const OnboardingScreen()),
+          path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
 
       // ── Auth ───────────────────────────────────────────────────────────────
-      GoRoute(
-          path: '/login', builder: (_, __) => const PhoneScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const PhoneScreen()),
       GoRoute(
         path: '/otp',
-        builder: (_, state) =>
-            OtpScreen(mobile: state.extra as String? ?? ''),
+        builder: (_, state) => OtpScreen(mobile: state.extra as String? ?? ''),
       ),
       GoRoute(
         path: '/register',
@@ -105,9 +99,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                  path: '/home',
-                  builder: (_, __) => const HomeScreen()),
+              GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
             ],
           ),
           StatefulShellBranch(
@@ -121,9 +113,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                  path: '/games',
-                  builder: (_, __) => const GamesScreen()),
+              GoRoute(path: '/games', builder: (_, __) => const GamesScreen()),
             ],
           ),
           StatefulShellBranch(
@@ -136,8 +126,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                  path: '/profile',
-                  builder: (_, __) => const ProfileScreen()),
+                  path: '/profile', builder: (_, __) => const ProfileScreen()),
             ],
           ),
         ],

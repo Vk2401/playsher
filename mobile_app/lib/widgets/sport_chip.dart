@@ -50,7 +50,7 @@ class SportChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.black : colors.textPrimary,
+                color: selected ? AppColors.onPrimary : colors.textPrimary,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 fontSize: 13,
               ),

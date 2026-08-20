@@ -123,7 +123,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                         if (active > 0)
                           Text(
                             '$active active',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.accent,
                               fontWeight: FontWeight.w500,
@@ -163,7 +163,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               children: [
                 // ── SPORTS ───────────────────────────────────────────────
-                _SectionLabel(icon: null, label: 'SPORTS'),
+                const _SectionLabel(icon: null, label: 'SPORTS'),
                 const SizedBox(height: 10),
                 sportsAsync.when(
                   loading: () => const SizedBox(
@@ -179,8 +179,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                   ),
                   error: (_, __) => Text(
                     'Could not load sports',
-                    style: TextStyle(
-                        color: colors.textSecondary, fontSize: 13),
+                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   ),
                   data: (sports) => Wrap(
                     spacing: 8,
@@ -208,7 +207,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                     const _SectionLabel(icon: null, label: 'PRICE RANGE'),
                     Text(
                       '\u20b9${_priceRange.start.toInt()} - \u20b9${_priceRange.end.toInt()}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: AppColors.accent,
@@ -223,8 +222,8 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                     inactiveTrackColor: colors.border,
                     thumbColor: AppColors.accent,
                     overlayColor: AppColors.accent.withValues(alpha: 0.15),
-                    rangeThumbShape:
-                        const RoundRangeSliderThumbShape(enabledThumbRadius: 10),
+                    rangeThumbShape: const RoundRangeSliderThumbShape(
+                        enabledThumbRadius: 10),
                     trackHeight: 4,
                   ),
                   child: RangeSlider(
@@ -252,7 +251,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                 const SizedBox(height: 28),
 
                 // ── DISTANCE ─────────────────────────────────────────────
-                _SectionLabel(
+                const _SectionLabel(
                     icon: Icons.location_on_outlined, label: 'DISTANCE'),
                 const SizedBox(height: 10),
                 Wrap(
@@ -264,22 +263,21 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                       return _ChipButton(
                         label: '$d km',
                         selected: sel,
-                        onTap: () => setState(
-                            () => _distanceKm = sel ? null : d),
+                        onTap: () =>
+                            setState(() => _distanceKm = sel ? null : d),
                       );
                     }),
                     _ChipButton(
                       label: 'Any',
                       selected: _distanceKm == null,
-                      onTap: () =>
-                          setState(() => _distanceKm = null),
+                      onTap: () => setState(() => _distanceKm = null),
                     ),
                   ],
                 ),
                 const SizedBox(height: 28),
 
                 // ── MINIMUM RATING ───────────────────────────────────────
-                _SectionLabel(
+                const _SectionLabel(
                     icon: Icons.star_rounded, label: 'MINIMUM RATING'),
                 const SizedBox(height: 10),
                 Wrap(
@@ -293,8 +291,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                     return _ChipButton(
                       label: label,
                       selected: sel,
-                      onTap: () => setState(
-                          () => _minRating = sel ? null : r),
+                      onTap: () => setState(() => _minRating = sel ? null : r),
                     );
                   }).toList(),
                 ),
@@ -317,8 +314,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                   ),
                   error: (_, __) => Text(
                     'Could not load amenities',
-                    style: TextStyle(
-                        color: colors.textSecondary, fontSize: 13),
+                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   ),
                   data: (amenities) => Wrap(
                     spacing: 10,
@@ -361,9 +357,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                       fontSize: 16, fontWeight: FontWeight.w800),
                 ),
                 child: Text(
-                  active > 0
-                      ? 'Apply Filters ($active)'
-                      : 'Apply Filters',
+                  active > 0 ? 'Apply Filters ($active)' : 'Apply Filters',
                 ),
               ),
             ),
@@ -472,9 +466,8 @@ class _AmenityChip extends StatelessWidget {
         width: (MediaQuery.of(context).size.width - 50) / 2,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.accent.withValues(alpha: 0.1)
-              : colors.card,
+          color:
+              selected ? AppColors.accent.withValues(alpha: 0.1) : colors.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? AppColors.accent : colors.border,

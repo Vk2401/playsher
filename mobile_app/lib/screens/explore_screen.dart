@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/grounds_provider.dart';
 import '../widgets/ground_card.dart';
@@ -98,8 +99,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       child: TextField(
                         controller: _search,
                         autofocus: widget.initialSearch != null,
-                        style: TextStyle(
-                            color: colors.textPrimary, fontSize: 14),
+                        style:
+                            TextStyle(color: colors.textPrimary, fontSize: 14),
                         cursorColor: AppColors.primary,
                         decoration: InputDecoration(
                           hintText: 'Search grounds or sports\u2026',
@@ -143,8 +144,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     ...list.map((s) => _FilterPill(
                           label: s.name,
                           selected: _sportId == s.id,
-                          onTap: () => setState(() =>
-                              _sportId = _sportId == s.id ? null : s.id),
+                          onTap: () => setState(
+                              () => _sportId = _sportId == s.id ? null : s.id),
                         )),
                   ],
                 ),
@@ -157,9 +158,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               child: grounds.when(
                 loading: () => const ListShimmer(count: 4),
                 error: (e, _) => ErrorView(
-                  message: e.toString(),
-                  onRetry: () =>
-                      ref.invalidate(groundsProvider(filter)),
+                  message:
+                      apiErrorMessage(e, fallback: 'Could not load grounds'),
+                  onRetry: () => ref.invalidate(groundsProvider(filter)),
                 ),
                 data: (list) {
                   if (list.isEmpty) {
@@ -173,11 +174,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     );
                   }
                   return ListView.builder(
-                    padding:
-                        const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                     itemCount: list.length,
-                    itemBuilder: (_, i) =>
-                        GroundCard(ground: list[i]),
+                    itemBuilder: (_, i) => GroundCard(ground: list[i]),
                   );
                 },
               ),

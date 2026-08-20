@@ -41,10 +41,11 @@ class BookingModel {
 
     // Try to get ground image
     final images = (ground?['images'] as List<dynamic>?) ??
-        (ground?['slider_images'] as List<dynamic>?) ?? [];
+        (ground?['slider_images'] as List<dynamic>?) ??
+        [];
     final primaryImg = images.isNotEmpty
         ? ((images.first as Map<String, dynamic>)['image'] as String? ??
-           (images.first as Map<String, dynamic>)['image_url'] as String?)
+            (images.first as Map<String, dynamic>)['image_url'] as String?)
         : null;
 
     // Handle booked slots: 'booked_slots' (backend) or 'slots'
@@ -57,24 +58,31 @@ class BookingModel {
     if (slots.isNotEmpty) {
       final first = slots.first as Map<String, dynamic>;
       final slot = first['slot'] as Map<String, dynamic>? ?? first;
-      sTime = slot['slot_start_time'] as String? ?? slot['from_time'] as String? ?? slot['start_time'] as String?;
-      eTime = slot['slot_end_time'] as String? ?? slot['to_time'] as String? ?? slot['end_time'] as String?;
+      sTime = slot['slot_start_time'] as String? ??
+          slot['from_time'] as String? ??
+          slot['start_time'] as String?;
+      eTime = slot['slot_end_time'] as String? ??
+          slot['to_time'] as String? ??
+          slot['end_time'] as String?;
     }
 
     // Total price: try multiple field names
     final price = double.tryParse(json['total_price']?.toString() ?? '') ??
         double.tryParse(json['total']?.toString() ?? '') ??
-        double.tryParse(payment?['total']?.toString() ?? '') ?? 0;
+        double.tryParse(payment?['total']?.toString() ?? '') ??
+        0;
 
     return BookingModel(
       id: json['id'] as int,
       bookingDate: json['booking_date'] as String? ?? '',
       status: json['status'] as String? ?? 'pending',
       totalPrice: price,
-      cancellationReason: json['cancellation_reason'] as String? ?? json['cancel_reason'] as String?,
+      cancellationReason: json['cancellation_reason'] as String? ??
+          json['cancel_reason'] as String?,
       groundName: ground?['name'] as String? ?? json['ground_name'] as String?,
       sportName: sport?['name'] as String? ?? category?['name'] as String?,
-      paymentStatus: payment?['status'] as String? ?? payment?['payment_status'] as String?,
+      paymentStatus: payment?['status'] as String? ??
+          payment?['payment_status'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
@@ -85,8 +93,9 @@ class BookingModel {
     );
   }
 
-  static List<BookingModel> listFromJson(List<dynamic> list) =>
-      list.map((e) => BookingModel.fromJson(e as Map<String, dynamic>)).toList();
+  static List<BookingModel> listFromJson(List<dynamic> list) => list
+      .map((e) => BookingModel.fromJson(e as Map<String, dynamic>))
+      .toList();
 
   bool get isUpcoming => status == 'pending' || status == 'confirmed';
   bool get isPast => status == 'completed';

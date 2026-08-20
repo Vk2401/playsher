@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/games_provider.dart';
 import '../widgets/game_card.dart';
@@ -62,8 +63,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                         Text(
                           'Play Together',
                           style: TextStyle(
-                              fontSize: 13,
-                              color: colors.textSecondary),
+                              fontSize: 13, color: colors.textSecondary),
                         ),
                       ],
                     ),
@@ -79,8 +79,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                AppColors.accent.withValues(alpha: 0.3),
+                            color: AppColors.accent.withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -111,8 +110,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                      color:
-                          AppColors.accent.withValues(alpha: 0.2)),
+                      color: AppColors.accent.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
@@ -120,8 +118,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color:
-                            AppColors.accent.withValues(alpha: 0.15),
+                        color: AppColors.accent.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.emoji_events_rounded,
@@ -143,8 +140,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                           Text(
                             'Browse open games near you',
                             style: TextStyle(
-                                fontSize: 12,
-                                color: colors.textSecondary),
+                                fontSize: 12, color: colors.textSecondary),
                           ),
                         ],
                       ),
@@ -194,14 +190,13 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                   RefreshIndicator(
                     color: AppColors.accent,
                     backgroundColor: colors.card,
-                    onRefresh: () async =>
-                        ref.invalidate(gamesProvider),
+                    onRefresh: () async => ref.invalidate(gamesProvider),
                     child: gamesAsync.when(
                       loading: () => const ListShimmer(count: 3),
                       error: (e, _) => ErrorView(
-                        message: e.toString(),
-                        onRetry: () =>
-                            ref.invalidate(gamesProvider),
+                        message: apiErrorMessage(e,
+                            fallback: 'Could not load games'),
+                        onRetry: () => ref.invalidate(gamesProvider),
                       ),
                       data: (games) {
                         if (games.isEmpty) {
@@ -227,23 +222,20 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                                   'No open games right now.',
                                   style: TextStyle(
                                       fontSize: 16,
-                                      color:
-                                          colors.textSecondary),
+                                      color: colors.textSecondary),
                                 ),
                               ],
                             ),
                           );
                         }
                         return ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(
-                              20, 0, 20, 20),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                           itemCount: games.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 12),
                           itemBuilder: (_, i) => GameCard(
                             game: games[i],
-                            onTap: () => context
-                                .push('/games/${games[i].id}'),
+                            onTap: () => context.push('/games/${games[i].id}'),
                           ),
                         );
                       },
@@ -253,8 +245,8 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                   Center(
                     child: Text(
                       'No games joined yet.',
-                      style: TextStyle(
-                          color: colors.textSecondary, fontSize: 15),
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 15),
                     ),
                   ),
                 ],

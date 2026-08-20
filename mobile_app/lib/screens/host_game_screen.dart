@@ -47,26 +47,37 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           // Sport selection
-          Text('Select Sport', style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+          Text('Select Sport',
+              style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _sports.map((s) => SportChip(
-              label: s['name']!,
-              emoji: s['emoji'],
-              selected: _selectedSport == s['name'],
-              onTap: () => setState(() => _selectedSport = s['name']),
-            )).toList(),
+            children: _sports
+                .map((s) => SportChip(
+                      label: s['name']!,
+                      emoji: s['emoji'],
+                      selected: _selectedSport == s['name'],
+                      onTap: () => setState(() => _selectedSport = s['name']),
+                    ))
+                .toList(),
           ),
           const SizedBox(height: 24),
 
           // Venue
-          Text('Venue', style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+          Text('Venue',
+              style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           TextField(
             controller: _venueCtrl,
-            decoration: const InputDecoration(hintText: 'Enter venue name or address'),
+            decoration:
+                const InputDecoration(hintText: 'Enter venue name or address'),
           ),
           const SizedBox(height: 24),
 
@@ -95,7 +106,9 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
               Expanded(
                 child: _PickerTile(
                   label: 'Time',
-                  value: _selectedTime != null ? _selectedTime!.format(context) : 'Select',
+                  value: _selectedTime != null
+                      ? _selectedTime!.format(context)
+                      : 'Select',
                   icon: Icons.access_time,
                   onTap: () async {
                     final time = await showTimePicker(
@@ -111,28 +124,52 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
           const SizedBox(height: 24),
 
           // Max players
-          Text('Max Players', style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+          Text('Max Players',
+              style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Row(
             children: [
-              _CounterButton(icon: Icons.remove, onTap: () { if (_maxPlayers > 2) setState(() => _maxPlayers--); }),
+              _CounterButton(
+                  icon: Icons.remove,
+                  onTap: () {
+                    if (_maxPlayers > 2) setState(() => _maxPlayers--);
+                  }),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text('$_maxPlayers', style: TextStyle(color: colors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700)),
+                child: Text('$_maxPlayers',
+                    style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700)),
               ),
-              _CounterButton(icon: Icons.add, onTap: () { if (_maxPlayers < 30) setState(() => _maxPlayers++); }),
+              _CounterButton(
+                  icon: Icons.add,
+                  onTap: () {
+                    if (_maxPlayers < 30) setState(() => _maxPlayers++);
+                  }),
             ],
           ),
           const SizedBox(height: 24),
 
           // Skill level
-          Text('Skill Level', style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+          Text('Skill Level',
+              style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _skillLevel,
+            initialValue: _skillLevel,
             dropdownColor: colors.card,
-            items: _levels.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-            onChanged: (v) { if (v != null) setState(() => _skillLevel = v); },
+            items: _levels
+                .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _skillLevel = v);
+            },
             decoration: const InputDecoration(),
           ),
           const SizedBox(height: 24),
@@ -151,14 +188,19 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_isPublic ? 'Public Game' : 'Private Game', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600)),
-                    Text(_isPublic ? 'Anyone can join' : 'Invite only', style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                    Text(_isPublic ? 'Public Game' : 'Private Game',
+                        style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600)),
+                    Text(_isPublic ? 'Anyone can join' : 'Invite only',
+                        style: TextStyle(
+                            color: colors.textSecondary, fontSize: 12)),
                   ],
                 ),
                 Switch(
                   value: _isPublic,
                   onChanged: (v) => setState(() => _isPublic = v),
-                  activeColor: AppColors.primary,
+                  activeThumbColor: AppColors.primary,
                 ),
               ],
             ),
@@ -169,12 +211,14 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
           SizedBox(
             height: 52,
             child: ElevatedButton(
-              onPressed: _selectedSport == null ? null : () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Game published!')),
-                );
-                context.pop();
-              },
+              onPressed: _selectedSport == null
+                  ? null
+                  : () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Game published!')),
+                      );
+                      context.pop();
+                    },
               child: const Text('Publish Game'),
             ),
           ),
@@ -191,7 +235,11 @@ class _PickerTile extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _PickerTile({required this.label, required this.value, required this.icon, required this.onTap});
+  const _PickerTile(
+      {required this.label,
+      required this.value,
+      required this.icon,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -212,8 +260,13 @@ class _PickerTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 11, color: colors.textSecondary)),
-                Text(value, style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600)),
+                Text(label,
+                    style:
+                        TextStyle(fontSize: 11, color: colors.textSecondary)),
+                Text(value,
+                    style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w600)),
               ],
             ),
           ],
@@ -234,7 +287,8 @@ class _CounterButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44, height: 44,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           color: colors.card,
           borderRadius: BorderRadius.circular(12),

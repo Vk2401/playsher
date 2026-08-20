@@ -47,8 +47,7 @@ class ParticipantAvatar extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: size / 2,
-              backgroundColor:
-                  AppColors.primary.withValues(alpha: 0.15),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.15),
               backgroundImage: participant!.avatar != null
                   ? NetworkImage(participant!.avatar!)
                   : null,
@@ -68,8 +67,8 @@ class ParticipantAvatar extends StatelessWidget {
                 bottom: -2,
                 right: -2,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
                     color: AppColors.accent,
                     borderRadius: BorderRadius.circular(4),
@@ -77,7 +76,7 @@ class ParticipantAvatar extends StatelessWidget {
                   child: const Text(
                     'HOST',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: AppColors.onPrimary,
                       fontSize: 8,
                       fontWeight: FontWeight.w700,
                     ),
@@ -97,7 +96,7 @@ class ParticipantAvatar extends StatelessWidget {
                     border: Border.all(color: colors.card, width: 2),
                   ),
                   child: const Icon(Icons.check,
-                      size: 10, color: Colors.white),
+                      size: 10, color: AppColors.onPrimary),
                 ),
               ),
           ],

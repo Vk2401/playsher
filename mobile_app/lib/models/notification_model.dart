@@ -27,10 +27,9 @@ class NotificationModel {
             : DateTime.now(),
       );
 
-  static List<NotificationModel> listFromJson(List<dynamic> list) =>
-      list
-          .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+  static List<NotificationModel> listFromJson(List<dynamic> list) => list
+      .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
+      .toList();
 
   NotificationModel copyWith({bool? isRead}) => NotificationModel(
         id: id,

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../core/animations.dart';
 import '../core/app_colors.dart';
 
 import '../models/ground_model.dart';
@@ -53,7 +54,7 @@ class _WideCard extends StatelessWidget {
     final colors = context.colors;
     final imageUrl = ground.primaryImageUrl;
 
-    return GestureDetector(
+    return AppAnimations.tapScale(
       onTap: () => context.push('/grounds/${ground.id}'),
       child: Container(
         width: 260,
@@ -145,12 +146,12 @@ class _WideCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(Icons.star_rounded,
-                                    size: 12, color: Colors.black),
+                                    size: 12, color: AppColors.onPrimary),
                                 const SizedBox(width: 2),
                                 Text(
                                   ground.avgRating.toStringAsFixed(1),
                                   style: const TextStyle(
-                                    color: Colors.black,
+                                    color: AppColors.onPrimary,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -159,26 +160,9 @@ class _WideCard extends StatelessWidget {
                             ),
                           ),
                         if (onFavoriteToggle != null)
-                          GestureDetector(
-                            onTap: onFavoriteToggle,
-                            child: Container(
-                              width: 30,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                color:
-                                    Colors.black.withValues(alpha: 0.4),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                isFavorite
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                size: 16,
-                                color: isFavorite
-                                    ? AppColors.error
-                                    : Colors.white,
-                              ),
-                            ),
+                          _FavoriteButton(
+                            isFavorite: isFavorite,
+                            onTap: onFavoriteToggle!,
                           ),
                       ],
                     ),
@@ -210,10 +194,14 @@ class _WideCard extends StatelessWidget {
                         Icon(Icons.location_on_rounded,
                             size: 12, color: colors.textSecondary),
                         const SizedBox(width: 3),
-                        Text(
-                          ground.city!,
-                          style: TextStyle(
-                              fontSize: 11, color: colors.textSecondary),
+                        Expanded(
+                          child: Text(
+                            ground.city!,
+                            style: TextStyle(
+                                fontSize: 11, color: colors.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -223,8 +211,11 @@ class _WideCard extends StatelessWidget {
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
+                      // One row only: the carousel gives this card a fixed
+                      // height, and a second run pushes the price out of it.
+                      clipBehavior: Clip.hardEdge,
                       children: ground.amenities
-                          .take(3)
+                          .take(2)
                           .map((a) => Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
@@ -251,6 +242,8 @@ class _WideCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                 ],
               ),
@@ -280,7 +273,7 @@ class _HorizontalCard extends StatelessWidget {
     final colors = context.colors;
     final imageUrl = ground.primaryImageUrl;
 
-    return GestureDetector(
+    return AppAnimations.tapScale(
       onTap: () => context.push('/grounds/${ground.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -313,26 +306,13 @@ class _HorizontalCard extends StatelessWidget {
                 ),
                 if (onFavoriteToggle != null)
                   Positioned(
-                    top: 6,
-                    right: 6,
-                    child: GestureDetector(
-                      onTap: onFavoriteToggle,
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isFavorite
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 14,
-                          color:
-                              isFavorite ? AppColors.error : Colors.white,
-                        ),
-                      ),
+                    top: -6,
+                    right: -6,
+                    child: _FavoriteButton(
+                      isFavorite: isFavorite,
+                      onTap: onFavoriteToggle!,
+                      visualSize: 26,
+                      iconSize: 14,
                     ),
                   ),
               ],
@@ -400,12 +380,16 @@ class _HorizontalCard extends StatelessWidget {
                         const SizedBox(width: 8),
                       ],
                       if (ground.startingPrice > 0)
-                        Text(
-                          ground.formattedStartingPrice,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                        Flexible(
+                          child: Text(
+                            ground.formattedStartingPrice,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                     ],
@@ -420,11 +404,59 @@ class _HorizontalCard extends StatelessWidget {
   }
 }
 
+/// Favourite toggle with a 44x44 hit area and a small visual circle, as the
+/// touch-target rule requires. Shared by both card layouts.
+class _FavoriteButton extends StatelessWidget {
+  final bool isFavorite;
+  final VoidCallback onTap;
+  final double visualSize;
+  final double iconSize;
+
+  const _FavoriteButton({
+    required this.isFavorite,
+    required this.onTap,
+    this.visualSize = 30,
+    this.iconSize = 16,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: isFavorite ? 'Remove from saved' : 'Save this ground',
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: Container(
+              width: visualSize,
+              height: visualSize,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                size: iconSize,
+                color: isFavorite ? AppColors.error : Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ImagePlaceholder extends StatelessWidget {
   final double? width;
   final double height;
   final AppColors colors;
-  const _ImagePlaceholder({this.width, required this.height, required this.colors});
+  const _ImagePlaceholder(
+      {this.width, required this.height, required this.colors});
 
   @override
   Widget build(BuildContext context) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/favorites_provider.dart';
 import '../widgets/ground_card.dart';
@@ -19,7 +20,8 @@ class SavedTurfsScreen extends ConsumerWidget {
       body: favAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(
-          message: e.toString(),
+          message:
+              apiErrorMessage(e, fallback: 'Could not load your saved grounds'),
           onRetry: () => ref.read(favoritesProvider.notifier).load(),
         ),
         data: (grounds) {
@@ -35,12 +37,17 @@ class SavedTurfsScreen extends ConsumerWidget {
                       color: colors.input,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.favorite_outline, size: 40, color: colors.textSecondary),
+                    child: Icon(Icons.favorite_outline,
+                        size: 40, color: colors.textSecondary),
                   ),
                   const SizedBox(height: 16),
-                  Text('No saved turfs yet.', style: TextStyle(color: colors.textSecondary, fontSize: 15)),
+                  Text('No saved turfs yet.',
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 15)),
                   const SizedBox(height: 8),
-                  Text('Tap the heart on any turf to save it.', style: TextStyle(color: colors.textSecondary, fontSize: 13)),
+                  Text('Tap the heart on any turf to save it.',
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 13)),
                 ],
               ),
             );
@@ -53,7 +60,9 @@ class SavedTurfsScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                 child: Row(
                   children: [
-                    Text('${grounds.length} saved turfs', style: TextStyle(color: colors.textSecondary, fontSize: 13)),
+                    Text('${grounds.length} saved turfs',
+                        style: TextStyle(
+                            color: colors.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),
@@ -64,8 +73,9 @@ class SavedTurfsScreen extends ConsumerWidget {
                   itemBuilder: (_, i) => GroundCard(
                     ground: grounds[i],
                     isFavorite: true,
-                    onFavoriteToggle: () =>
-                        ref.read(favoritesProvider.notifier).toggle(grounds[i].id),
+                    onFavoriteToggle: () => ref
+                        .read(favoritesProvider.notifier)
+                        .toggle(grounds[i].id),
                   ),
                 ),
               ),

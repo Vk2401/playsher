@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_client.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/bookings_provider.dart';
 import '../widgets/error_view.dart';
@@ -11,7 +12,8 @@ class BookingDetailScreen extends ConsumerStatefulWidget {
   const BookingDetailScreen({super.key, required this.bookingId});
 
   @override
-  ConsumerState<BookingDetailScreen> createState() => _BookingDetailScreenState();
+  ConsumerState<BookingDetailScreen> createState() =>
+      _BookingDetailScreenState();
 }
 
 class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
@@ -23,7 +25,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.card,
-        title: Text('Cancel Booking', style: TextStyle(color: colors.textPrimary)),
+        title:
+            Text('Cancel Booking', style: TextStyle(color: colors.textPrimary)),
         content: Text(
           'Are you sure you want to cancel this booking?',
           style: TextStyle(color: colors.textSecondary),
@@ -48,7 +51,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
 
     setState(() => _cancelling = true);
     try {
-      await ApiClient.cancelBooking(int.parse(widget.bookingId), 'User requested');
+      await ApiClient.cancelBooking(
+          int.parse(widget.bookingId), 'User requested');
       if (mounted) {
         ref.invalidate(bookingsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -60,7 +64,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(apiErrorMessage(e)),
             backgroundColor: AppColors.error,
           ),
         );
@@ -94,7 +98,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
         error: (e, _) => ErrorView(
-          message: e.toString(),
+          message: apiErrorMessage(e, fallback: 'Could not load this booking'),
           onRetry: () => ref.invalidate(
             bookingDetailProvider(int.parse(widget.bookingId)),
           ),
@@ -109,7 +113,6 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
               children: [
                 _StatusBanner(status: booking.status),
                 const SizedBox(height: 20),
-
                 _Section(
                   title: 'Ground',
                   child: _InfoCard(
@@ -128,7 +131,6 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
                 _Section(
                   title: 'Booking Info',
                   child: _InfoCard(
@@ -147,7 +149,6 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
                 _Section(
                   title: 'Payment',
                   child: _InfoCard(
@@ -157,7 +158,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                         label: 'Total Amount',
                         value: booking.formattedPrice,
                       ),
-                      _InfoItem(
+                      const _InfoItem(
                         icon: Icons.payment_rounded,
                         label: 'Payment Method',
                         value: 'Pay at Ground',
@@ -165,14 +166,13 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                       _InfoItem(
                         icon: Icons.check_circle_outline_rounded,
                         label: 'Status',
-                        value: (booking.paymentStatus ?? 'pending').toUpperCase(),
+                        value:
+                            (booking.paymentStatus ?? 'pending').toUpperCase(),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 32),
-
                 if (canCancel)
                   SizedBox(
                     width: double.infinity,
@@ -188,7 +188,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                       ),
                       icon: _cancelling
                           ? const SizedBox(
-                              width: 16, height: 16,
+                              width: 16,
+                              height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: AppColors.error,
@@ -204,7 +205,6 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                       ),
                     ),
                   ),
-
                 const SizedBox(height: 24),
               ],
             ),
@@ -228,11 +228,11 @@ class _StatusBanner extends StatelessWidget {
     IconData icon;
 
     if (s == 'confirmed' || s == 'active') {
-      bg = AppColors.primary.withOpacity(0.12);
+      bg = AppColors.primary.withValues(alpha: 0.12);
       fg = AppColors.primary;
       icon = Icons.check_circle_rounded;
     } else if (s == 'cancelled') {
-      bg = AppColors.error.withOpacity(0.12);
+      bg = AppColors.error.withValues(alpha: 0.12);
       fg = AppColors.error;
       icon = Icons.cancel_rounded;
     } else if (s == 'completed') {
@@ -250,7 +250,7 @@ class _StatusBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: fg.withOpacity(0.2)),
+        border: Border.all(color: fg.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -270,7 +270,8 @@ class _StatusBanner extends StatelessWidget {
               ),
               Text(
                 'Booking status',
-                style: TextStyle(fontSize: 12, color: fg.withOpacity(0.7)),
+                style:
+                    TextStyle(fontSize: 12, color: fg.withValues(alpha: 0.7)),
               ),
             ],
           ),
@@ -326,37 +327,43 @@ class _InfoCard extends StatelessWidget {
         border: Border.all(color: colors.border),
       ),
       child: Column(
-        children: items.asMap().entries.map((e) => Column(
-          children: [
-            Row(
-              children: [
-                Icon(e.value.icon, size: 16, color: colors.textSecondary),
-                const SizedBox(width: 10),
-                Text(
-                  e.value.label,
-                  style: TextStyle(fontSize: 13, color: colors.textSecondary),
-                ),
-                const Spacer(),
-                Flexible(
-                  child: Text(
-                    e.value.value,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colors.textPrimary,
+        children: items
+            .asMap()
+            .entries
+            .map((e) => Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(e.value.icon,
+                            size: 16, color: colors.textSecondary),
+                        const SizedBox(width: 10),
+                        Text(
+                          e.value.label,
+                          style: TextStyle(
+                              fontSize: 13, color: colors.textSecondary),
+                        ),
+                        const Spacer(),
+                        Flexible(
+                          child: Text(
+                            e.value.value,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colors.textPrimary,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
-            ),
-            if (e.key < items.length - 1) ...[
-              const SizedBox(height: 10),
-              Container(height: 1, color: colors.border),
-              const SizedBox(height: 10),
-            ],
-          ],
-        )).toList(),
+                    if (e.key < items.length - 1) ...[
+                      const SizedBox(height: 10),
+                      Container(height: 1, color: colors.border),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
+                ))
+            .toList(),
       ),
     );
   }
@@ -366,5 +373,6 @@ class _InfoItem {
   final IconData icon;
   final String label;
   final String value;
-  const _InfoItem({required this.icon, required this.label, required this.value});
+  const _InfoItem(
+      {required this.icon, required this.label, required this.value});
 }
