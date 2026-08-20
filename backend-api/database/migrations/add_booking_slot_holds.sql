@@ -11,4 +11,7 @@ ALTER TABLE bookings
   ADD COLUMN IF NOT EXISTS hold_expires_at DATETIME NULL AFTER status;
 
 -- The sweep looks up pending bookings whose hold has lapsed.
-CREATE INDEX idx_booking_hold ON bookings (status, hold_expires_at);
+-- IF NOT EXISTS so a re-run is harmless: without it a second pass fails with
+-- "Duplicate key name" *after* the ALTER above has already applied, leaving
+-- the file looking broken when it has in fact fully succeeded.
+CREATE INDEX IF NOT EXISTS idx_booking_hold ON bookings (status, hold_expires_at);
