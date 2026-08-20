@@ -11,6 +11,10 @@ module.exports = (sequelize) => {
       slot_time_from:       { type: DataTypes.TIME, allowNull: false },
       slot_time_to:         { type: DataTypes.TIME, allowNull: false },
       total_amount:         { type: DataTypes.DECIMAL(10, 2), defaultValue: 0.00 },
+      // Taken online up front. For an online booking this equals total_amount;
+      // for pay-at-ground it is the advance, with the rest in balance_due.
+      advance_amount:       { type: DataTypes.DECIMAL(10, 2), defaultValue: 0.00 },
+      balance_due:          { type: DataTypes.DECIMAL(10, 2), defaultValue: 0.00 },
       is_game:              { type: DataTypes.BOOLEAN, defaultValue: false },
       is_canceled:          { type: DataTypes.BOOLEAN, defaultValue: false },
       cancellation_reason:  { type: DataTypes.TEXT },

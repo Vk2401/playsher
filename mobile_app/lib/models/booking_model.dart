@@ -16,6 +16,11 @@ class BookingModel {
   /// Raw API value: 'online' or 'pay_at_ground'.
   final String? paymentMethod;
 
+  /// Taken online up front. Equals [totalPrice] for an online booking; the
+  /// advance for pay-at-ground, with the rest in [balanceDue].
+  final double advanceAmount;
+  final double balanceDue;
+
   const BookingModel({
     required this.id,
     required this.bookingDate,
@@ -31,6 +36,8 @@ class BookingModel {
     this.endTime,
     this.bookingReference,
     this.paymentMethod,
+    this.advanceAmount = 0,
+    this.balanceDue = 0,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -101,6 +108,9 @@ class BookingModel {
           json['end_time'] as String?,
       bookingReference: json['booking_reference'] as String?,
       paymentMethod: json['payment_method'] as String?,
+      advanceAmount:
+          double.tryParse(json['advance_amount']?.toString() ?? '') ?? 0,
+      balanceDue: double.tryParse(json['balance_due']?.toString() ?? '') ?? 0,
     );
   }
 
@@ -113,6 +123,11 @@ class BookingModel {
   bool get isCancelled => status == 'cancelled';
 
   String get formattedPrice => '\u20b9${totalPrice.toStringAsFixed(0)}';
+  String get formattedAdvance => '\u20b9${advanceAmount.toStringAsFixed(0)}';
+  String get formattedBalance => '\u20b9${balanceDue.toStringAsFixed(0)}';
+
+  /// True when money is still owed at the venue.
+  bool get hasBalanceDue => balanceDue > 0;
 
   /// Human label for [paymentMethod]. Falls back to the API's own default
   /// rather than asserting a method the booking may not have used.

@@ -38,6 +38,27 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   List<int> get _slotIds =>
       (widget.extra['slotIds'] as List?)?.cast<int>() ?? [];
   int get _totalPrice => widget.extra['totalPrice'] as int? ?? 0;
+
+  /// Share of the total taken online when paying at the ground. Mirrors
+  /// backend-api/src/utils/pricing.js; the server remains the authority and
+  /// recomputes it on create, this only makes the CTA honest before the tap.
+  static const _advanceRate = 0.10;
+  static const _minAdvance = 10;
+
+  bool get _isOnline => _paymentMethod == 'online';
+
+  /// What the gateway charges now.
+  int get _payableNow {
+    if (_isOnline) return _totalPrice;
+    if (_totalPrice <= 0) return 0;
+    final tenth = (_totalPrice * _advanceRate).ceil();
+    return tenth < _minAdvance
+        ? (_minAdvance > _totalPrice ? _totalPrice : _minAdvance)
+        : tenth;
+  }
+
+  /// What is collected at the venue.
+  int get _balanceAtGround => _isOnline ? 0 : _totalPrice - _payableNow;
   String? get _groundName => widget.extra['groundName'] as String?;
 
   /// Fields the confirmation screen needs that the API's booking row does not
@@ -390,7 +411,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             _PaymentOption(
               icon: Icons.account_balance_wallet_rounded,
               label: 'Pay at Ground',
-              subtitle: 'Pay when you arrive',
+              subtitle: 'Pay a 10% advance now, rest at the venue',
               selected: _paymentMethod == 'pay_at_ground',
               onTap: _loading || _hasPendingBooking
                   ? null
@@ -398,6 +419,43 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             ),
 
             const SizedBox(height: 24),
+
+            // What is charged now versus at the venue. Without this the
+            // pay-at-ground CTA quotes a number smaller than the booking and
+            // reads like the price changed.
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colors.border),
+              ),
+              child: Column(
+                children: [
+                  _MoneyRow(
+                    label: 'Booking total',
+                    value: '\u20b9$_totalPrice',
+                    colors: colors,
+                  ),
+                  const SizedBox(height: 8),
+                  _MoneyRow(
+                    label: _isOnline ? 'Paying now' : 'Advance now (10%)',
+                    value: '\u20b9$_payableNow',
+                    colors: colors,
+                    emphasise: true,
+                  ),
+                  if (!_isOnline) ...[
+                    const SizedBox(height: 8),
+                    _MoneyRow(
+                      label: 'Due at the ground',
+                      value: '\u20b9$_balanceAtGround',
+                      colors: colors,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Online payment info
             if (_paymentMethod == 'online')
@@ -577,19 +635,61 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       // Bottom bar — the shared widget, not a hand-rolled copy: it already
       // owns the safe-area inset and the double-submit guard.
       bottomNavigationBar: StickyBottomBar(
-        priceLabel: 'TOTAL AMOUNT',
-        price: '\u20b9$_totalPrice',
+        priceLabel: _isOnline ? 'TOTAL AMOUNT' : 'PAY NOW (ADVANCE)',
+        price: '\u20b9$_payableNow',
         buttonText: _holdLapsed
             ? 'Slots released'
             : _hasPendingBooking
                 // The booking already exists; this attempt only settles payment.
                 ? 'Retry payment'
-                : _paymentMethod == 'online'
-                    ? 'Pay \u20b9$_totalPrice'
-                    : 'Confirm & Book',
+                : 'Pay \u20b9$_payableNow',
         isLoading: _loading,
         onPressed: _holdLapsed ? null : _confirmBooking,
       ),
+    );
+  }
+}
+
+class _MoneyRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final AppColors colors;
+  final bool emphasise;
+
+  const _MoneyRow({
+    required this.label,
+    required this.value,
+    required this.colors,
+    this.emphasise = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: emphasise ? colors.textPrimary : colors.textSecondary,
+              fontWeight: emphasise ? FontWeight.w600 : FontWeight.w400,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: emphasise ? 16 : 14,
+            fontWeight: emphasise ? FontWeight.w800 : FontWeight.w600,
+            color: emphasise ? AppColors.primary : colors.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 }

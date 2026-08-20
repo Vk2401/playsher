@@ -3,6 +3,7 @@ const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
 const { releaseExpiredHolds, holdDeadline } = require('../utils/slotHolds');
+const { splitPayment } = require('../utils/pricing');
 
 exports.list = async (req, res) => {
   try {
@@ -106,8 +107,12 @@ exports.create = async (req, res) => {
     const slot_time_from = slots[0].slot_start_time;
     const slot_time_to = slots[slots.length - 1].slot_end_time;
 
-    const isOnline = payment_method === 'online';
-    const bookingStatus = isOnline ? 'pending' : 'confirmed';
+    const method = payment_method === 'online' ? 'online' : 'pay_at_ground';
+    // Pay-at-ground now takes a deposit online and leaves the rest for the
+    // venue, so it is no longer confirmed on creation — it waits for that
+    // advance exactly like an online booking does.
+    const money = splitPayment(total_amount, method);
+    const bookingStatus = money.requiresPayment ? 'pending' : 'confirmed';
 
     const booking = await Booking.create({
       user_id: req.user.id,
@@ -115,13 +120,15 @@ exports.create = async (req, res) => {
       slot_date,
       slot_time_from,
       slot_time_to,
-      total_amount,
+      total_amount: money.total,
+      advance_amount: money.advance,
+      balance_due: money.balance,
       is_game: is_game || false,
       status: bookingStatus,
-      payment_method: isOnline ? 'online' : 'pay_at_ground',
+      payment_method: method,
       // Only an unpaid online booking holds slots on a deadline. Pay-at-ground
       // is confirmed immediately and keeps them outright.
-      hold_expires_at: isOnline ? holdDeadline() : null,
+      hold_expires_at: money.requiresPayment ? holdDeadline() : null,
     }, { transaction: t });
 
     // Generate booking reference: YYYYMMDD-HHmm-HHmm-ID
@@ -137,8 +144,11 @@ exports.create = async (req, res) => {
     await t.commit();
 
     const responseData = booking.toJSON();
-    if (isOnline) {
+    if (money.requiresPayment) {
       responseData.requires_payment = true;
+      // What the gateway will actually charge now — the advance for
+      // pay-at-ground, the full amount for online.
+      responseData.payable_now = money.advance;
       // The client shows a countdown from this, so it must be the server's
       // deadline rather than one the app computes from its own clock.
       responseData.hold_expires_at = booking.hold_expires_at;
