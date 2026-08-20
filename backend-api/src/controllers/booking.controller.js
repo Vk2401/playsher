@@ -1,10 +1,44 @@
-const { sequelize, Booking, BookedSlot, Slot, GroundSport, Ground, User, Payment } = require('../models');
+const { sequelize, Booking, BookedSlot, Slot, GroundSport, Ground, Sport, User, Payment } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
 const { releaseExpiredHolds, holdDeadline } = require('../utils/slotHolds');
 const { splitPayment } = require('../utils/pricing');
 const { isPastSlot } = require('../utils/appTime');
+
+
+/**
+ * What a booking needs to be readable by a human.
+ *
+ * The sport lives on GroundSport, not on Booking, and was previously left out
+ * of both queries — which is why every booking showed its sport as "—". The
+ * slots carry the times, without which a "booking" is only a date.
+ *
+ * Shared by list and show so the two can never drift apart again.
+ */
+function bookingIncludes({ withUser = true } = {}) {
+  return [
+    ...(withUser ? [{ model: User, as: 'user', attributes: ['id', 'name', 'mobile'] }] : []),
+    {
+      model  : GroundSport,
+      as     : 'groundSport',
+      include: [
+        { model: Ground, as: 'ground' },
+        { model: Sport,  as: 'sport'  },
+      ],
+    },
+    // The booked times themselves. Ordered so slot_time_from/to and any
+    // rendered range read left-to-right rather than in insertion order.
+    {
+      model  : Slot,
+      as     : 'slots',
+      through: { attributes: [] },
+    },
+  ];
+}
+
+/** Newest booking first — what "my bookings" means to the person who made them. */
+const BOOKING_ORDER = [['created_at', 'DESC'], ['id', 'DESC']];
 
 exports.list = async (req, res) => {
   try {
@@ -19,13 +53,18 @@ exports.list = async (req, res) => {
         where,
         include: [
           {
-            model: GroundSport,
-            as: 'groundSport',
+            model   : GroundSport,
+            as      : 'groundSport',
             required: true,
-            include: [{ model: Ground, as: 'ground', where: { owner_id: req.user.id }, required: true }],
+            include : [
+              { model: Ground, as: 'ground', where: { owner_id: req.user.id }, required: true },
+              { model: Sport,  as: 'sport'  },
+            ],
           },
           { model: User, as: 'user', attributes: ['id', 'name', 'mobile'] },
+          { model: Slot, as: 'slots', through: { attributes: [] } },
         ],
+        order: BOOKING_ORDER,
         limit,
         offset,
         distinct: true,
@@ -35,10 +74,8 @@ exports.list = async (req, res) => {
 
     const { count, rows } = await Booking.findAndCountAll({
       where,
-      include: [
-        { model: User, as: 'user', attributes: ['id', 'name', 'mobile'] },
-        { model: GroundSport, as: 'groundSport', include: [{ model: Ground, as: 'ground' }] },
-      ],
+      include: bookingIncludes(),
+      order  : BOOKING_ORDER,
       limit,
       offset,
       distinct: true,
@@ -54,8 +91,7 @@ exports.show = async (req, res) => {
     const booking = await Booking.findByPk(req.params.id, {
       include: [
         { model: User, as: 'user', attributes: ['id', 'name', 'mobile', 'email'] },
-        { model: GroundSport, as: 'groundSport', include: [{ model: Ground, as: 'ground' }] },
-        { model: Slot, as: 'slots', through: { attributes: [] } },
+        ...bookingIncludes({ withUser: false }),
         { model: Payment, as: 'paymentRecord' },
       ],
     });

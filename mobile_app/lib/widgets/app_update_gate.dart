@@ -5,12 +5,12 @@ import '../models/app_version_model.dart';
 import '../providers/app_version_provider.dart';
 import 'update_required_dialog.dart';
 
-/// Runs the version check once per launch and shows the update prompt over
-/// whatever screen the user landed on.
+/// Shows the update prompt whenever the app is opened.
 ///
 /// It wraps the router rather than living in a screen because a retired build
 /// must be blocked everywhere — including the login screen, which a user with
-/// an expired token sees first.
+/// an expired token sees first. The check itself is warmed on the splash screen
+/// so the answer is usually already in hand by the time a real screen mounts.
 ///
 /// Deliberately does not gate rendering on the check: the app draws
 /// immediately and the dialog arrives when the answer does. Holding the first
@@ -25,15 +25,46 @@ class AppUpdateGate extends ConsumerStatefulWidget {
   ConsumerState<AppUpdateGate> createState() => _AppUpdateGateState();
 }
 
-class _AppUpdateGateState extends ConsumerState<AppUpdateGate> {
-  /// An optional update is offered once per launch. Re-prompting on every
-  /// rebuild would make the app unusable, and re-prompting after "Later"
-  /// ignores an answer the user already gave.
-  bool _handled = false;
+class _AppUpdateGateState extends ConsumerState<AppUpdateGate>
+    with WidgetsBindingObserver {
   bool _showing = false;
+  DateTime? _lastPromptClosed;
+
+  /// Tapping "Update now" sends the user to the store, which backgrounds the
+  /// app; coming straight back would otherwise fire the prompt again and read
+  /// as a loop. Long enough to absorb that round trip, short enough that
+  /// genuinely reopening the app still prompts.
+  static const _reprompCooldown = Duration(seconds: 20);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (_showing) return;
+
+    final closed = _lastPromptClosed;
+    if (closed != null && DateTime.now().difference(closed) < _reprompCooldown) {
+      return;
+    }
+
+    // Re-ask the API rather than replaying a cached answer: the thresholds may
+    // have been raised by an admin while the app sat in the background.
+    ref.invalidate(appVersionCheckProvider);
+  }
 
   Future<void> _maybePrompt(AppVersionCheck check) async {
-    if (_handled || _showing || !check.shouldPrompt) return;
+    if (_showing || !check.shouldPrompt) return;
     _showing = true;
 
     // Wait for the first frame so there is a Navigator to host the dialog.
@@ -47,9 +78,7 @@ class _AppUpdateGateState extends ConsumerState<AppUpdateGate> {
     if (!mounted) return;
 
     _showing = false;
-    // A forced prompt is never "handled" — if it somehow closes, the next
-    // rebuild puts it straight back up.
-    if (!check.updateRequired) _handled = true;
+    _lastPromptClosed = DateTime.now();
   }
 
   @override
@@ -60,7 +89,8 @@ class _AppUpdateGateState extends ConsumerState<AppUpdateGate> {
       if (check != null) _maybePrompt(check);
     });
 
-    // Covers the case where the check resolved before this widget mounted.
+    // Covers the case where the check resolved before this widget mounted —
+    // which is the norm now that the splash screen warms it.
     final check = ref.watch(appVersionCheckProvider).valueOrNull;
     if (check != null && check.shouldPrompt) {
       WidgetsBinding.instance
