@@ -937,4 +937,119 @@ router.get   ('/vendors/:id/bookings',   ...admin, ap.getVendorBookings);
  */
 router.get   ('/vendors/:id/stats',      ...admin, ap.getVendorStats);
 
+/**
+ * @swagger
+ * /admin/ground-owners/{id}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Update a ground owner's profile and moderation flags
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:        { type: string }
+ *               email:       { type: string }
+ *               mobile:      { type: string }
+ *               is_active:   { type: boolean }
+ *               is_approved: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/ground-owners/:id',          ...admin, ap.updateGroundOwner);
+
+/**
+ * @swagger
+ * /admin/ground-owners/{id}/password:
+ *   patch:
+ *     tags: [AdminPanel]
+ *     summary: Reset a ground owner's password and sign them out everywhere
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password: { type: string, minLength: 8 }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.patch ('/ground-owners/:id/password', ...admin, ap.resetGroundOwnerPassword);
+
+/**
+ * @swagger
+ * /admin/users/{id}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Update a customer's profile
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:      { type: string }
+ *               email:     { type: string }
+ *               mobile:    { type: string }
+ *               is_active: { type: boolean }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/users/:id',                  ...admin, ap.updateUser);
+
+/**
+ * @swagger
+ * /admin/grounds/{id}:
+ *   put:
+ *     tags: [AdminPanel]
+ *     summary: Update any ground, including its owner and approval state
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:        { type: string }
+ *               address:     { type: string }
+ *               is_active:   { type: boolean }
+ *               is_approved: { type: boolean }
+ *               owner_id:    { type: integer }
+ *     responses:
+ *       200: { description: Updated }
+ *       404: { description: Not found }
+ *       422: { description: Validation failed }
+ */
+router.put   ('/grounds/:id',                ...admin, ap.updateGround);
+
 module.exports = router;

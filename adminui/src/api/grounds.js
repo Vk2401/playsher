@@ -5,7 +5,9 @@ export const groundsApi = {
   getAll: (params) => apiClient.get('/admin/grounds', { params }),
   getById: (id) => apiClient.get(`/admin/grounds/${id}`),
   adminCreate: (data) => apiClient.post('/grounds', data),
-  adminUpdate: (id, data) => apiClient.put(`/grounds/${id}`, data),
+  // Admin-scoped update: wider whitelist than the owner's own (approval state
+  // and owner reassignment included).
+  adminUpdate: (id, data) => apiClient.put(`/admin/grounds/${id}`, data),
   approve: (id) => apiClient.patch(`/admin/grounds/${id}/approve`),
   toggleStatus: (id) => apiClient.patch(`/admin/grounds/${id}/toggle-status`),
   delete: (id) => apiClient.delete(`/admin/grounds/${id}`),
