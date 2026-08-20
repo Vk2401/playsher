@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
-import '../providers/city_provider.dart';
+import '../providers/location_provider.dart';
 
 class LocationScreen extends ConsumerStatefulWidget {
   final bool fromRegister;
@@ -20,80 +17,36 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
   bool _loading = false;
   String? _error;
 
+  /// Delegates to [userLocationProvider] rather than talking to the plugin
+  /// here: the home screen reads the same notifier, so a grant made on this
+  /// screen shows up as distances the moment the user lands back on Home.
   Future<void> _requestLocation() async {
+    if (_loading) return;
     setState(() {
       _loading = true;
       _error = null;
     });
 
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() {
-          _error = 'Location services are disabled. Please enable GPS.';
-          _loading = false;
-        });
-        return;
-      }
+    final notifier = ref.read(userLocationProvider.notifier);
+    final granted = await notifier.requestPermission();
+    if (!mounted) return;
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          setState(() {
-            _error = 'Location permission denied.';
-            _loading = false;
-          });
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        setState(() {
-          _error = 'Location permanently denied. Enable it in app settings.';
-          _loading = false;
-        });
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-
-      // Send to backend (fire-and-forget)
-      ApiClient.updateLocation(position.latitude, position.longitude)
-          .catchError((_) {});
-
-      // Reverse geocode to get city name
-      try {
-        final placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
-        if (placemarks.isNotEmpty) {
-          final p = placemarks.first;
-          final city = p.locality ??
-              p.subAdministrativeArea ??
-              p.administrativeArea ??
-              '';
-          if (city.isNotEmpty) {
-            ref.read(cityProvider.notifier).setCity(city);
-          }
-        }
-      } catch (_) {
-        // Geocoding failed — not critical, continue
-      }
-
-      if (mounted) context.go('/home');
-    } catch (e) {
-      setState(() {
-        _error = 'Could not get location. Please try again.';
-        _loading = false;
-      });
+    if (granted) {
+      context.go('/home');
+      return;
     }
+
+    setState(() {
+      _loading = false;
+      _error = switch (ref.read(userLocationProvider).permission) {
+        LocationPermissionState.deniedForever =>
+          'Location is blocked for ${AppConstants.appName}. Enable it in app settings.',
+        LocationPermissionState.serviceDisabled =>
+          'Location services are off. Please switch on GPS and try again.',
+        LocationPermissionState.denied => 'Location permission denied.',
+        _ => 'Could not get your location. Please try again.',
+      };
+    });
   }
 
   void _skip() => context.go('/home');

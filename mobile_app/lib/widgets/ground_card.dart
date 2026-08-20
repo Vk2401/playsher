@@ -1,12 +1,21 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/animations.dart';
 import '../core/app_colors.dart';
+import '../core/geo.dart';
 
 import '../models/ground_model.dart';
+import '../providers/location_provider.dart';
 
-class GroundCard extends StatelessWidget {
+/// A ground, in the two shapes the app uses: a wide card for the featured
+/// carousel and a horizontal row for every list.
+///
+/// It reads the user's position itself rather than taking a distance prop, so
+/// that every list in the app gains "how far away" without each screen having
+/// to thread it through.
+class GroundCard extends ConsumerWidget {
   final GroundModel ground;
   final bool wide;
   final VoidCallback? onFavoriteToggle;
@@ -21,15 +30,25 @@ class GroundCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(userLocationProvider);
+    final distanceKm = Geo.distanceKm(
+      fromLat: me.latitude,
+      fromLng: me.longitude,
+      toLat: ground.latitude,
+      toLng: ground.longitude,
+    );
+
     return wide
         ? _WideCard(
             ground: ground,
+            distanceKm: distanceKm,
             isFavorite: isFavorite,
             onFavoriteToggle: onFavoriteToggle,
           )
         : _HorizontalCard(
             ground: ground,
+            distanceKm: distanceKm,
             isFavorite: isFavorite,
             onFavoriteToggle: onFavoriteToggle,
           );
@@ -40,11 +59,13 @@ class GroundCard extends StatelessWidget {
 
 class _WideCard extends StatelessWidget {
   final GroundModel ground;
+  final double? distanceKm;
   final bool isFavorite;
   final VoidCallback? onFavoriteToggle;
 
   const _WideCard({
     required this.ground,
+    this.distanceKm,
     this.isFavorite = false,
     this.onFavoriteToggle,
   });
@@ -53,111 +74,79 @@ class _WideCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final imageUrl = ground.primaryImageUrl;
+    final place = _placeLabel(ground, distanceKm);
 
     return AppAnimations.tapScale(
       onTap: () => context.push('/grounds/${ground.id}'),
       child: Container(
-        width: 260,
-        margin: const EdgeInsets.only(right: 16),
         decoration: BoxDecoration(
           color: colors.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: colors.border),
         ),
+        // The image is the flexible part, so a taller carousel slot grows the
+        // photo instead of leaving a dead band under the text.
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image with overlays
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+            Expanded(
               child: Stack(
+                fit: StackFit.expand,
                 children: [
                   imageUrl != null
                       ? CachedNetworkImage(
                           imageUrl: imageUrl,
-                          height: 156,
-                          width: double.infinity,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) =>
-                              _ImagePlaceholder(height: 156, colors: colors),
+                          placeholder: (_, __) => _ImagePlaceholder(colors: colors),
                           errorWidget: (_, __, ___) =>
-                              _ImagePlaceholder(height: 156, colors: colors),
+                              _ImagePlaceholder(colors: colors),
                         )
-                      : _ImagePlaceholder(height: 156, colors: colors),
+                      : _ImagePlaceholder(colors: colors),
 
-                  // Gradient overlay
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.7),
-                          ],
-                          stops: const [0.4, 1.0],
-                        ),
+                  // Scrim: the name and location below sit on whatever photo
+                  // the owner uploaded, so they need their own ground.
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x33000000),
+                          Color(0x00000000),
+                          Color(0xD9000000),
+                        ],
+                        stops: [0.0, 0.35, 1.0],
                       ),
                     ),
                   ),
 
-                  // Category badge top-left
                   if (ground.sportNames.isNotEmpty)
                     Positioned(
                       top: 10,
                       left: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+                      child: _OverlayPill(
                         child: Text(
                           ground.sportNames.first.toUpperCase(),
                           style: const TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
+                            color: AppColors.onImage,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
                             letterSpacing: 0.8,
                           ),
                         ),
                       ),
                     ),
 
-                  // Heart toggle top-right
                   Positioned(
                     top: 10,
                     right: 10,
                     child: Row(
                       children: [
                         if (ground.avgRating > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            margin: const EdgeInsets.only(right: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.star_rounded,
-                                    size: 12, color: AppColors.onPrimary),
-                                const SizedBox(width: 2),
-                                Text(
-                                  ground.avgRating.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                    color: AppColors.onPrimary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: _RatingPill(rating: ground.avgRating),
                           ),
                         if (onFavoriteToggle != null)
                           _FavoriteButton(
@@ -167,83 +156,67 @@ class _WideCard extends StatelessWidget {
                       ],
                     ),
                   ),
+
+                  // Name + place, on the image where the scrim guarantees
+                  // contrast in both themes.
+                  Positioned(
+                    left: 14,
+                    right: 14,
+                    bottom: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          ground.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.onImage,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (place != null) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on_rounded,
+                                  size: 12, color: AppColors.onImage),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  place,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.onImage,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
 
-            // Info
+            // Footer: fixed single row, so the card height stays predictable
+            // inside the carousel whatever the ground has filled in.
             Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Row(
                 children: [
-                  Text(
-                    ground.name,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: colors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  if ((ground.city ?? '').isNotEmpty)
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_rounded,
-                            size: 12, color: colors.textSecondary),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            ground.city!,
-                            style: TextStyle(
-                                fontSize: 11, color: colors.textSecondary),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 6),
-                  // Amenity tags
+                  _PriceLabel(ground: ground),
+                  const Spacer(),
                   if (ground.amenities.isNotEmpty)
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      // One row only: the carousel gives this card a fixed
-                      // height, and a second run pushes the price out of it.
-                      clipBehavior: Clip.hardEdge,
-                      children: ground.amenities
-                          .take(2)
-                          .map((a) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: colors.input,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  a.name,
-                                  style: TextStyle(
-                                    color: colors.textSecondary,
-                                    fontSize: 9,
-                                  ),
-                                ),
-                              ))
-                          .toList(),
-                    ),
-                  if (ground.amenities.isNotEmpty) const SizedBox(height: 6),
-                  if (ground.startingPrice > 0)
-                    Text(
-                      ground.formattedStartingPrice,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Flexible(
+                      child: _AmenityStrip(ground: ground),
                     ),
                 ],
               ),
@@ -259,11 +232,13 @@ class _WideCard extends StatelessWidget {
 
 class _HorizontalCard extends StatelessWidget {
   final GroundModel ground;
+  final double? distanceKm;
   final bool isFavorite;
   final VoidCallback? onFavoriteToggle;
 
   const _HorizontalCard({
     required this.ground,
+    this.distanceKm,
     this.isFavorite = false,
     this.onFavoriteToggle,
   });
@@ -277,45 +252,58 @@ class _HorizontalCard extends StatelessWidget {
       onTap: () => context.push('/grounds/${ground.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: colors.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: colors.border),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail with heart overlay
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: imageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          width: 112,
-                          height: 112,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => _ImagePlaceholder(
-                              width: 112, height: 112, colors: colors),
-                          errorWidget: (_, __, ___) => _ImagePlaceholder(
-                              width: 112, height: 112, colors: colors),
-                        )
-                      : _ImagePlaceholder(
-                          width: 112, height: 112, colors: colors),
-                ),
-                if (onFavoriteToggle != null)
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: _FavoriteButton(
-                      isFavorite: isFavorite,
-                      onTap: onFavoriteToggle!,
-                      visualSize: 26,
-                      iconSize: 14,
-                    ),
+            // Thumbnail, with the distance sitting on it — the one number a
+            // player scans a list for.
+            SizedBox(
+              width: 104,
+              height: 104,
+              // clipBehavior: the favourite's 44px hit box deliberately hangs
+              // outside the thumbnail; hard-clipping it would swallow taps.
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: imageUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            width: 104,
+                            height: 104,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => _ImagePlaceholder(
+                                width: 104, height: 104, colors: colors),
+                            errorWidget: (_, __, ___) => _ImagePlaceholder(
+                                width: 104, height: 104, colors: colors),
+                          )
+                        : _ImagePlaceholder(
+                            width: 104, height: 104, colors: colors),
                   ),
-              ],
+                  if (distanceKm != null)
+                    Positioned(
+                      left: 6,
+                      bottom: 6,
+                      child: _DistanceBadge(km: distanceKm!),
+                    ),
+                  if (onFavoriteToggle != null)
+                    Positioned(
+                      top: -7,
+                      right: -7,
+                      child: _FavoriteButton(
+                        isFavorite: isFavorite,
+                        onTap: onFavoriteToggle!,
+                      ),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(width: 12),
 
@@ -324,29 +312,29 @@ class _HorizontalCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (ground.sportNames.isNotEmpty)
-                    Text(
-                      ground.sportNames.first.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: colors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      if (ground.sportNames.isNotEmpty)
+                        Flexible(child: _SportChip(name: ground.sportNames.first)),
+                      if (ground.avgRating > 0) ...[
+                        const SizedBox(width: 6),
+                        _RatingChip(rating: ground.avgRating),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Text(
                     ground.name,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: colors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  if ((ground.city ?? '').isNotEmpty)
+                  if ((ground.city ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(Icons.location_on_rounded,
@@ -357,43 +345,15 @@ class _HorizontalCard extends StatelessWidget {
                             ground.city!,
                             style: TextStyle(
                                 fontSize: 12, color: colors.textSecondary),
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
+                  ],
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (ground.avgRating > 0) ...[
-                        const Icon(Icons.star_rounded,
-                            size: 12, color: AppColors.primary),
-                        const SizedBox(width: 3),
-                        Text(
-                          ground.avgRating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (ground.startingPrice > 0)
-                        Flexible(
-                          child: Text(
-                            ground.formattedStartingPrice,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                  ),
+                  _PriceLabel(ground: ground),
                 ],
               ),
             ),
@@ -404,20 +364,245 @@ class _HorizontalCard extends StatelessWidget {
   }
 }
 
+// ── Shared pieces ────────────────────────────────────────────────────────────
+
+/// "Chennai · 3.2 km" — whichever halves we actually have.
+String? _placeLabel(GroundModel ground, double? distanceKm) {
+  final city = (ground.city ?? '').trim();
+  final distance = distanceKm == null ? null : '${Geo.format(distanceKm)} away';
+  if (city.isEmpty) return distance;
+  if (distance == null) return city;
+  return '$city · $distance';
+}
+
+/// Starting price. Reads as brand ink rather than the neon fill colour, which
+/// is close to invisible on the light theme's white card.
+class _PriceLabel extends StatelessWidget {
+  final GroundModel ground;
+  const _PriceLabel({required this.ground});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    if (ground.startingPrice <= 0) {
+      return Text(
+        'Price on request',
+        style: TextStyle(fontSize: 12, color: colors.textSecondary),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            ground.formattedStartingPrice,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: colors.brandText,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 3),
+        Text(
+          '/ slot',
+          style: TextStyle(fontSize: 11, color: colors.textSecondary),
+        ),
+      ],
+    );
+  }
+}
+
+/// The sport label on a list card. A tinted chip rather than grey micro-caps —
+/// the old treatment was the least readable thing on the card.
+class _SportChip extends StatelessWidget {
+  final String name;
+  const _SportChip({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        name.toUpperCase(),
+        style: TextStyle(
+          fontSize: 9,
+          color: colors.brandText,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.7,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+/// Rating on a card surface: amber star + the number, never colour alone.
+class _RatingChip extends StatelessWidget {
+  final double rating;
+  const _RatingChip({required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: colors.input,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 11, color: AppColors.rating),
+          const SizedBox(width: 2),
+          Text(
+            rating.toStringAsFixed(1),
+            style: TextStyle(
+              fontSize: 10,
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Rating over a photo — same content, scrim ground.
+class _RatingPill extends StatelessWidget {
+  final double rating;
+  const _RatingPill({required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    return _OverlayPill(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 12, color: AppColors.star),
+          const SizedBox(width: 3),
+          Text(
+            rating.toStringAsFixed(1),
+            style: const TextStyle(
+              color: AppColors.onImage,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// How far the venue is from the user, over the thumbnail.
+class _DistanceBadge extends StatelessWidget {
+  final double km;
+  const _DistanceBadge({required this.km});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '${Geo.format(km)} away',
+      excludeSemantics: true,
+      child: _OverlayPill(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.near_me_rounded, size: 10, color: AppColors.onImage),
+            const SizedBox(width: 3),
+            Text(
+              Geo.format(km),
+              style: const TextStyle(
+                color: AppColors.onImage,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A badge that sits on a ground photo. The scrim is what makes the label
+/// readable over a bright image, which the old translucent-brand pill was not.
+class _OverlayPill extends StatelessWidget {
+  final Widget child;
+  const _OverlayPill({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.imageScrim,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Up to two amenity names, on one line — the featured card's height is fixed
+/// by the carousel and a second run would push the price out of it.
+class _AmenityStrip extends StatelessWidget {
+  final GroundModel ground;
+  const _AmenityStrip({required this.ground});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: ground.amenities
+          .take(2)
+          .map((a) => Flexible(
+                child: Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colors.input,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    a.name,
+                    style: TextStyle(color: colors.textSecondary, fontSize: 9),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ))
+          .toList(),
+    );
+  }
+}
+
 /// Favourite toggle with a 44x44 hit area and a small visual circle, as the
 /// touch-target rule requires. Shared by both card layouts.
 class _FavoriteButton extends StatelessWidget {
+  static const double _visualSize = 30;
+
   final bool isFavorite;
   final VoidCallback onTap;
-  final double visualSize;
-  final double iconSize;
 
-  const _FavoriteButton({
-    required this.isFavorite,
-    required this.onTap,
-    this.visualSize = 30,
-    this.iconSize = 16,
-  });
+  const _FavoriteButton({required this.isFavorite, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -432,16 +617,16 @@ class _FavoriteButton extends StatelessWidget {
           height: 44,
           child: Center(
             child: Container(
-              width: visualSize,
-              height: visualSize,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+              width: _visualSize,
+              height: _visualSize,
+              decoration: const BoxDecoration(
+                color: AppColors.imageScrim,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isFavorite ? Icons.favorite : Icons.favorite_border,
-                size: iconSize,
-                color: isFavorite ? AppColors.error : Colors.white,
+                size: 16,
+                color: isFavorite ? AppColors.error : AppColors.onImage,
               ),
             ),
           ),
@@ -453,10 +638,9 @@ class _FavoriteButton extends StatelessWidget {
 
 class _ImagePlaceholder extends StatelessWidget {
   final double? width;
-  final double height;
+  final double? height;
   final AppColors colors;
-  const _ImagePlaceholder(
-      {this.width, required this.height, required this.colors});
+  const _ImagePlaceholder({this.width, this.height, required this.colors});
 
   @override
   Widget build(BuildContext context) {

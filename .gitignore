@@ -1,0 +1,11 @@
+
+# ── iOS signing material ──────────────────────────────────────────────────────
+# Produced by scripts/ios-signing/. A committed .key or .p12 is a compromised
+# signing identity: anyone with it can ship an app as you, and revoking means
+# invalidating every build already in TestFlight.
+*.p12
+*.key
+*.cer
+*.csr
+*.mobileprovision
+secrets-to-paste/

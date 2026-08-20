@@ -6,6 +6,7 @@ const { releaseExpiredHolds, holdDeadline } = require('../utils/slotHolds');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { splitPayment } = require('../utils/pricing');
 const { isPastSlot } = require('../utils/appTime');
+const { completePastBookings } = require('../utils/bookingLifecycle');
 
 
 /**
@@ -143,6 +144,10 @@ exports.create = async (req, res) => {
     // Fetch and validate slots
     const slots = await Slot.findAll({
       where: { id: slot_ids, ground_sport_id, slot_date, is_available: true },
+      // slot_time_from/to below read slots[0] and slots[last]. Without an
+      // explicit order that trusts whatever order the engine happens to return,
+      // which would put the wrong times on the booking *and* in its reference.
+      order: [['slot_start_time', 'ASC']],
       transaction: t,
     });
     if (slots.length !== slot_ids.length) {

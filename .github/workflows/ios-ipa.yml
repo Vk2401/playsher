@@ -1,0 +1,305 @@
+name: iOS IPA
+
+# Builds an IPA for the Flutter customer app.
+#
+# Repo layout assumed: this file lives at the repository root, and the Flutter
+# project is in `mobile_app/`. If you push ONLY `mobile_app/` as the repository,
+# move this file to `mobile_app/.github/workflows/` and delete every
+# `working-directory: mobile_app` line and the `mobile_app/` path prefixes below.
+#
+# TWO MODES, chosen automatically by whether the signing secrets exist:
+#
+#   No secrets  -> an UNSIGNED .ipa. Builds today with zero setup. Useful for
+#                  size checks, for re-signing with your own tooling, and for
+#                  proving the iOS build is not broken. It will NOT install on a
+#                  device as-is and TestFlight will reject it.
+#
+#   Secrets set -> a SIGNED .ipa, ready for TestFlight or ad-hoc install.
+#                  Required secrets are listed under "Signing" below.
+#
+# COST: macOS runners bill at 10x the Linux rate, so the free tier's 2000
+# minutes is about 200 macOS minutes — roughly a dozen iOS builds a month. That
+# is why this does not run on every commit the way android-apk.yml does. Widen
+# the triggers below if you have the minutes.
+#
+# ── Signing ──────────────────────────────────────────────────────────────────
+# Add these repository secrets to get a signed build
+# (Settings -> Secrets and variables -> Actions):
+#
+#   IOS_CERTIFICATE_BASE64       base64 of your Apple distribution .p12
+#                                  base64 -i cert.p12 | pbcopy
+#   IOS_CERTIFICATE_PASSWORD     the password you set when exporting the .p12
+#   IOS_PROVISIONING_PROFILE_BASE64
+#                                base64 of the matching .mobileprovision
+#                                  base64 -i profile.mobileprovision | pbcopy
+#   IOS_TEAM_ID                  10-character Apple Team ID
+#   IOS_EXPORT_METHOD            optional: app-store | ad-hoc | development
+#                                  defaults to app-store
+#
+# The profile's name and UUID are read out of the profile itself, so they do
+# not need to be secrets.
+#
+# NOTE: the bundle identifier is currently `com.example.playsherApp`. Apple
+# rejects `com.example.*`, so it must be changed in Xcode (and the provisioning
+# profile issued against the new id) before a signed build can be distributed.
+
+on:
+  # The normal way to get an IPA: run it by hand from the Actions tab.
+  workflow_dispatch:
+    inputs:
+      export_method:
+        description: 'Export method (signed builds only)'
+        required: false
+        default: 'app-store'
+        type: choice
+        options: [app-store, ad-hoc, development]
+
+  # Release tags always build.
+  push:
+    tags: ['v*']
+    branches: [main, master]
+    paths:
+      - 'mobile_app/**'
+      - '.github/workflows/ios-ipa.yml'
+
+concurrency:
+  group: ios-ipa-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  FLUTTER_VERSION: '3.41.7'   # keep in step with android-apk.yml
+
+jobs:
+  build:
+    name: Build IPA
+    runs-on: macos-14         # Apple silicon; ships Xcode 15+
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Decide the mode once, here, so later steps just read the flag. Secrets
+      # are unavailable to pull_request runs from forks, which lands on the
+      # unsigned path rather than failing.
+      - name: Determine signing mode
+        id: mode
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          TEAM: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CERT" ] && [ -n "$PROFILE" ] && [ -n "$TEAM" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Signing secrets present — building a signed IPA."
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No iOS signing secrets set; building an UNSIGNED IPA. See the header of .github/workflows/ios-ipa.yml for what to add."
+          fi
+
+      - name: Resolve dependencies
+        working-directory: mobile_app
+        run: flutter pub get
+
+      # Same policy as the Android workflow: errors and warnings are fatal,
+      # style infos are not.
+      - name: Analyze
+        working-directory: mobile_app
+        run: flutter analyze --no-fatal-infos
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: mobile_app/ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('mobile_app/ios/Podfile', 'mobile_app/pubspec.lock') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      # ── Signed path ────────────────────────────────────────────────────────
+      - name: Install certificate and provisioning profile
+        if: steps.mode.outputs.signed == 'true'
+        env:
+          CERT_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          # Ephemeral: the keychain lives only for this run and is deleted below.
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+
+          # openssl rather than base64(1): GNU wants -d, BSD wants -D, and the
+          # -o flag only exists on BSD. openssl is identical everywhere.
+          printf %s "$CERT_BASE64" | openssl base64 -d -A > "$CERT_PATH"
+          printf %s "$PROFILE_BASE64" | openssl base64 -d -A > "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT_PATH" -P "$CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          # Lets codesign use the key without an interactive prompt.
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+
+          # Xcode finds profiles by scanning this directory.
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+
+          # Read the name/UUID out of the profile rather than asking for two
+          # more secrets that could drift from the file they describe.
+          security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
+          UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")"
+          NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")"
+          APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/profile.plist")"
+          # application-identifier is "TEAMID.com.your.bundle" — drop the team.
+          BUNDLE_ID="${APP_ID#*.}"
+
+          cp "$PROFILE_PATH" "$PROFILE_DIR/$UUID.mobileprovision"
+
+          {
+            echo "PROFILE_NAME=$NAME"
+            echo "PROFILE_BUNDLE_ID=$BUNDLE_ID"
+            echo "BUILD_KEYCHAIN=$KEYCHAIN"
+          } >> "$GITHUB_ENV"
+          echo "Installed profile '$NAME' for $BUNDLE_ID"
+
+      - name: Write ExportOptions.plist
+        if: steps.mode.outputs.signed == 'true'
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          # The manual-run choice wins; otherwise the secret; otherwise app-store.
+          METHOD: ${{ inputs.export_method || secrets.IOS_EXPORT_METHOD || 'app-store' }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>${METHOD}</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>compileBitcode</key><false/>
+            <key>stripSwiftSymbols</key><true/>
+            <key>uploadSymbols</key><true/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${PROFILE_BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+          echo "Export method: ${METHOD}"
+
+      - name: Build signed IPA
+        if: steps.mode.outputs.signed == 'true'
+        working-directory: mobile_app
+        run: |
+          flutter build ipa --release \
+            --build-number ${{ github.run_number }} \
+            --export-options-plist "$RUNNER_TEMP/ExportOptions.plist"
+
+      # ── Unsigned path ──────────────────────────────────────────────────────
+      # `flutter build ipa` cannot export without a signing identity, so build
+      # the .app and package it by hand. Payload/ is the whole of an .ipa.
+      - name: Build unsigned IPA
+        if: steps.mode.outputs.signed != 'true'
+        working-directory: mobile_app
+        run: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign \
+            --build-number ${{ github.run_number }}
+
+          APP="build/ios/iphoneos/Runner.app"
+          test -d "$APP" || { echo "::error::Runner.app not found at $APP"; exit 1; }
+
+          OUT="build/ios/ipa"
+          rm -rf "$OUT/Payload" && mkdir -p "$OUT/Payload"
+          cp -R "$APP" "$OUT/Payload/"
+          (cd "$OUT" && zip -qry Runner.ipa Payload && rm -rf Payload)
+
+      # ── Package and publish ────────────────────────────────────────────────
+      - name: Name the artifact
+        id: ipa
+        working-directory: mobile_app
+        run: |
+          set -euo pipefail
+          src="$(find build/ios/ipa -maxdepth 1 -name '*.ipa' | head -n 1)"
+          test -n "$src" || { echo "::error::No .ipa produced under build/ios/ipa"; exit 1; }
+
+          ref="${GITHUB_REF_NAME//\//-}"          # slashes are illegal in filenames
+          sha="${GITHUB_SHA::7}"
+          signed="${{ steps.mode.outputs.signed }}"
+          suffix=""
+          [ "$signed" = "true" ] || suffix="-unsigned"
+          name="playsher-${ref}-${sha}-b${{ github.run_number }}${suffix}.ipa"
+
+          mkdir -p ../artifacts
+          cp "$src" "../artifacts/${name}"
+
+          size="$(du -h "$src" | cut -f1)"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Playsher IPA :apple:"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| File | \`${name}\` |"
+            echo "| Size | ${size} |"
+            echo "| Commit | \`${sha}\` |"
+            if [ "$signed" = "true" ]; then
+              echo "| Signing | signed — ready to distribute |"
+            else
+              echo "| Signing | **unsigned** — will not install on a device |"
+              echo ""
+              echo "Add the iOS signing secrets to get a distributable build."
+              echo "See the header of \`.github/workflows/ios-ipa.yml\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.ipa.outputs.name }}
+          path: artifacts/${{ steps.ipa.outputs.name }}
+          retention-days: 30
+          if-no-files-found: error
+
+      # Runs even when the build failed, so a signing identity is never left
+      # behind on the runner.
+      - name: Remove the temporary keychain
+        if: always() && steps.mode.outputs.signed == 'true'
+        run: |
+          security delete-keychain "$BUILD_KEYCHAIN" 2>/dev/null || true
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision || true
+
+  release:
+    name: Attach IPA to GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download IPA
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.ipa
+          generate_release_notes: true

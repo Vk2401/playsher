@@ -9,7 +9,9 @@ import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../models/ground_sport_model.dart';
+import '../models/slot_model.dart';
 import '../providers/auth_provider.dart';
+import '../providers/grounds_provider.dart';
 import '../widgets/sticky_bottom_bar.dart';
 
 class BookingFlowScreen extends ConsumerStatefulWidget {
@@ -61,6 +63,52 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   int get _balanceAtGround => _isOnline ? 0 : _totalPrice - _payableNow;
   String? get _groundName => widget.extra['groundName'] as String?;
 
+  /// The slots this booking covers, resolved from the same provider the picker
+  /// used. Watched rather than passed through `extra` so the times survive a
+  /// rebuild and the screen never has to be handed data it can look up.
+  List<SlotModel> get _selectedSlots {
+    final gs = _groundSport;
+    if (gs == null || _date.isEmpty) return const [];
+    final all = ref
+        .watch(slotsProvider(SlotQuery(groundSportId: gs.id, date: _date)))
+        .valueOrNull;
+    if (all == null) return const [];
+
+    final chosen = all.where((s) => _slotIds.contains(s.id)).toList()
+      ..sort((a, b) => a.slotStartTime.compareTo(b.slotStartTime));
+    return chosen;
+  }
+
+  /// "6:30 PM - 7:30 PM" across every selected slot, or null until they load.
+  String? get _selectedTimeRange {
+    final slots = _selectedSlots;
+    if (slots.isEmpty) return null;
+    return '${slots.first.formattedStart} - ${slots.last.formattedEnd}';
+  }
+
+  String? get _selectedDuration {
+    final slots = _selectedSlots;
+    if (slots.isEmpty) return null;
+    final total = slots.length * 30;
+    final hours = total ~/ 60;
+    final mins = total % 60;
+    if (hours == 0) return '$mins min';
+    if (mins == 0) return '$hours hr';
+    return '$hours hr $mins min';
+  }
+
+  /// "Thu, 20 Aug 2026" — the raw ISO date was being shown to the user.
+  String get _formattedDate {
+    final d = DateTime.tryParse(_date);
+    if (d == null) return _date;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[d.weekday - 1]}, ${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
   /// Fields the confirmation screen needs that the API's booking row does not
   /// carry. Merged over the row so the screen never has to guess at aliases.
   Map<String, dynamic> get _displayFields => {
@@ -108,6 +156,53 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   bool get _holdLapsed =>
       _holdExpiresAt != null && _holdRemaining == Duration.zero;
 
+  /// Shown once and only once when the hold runs out.
+  bool _expiryAnnounced = false;
+
+  /// The slots are gone — the server released them. Anything the user does on
+  /// this screen now would fail, so block it outright and send them back to
+  /// pick again rather than leaving a dead Pay button on screen.
+  Future<void> _announceExpiry() async {
+    if (_expiryAnnounced || !mounted) return;
+    _expiryAnnounced = true;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        // Back must not dismiss it either: there is nothing behind it to use.
+        canPop: false,
+        child: AlertDialog(
+          icon: const Icon(Icons.timer_off_rounded,
+              size: 34, color: AppColors.error),
+          title: const Text('Session expired'),
+          content: const Text(
+            'Your slots were only held for 5 minutes and have been released '
+            'so others can book them.\n\nPick your slots again to continue.',
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Book again'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    // Back to the ground so the slot grid reloads with current availability.
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/grounds/${widget.groundId}');
+    }
+  }
+
   void _startHoldTicker(DateTime deadline) {
     _holdTicker?.cancel();
     setState(() => _holdExpiresAt = deadline);
@@ -117,7 +212,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         return;
       }
       setState(() {});
-      if (_holdRemaining == Duration.zero) timer.cancel();
+      if (_holdRemaining == Duration.zero) {
+        timer.cancel();
+        _announceExpiry();
+      }
     });
   }
 
@@ -382,9 +480,12 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             // Summary card
             _SummaryCard(
               groundSport: gs,
-              date: _date,
+              date: _formattedDate,
               slotCount: _slotIds.length,
               totalPrice: _totalPrice,
+              timeRange: _selectedTimeRange,
+              duration: _selectedDuration,
+              groundName: _groundName,
             ),
             const SizedBox(height: 20),
 
@@ -699,12 +800,18 @@ class _SummaryCard extends StatelessWidget {
   final String date;
   final int slotCount;
   final int totalPrice;
+  final String? timeRange;
+  final String? duration;
+  final String? groundName;
 
   const _SummaryCard({
     required this.groundSport,
     required this.date,
     required this.slotCount,
     required this.totalPrice,
+    this.timeRange,
+    this.duration,
+    this.groundName,
   });
 
   @override
@@ -769,15 +876,31 @@ class _SummaryCard extends StatelessWidget {
                 color: colors.textPrimary),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              _Row(
-                icon: Icons.access_time_rounded,
-                label: 'Slots',
-                value: '$slotCount slot${slotCount > 1 ? 's' : ''}',
-              ),
-            ],
+          // The actual booked window, which this screen never showed — it said
+          // only "2 slots", leaving the user to trust it was the right two.
+          if (timeRange != null) ...[
+            _Row(
+              icon: Icons.access_time_rounded,
+              label: 'Time',
+              value: timeRange!,
+            ),
+            const SizedBox(height: 8),
+          ],
+          _Row(
+            icon: Icons.hourglass_bottom_rounded,
+            label: 'Duration',
+            value: duration == null
+                ? '$slotCount slot${slotCount > 1 ? 's' : ''}'
+                : '$duration  ($slotCount slot${slotCount > 1 ? 's' : ''})',
           ),
+          if (groundName != null) ...[
+            const SizedBox(height: 8),
+            _Row(
+              icon: Icons.stadium_rounded,
+              label: 'Venue',
+              value: groundName!,
+            ),
+          ],
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
@@ -830,13 +953,18 @@ class _Row extends StatelessWidget {
         const SizedBox(width: 8),
         Text(label,
             style: TextStyle(fontSize: 13, color: colors.textSecondary)),
-        const SizedBox(width: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: colors.textPrimary,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colors.textPrimary,
+            ),
           ),
         ),
       ],

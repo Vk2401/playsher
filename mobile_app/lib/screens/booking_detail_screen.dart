@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import '../core/api_client.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
+import '../core/booking_share.dart';
+import '../core/map_links.dart';
 import '../models/booking_model.dart';
 import '../providers/bookings_provider.dart';
 import '../widgets/app_back_button.dart';
@@ -79,6 +82,43 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
     }
   }
 
+  Future<void> _openDirections(BookingModel booking) async {
+    final opened = await MapLinks.openDirections(
+      latitude: booking.groundLatitude,
+      longitude: booking.groundLongitude,
+    );
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open a maps app.')),
+    );
+  }
+
+  Future<void> _share(BookingModel booking) async {
+    final text = BookingShare.build(
+      reference: booking.referenceLabel,
+      groundName: booking.groundName,
+      sportName: booking.sportName,
+      date: booking.formattedDateLong,
+      timeRange: booking.timeRange,
+      duration: booking.durationLabel,
+      total: booking.formattedPrice,
+      amountPaid:
+          booking.advanceAmount > 0 ? booking.formattedAdvance : null,
+      balanceDue: booking.hasBalanceDue ? booking.formattedBalance : null,
+      paymentMethod: booking.paymentMethodLabel,
+      directionsUrl: booking.directionsUrl,
+      address: booking.groundAddress,
+    );
+
+    final box = context.findRenderObject() as RenderBox?;
+    await Share.share(
+      text,
+      subject: 'My Playsher booking',
+      sharePositionOrigin:
+          box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -96,6 +136,16 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
           'Booking Details',
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
+        actions: [
+          // Same text the confirmation screen sends, so a booking re-shared a
+          // week later reads identically to the one shared at checkout.
+          if (bookingAsync.valueOrNull != null)
+            IconButton(
+              icon: const Icon(Icons.ios_share_rounded, size: 20),
+              tooltip: 'Share booking details',
+              onPressed: () => _share(bookingAsync.value!),
+            ),
+        ],
       ),
       body: bookingAsync.when(
         loading: () => const Padding(
@@ -123,6 +173,21 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                 // what day, and what time. Given their own card at the top
                 // rather than buried among ids and money.
                 _WhenWhereCard(booking: booking),
+                if (booking.hasDirections) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openDirections(booking),
+                      icon: const Icon(Icons.directions_rounded, size: 18),
+                      label: const Text('Get directions'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 _Section(

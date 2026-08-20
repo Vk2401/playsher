@@ -7,6 +7,7 @@
 // cannot see.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:playsher_app/core/app_colors.dart';
 import 'package:playsher_app/core/theme.dart';
@@ -27,7 +28,7 @@ const _scales = <double>[1.0, 1.3];
 
 /// Mirrors the height formula `home_screen.dart` uses for the featured
 /// carousel. Kept in step with it deliberately: the bug was a constant here.
-double _carouselHeight(double scale) => 300 * (scale > 1.4 ? 1.4 : scale);
+double _carouselHeight(double scale) => 236 * (scale > 1.4 ? 1.4 : scale);
 
 GroundModel _ground() => GroundModel.fromJson({
       'id': 1,
@@ -58,11 +59,17 @@ SlotModel _slot() => SlotModel.fromJson({
 
 Widget _host(Widget child,
     {required Brightness brightness, required double scale}) {
-  return MaterialApp(
-    theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
-    home: MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-      child: Scaffold(body: Center(child: child)),
+  // GroundCard reads the user's position from `userLocationProvider` to show
+  // "how far away", so every host needs a scope. The real notifier is fine
+  // here: with no location plugin registered it settles on "no fix", which is
+  // the layout case where the distance badge is absent.
+  return ProviderScope(
+    child: MaterialApp(
+      theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+      home: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+        child: Scaffold(body: Center(child: child)),
+      ),
     ),
   );
 }
@@ -126,46 +133,31 @@ void main() {
     );
   });
 
-  // The defect this guards, pinned so the fix cannot be silently reverted:
-  // the featured carousel used a hard 280px height. That fits at the default
-  // text scale, which is why it shipped, but at 1.3x the card's own content
-  // is taller and the price is clipped off the bottom.
-  testWidgets('a hard-coded carousel height still overflows at 1.3x text scale',
+  // The defect this guards: the featured carousel used a hard 280px height,
+  // which fits at the default text scale — why it shipped — but clipped the
+  // price at 1.3x. The card is now built around an `Expanded` image, so a
+  // short slot shortens the photo instead of clipping the text. This pins
+  // that property: squeeze the card well below its designed height, at the
+  // largest text scale, and it must still lay out cleanly.
+  testWidgets('featured card absorbs a short slot instead of overflowing',
       (tester) async {
     tester.view.physicalSize = _devices['Pixel 7']!;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_host(
-      SizedBox(
-        height: 280, // the pre-fix value
-        child:
-            GroundCard(ground: _ground(), wide: true, onFavoriteToggle: () {}),
-      ),
-      brightness: Brightness.dark,
-      scale: 1.3,
-    ));
-    await tester.pumpAndSettle();
-
-    expect(
-      tester.takeException(),
-      isA<FlutterError>()
-          .having((e) => e.message, 'message', contains('overflowed')),
-      reason: 'If this stops overflowing the guard above has lost its teeth.',
-    );
-
-    // ...and the height the screen actually uses does not.
-    await tester.pumpWidget(_host(
-      SizedBox(
-        height: _carouselHeight(1.3),
-        child:
-            GroundCard(ground: _ground(), wide: true, onFavoriteToggle: () {}),
-      ),
-      brightness: Brightness.dark,
-      scale: 1.3,
-    ));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    for (final height in [280.0, 200.0, _carouselHeight(1.3)]) {
+      await tester.pumpWidget(_host(
+        SizedBox(
+          height: height,
+          child: GroundCard(
+              ground: _ground(), wide: true, onFavoriteToggle: () {}),
+        ),
+        brightness: Brightness.dark,
+        scale: 1.3,
+      ));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'at ${height}px tall');
+    }
   });
 
   testWidgets('StickyBottomBar does not overflow with a long price',

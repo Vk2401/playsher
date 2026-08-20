@@ -85,6 +85,59 @@ class GroundCardShimmer extends StatelessWidget {
   }
 }
 
+/// Skeleton for one row of a grounds list — the horizontal `GroundCard`
+/// shape, not the tall detail-page one.
+class GroundListItemShimmer extends StatelessWidget {
+  const GroundListItemShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Shimmer.fromColors(
+      baseColor: colors.input,
+      highlightColor: colors.border,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                color: colors.input,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(width: 64, height: 14, color: colors.input),
+                  const SizedBox(height: 8),
+                  Container(
+                      width: double.infinity, height: 15, color: colors.input),
+                  const SizedBox(height: 8),
+                  Container(width: 90, height: 12, color: colors.input),
+                  const SizedBox(height: 10),
+                  Container(width: 72, height: 14, color: colors.input),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ListShimmer extends StatelessWidget {
   final int count;
 
@@ -99,13 +152,18 @@ class ListShimmer extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: count,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemBuilder: (_, __) => const GroundCardShimmer(),
+      // Matches the 20px gutter every real grounds list uses, so the skeleton
+      // does not shift the cards sideways when the data lands.
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      itemBuilder: (_, __) => const GroundListItemShimmer(),
     );
   }
 }
 
-/// Skeleton for the fixed-height featured carousel on the home screen.
+/// Skeleton for the featured carousel on the home screen.
+///
+/// Takes its size from the parent so it lands on the same footprint as the
+/// card it stands in for, whatever viewport fraction the carousel uses.
 class FeaturedCardShimmer extends StatelessWidget {
   const FeaturedCardShimmer({super.key});
 
@@ -116,8 +174,6 @@ class FeaturedCardShimmer extends StatelessWidget {
       baseColor: colors.input,
       highlightColor: colors.border,
       child: Container(
-        width: 260,
-        margin: const EdgeInsets.only(left: 20),
         decoration: BoxDecoration(
           color: colors.card,
           borderRadius: BorderRadius.circular(16),
@@ -134,15 +190,22 @@ class CategoryStripShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Row(
-        children: List.generate(
-          4,
-          (_) => const Padding(
-            padding: EdgeInsets.only(right: 10),
-            child: ShimmerBox(width: 80, height: 96, radius: 16),
-          ),
+    // Same geometry as the real strip: five tiles that run off the right edge
+    // rather than a fixed Row, which overflowed on a 390pt phone once the
+    // user's text scale pushed the tiles taller.
+    final tile = 96 *
+        MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3).scale(1);
+
+    return SizedBox(
+      height: tile + 16,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        itemCount: 5,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.only(right: 10),
+          child: ShimmerBox(width: 80, height: tile, radius: 16),
         ),
       ),
     );
