@@ -54,6 +54,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   Map<String, dynamic>? _pendingBookingResult;
 
   Future<void> _confirmBooking() async {
+    // The CTA is disabled while loading, but guard re-entry here too: this is
+    // the path that creates a booking and takes a payment, and a second call
+    // in flight would double-book the slot.
+    if (_loading) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -185,7 +189,17 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   }
 
   void _onExternalWallet(ExternalWalletResponse response) {
-    // External wallet selected — payment flow continues via wallet app
+    // The wallet app takes over from here and Razorpay reports the outcome
+    // through the success/error callbacks. If it never does, the screen would
+    // otherwise sit on a non-cancelable loader forever, so hand control back
+    // and tell the player where the payment stands.
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error =
+          'Complete the payment in ${response.walletName ?? 'your wallet app'}, '
+          'then check My Bookings to confirm it went through.';
+    });
   }
 
   String _parseError(Object e) {

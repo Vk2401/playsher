@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +22,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   late final TextEditingController _search;
   int? _sportId;
   String _query = '';
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -28,8 +31,20 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     _search = TextEditingController(text: _query);
   }
 
+  /// Each keystroke used to change the provider's filter key immediately,
+  /// firing a fresh GET /grounds per character typed. Settle first.
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      if (value.trim() == _query.trim()) return;
+      setState(() => _query = value);
+    });
+  }
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -62,18 +77,29 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       ),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => context.push('/venue-filter'),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: colors.input,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: colors.border),
+                  Semantics(
+                    label: 'Filter grounds',
+                    button: true,
+                    child: GestureDetector(
+                      onTap: () => context.push('/venue-filter'),
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: colors.input,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: colors.border),
+                            ),
+                            child: Icon(Icons.tune_rounded,
+                                size: 20, color: colors.textSecondary),
+                          ),
+                        ),
                       ),
-                      child: Icon(Icons.tune_rounded,
-                          size: 20, color: colors.textSecondary),
                     ),
                   ),
                 ],
@@ -110,14 +136,21 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                           contentPadding: EdgeInsets.zero,
                           filled: false,
                         ),
-                        onChanged: (v) => setState(() => _query = v),
+                        onChanged: _onQueryChanged,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (v) {
+                          _debounce?.cancel();
+                          setState(() => _query = v);
+                        },
                       ),
                     ),
                     if (_query.isNotEmpty)
                       IconButton(
                         icon: Icon(Icons.close,
                             size: 18, color: colors.textSecondary),
+                        tooltip: 'Clear search',
                         onPressed: () {
+                          _debounce?.cancel();
                           _search.clear();
                           setState(() => _query = '');
                         },
@@ -150,6 +183,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   ],
                 ),
               ),
+              // Loading and error both collapse the strip rather than
+              // shifting the results below; the results list reports the
+              // failure with its own retry.
               orElse: () => const SizedBox(height: 44),
             ),
             const SizedBox(height: 12),
