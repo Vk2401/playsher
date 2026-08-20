@@ -4,6 +4,7 @@ import { useTheme } from '@mui/material/styles'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import Topbar from './Topbar.jsx'
+import OfflineBanner from '../ui/OfflineBanner.jsx'
 
 export default function AppShell() {
   const theme = useTheme()
@@ -16,7 +17,6 @@ export default function AppShell() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', background: '#F4F7F5' }}>
       <Topbar
-        sidebarOpen={sidebarOpen}
         onSidebarToggle={
           isMobile
             ? () => setMobileOpen((v) => !v)
@@ -44,6 +44,7 @@ export default function AppShell() {
         }}
       >
         <Toolbar />
+        <OfflineBanner />
         <Box sx={{ p: { xs: 2, sm: 3 }, flex: 1 }}>
           <Outlet />
         </Box>

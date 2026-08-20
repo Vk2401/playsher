@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext.jsx'
 import { createAppTheme } from './theme/index.js'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import AppRouter from './router/index.jsx'
+import PwaUpdatePrompt from './components/ui/PwaUpdatePrompt.jsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +33,7 @@ function ThemedApp() {
         <AuthProvider>
           <AppRouter />
         </AuthProvider>
+        <PwaUpdatePrompt />
       </SnackbarProvider>
     </ThemeProvider>
   )

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import apiClient from '../api/client.js'
+import { purgePwaCaches } from '../pwa/registerSW.js'
 
 const AuthContext = createContext(null)
 
@@ -94,6 +95,10 @@ export function AuthProvider({ children }) {
       if (refreshToken) await apiClient.post('/auth/logout', { refresh_token: refreshToken })
     } catch { /* ignore */ } finally {
       clearAuth()
+      // These panels run on shared office machines. Clearing storage is not
+      // enough once a service worker is installed: its caches would outlive
+      // the session and serve this admin's shell to whoever signs in next.
+      await purgePwaCaches()
     }
   }, [clearAuth])
 

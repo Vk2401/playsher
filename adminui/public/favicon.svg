@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Playsher">
+  <rect width="512" height="512" rx="112" fill="#6B9E7A"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linejoin="round">
+    <rect x="118" y="150" width="276" height="212" rx="14"/>
+    <line x1="256" y1="150" x2="256" y2="362"/>
+    <circle cx="256" cy="256" r="46"/>
+    <path d="M118 206h44v100h-44"/>
+    <path d="M394 206h-44v100h44"/>
+  </g>
+</svg>
