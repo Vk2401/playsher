@@ -13,6 +13,7 @@ import '../providers/notifications_provider.dart';
 import '../widgets/ground_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/shimmer_loader.dart';
+import '../widgets/sport_glyph.dart';
 import '../widgets/error_view.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -408,27 +409,6 @@ class _CategoriesRow extends StatelessWidget {
     required this.onSelect,
   });
 
-  static const _emojis = {
-    'cricket': '\ud83c\udfd0',
-    'football': '\u26bd',
-    'basketball': '\ud83c\udfc0',
-    'volleyball': '\ud83c\udfd0',
-    'badminton': '\ud83c\udff8',
-    'tennis': '\ud83c\udfbe',
-    'hockey': '\ud83c\udfd1',
-    'kabaddi': '\ud83e\udd3c',
-    'swimming': '\ud83c\udfca',
-    'gym': '\ud83d\udcaa',
-  };
-
-  String _emojiFor(String name) {
-    final lower = name.toLowerCase();
-    for (final e in _emojis.entries) {
-      if (lower.contains(e.key)) return e.value;
-    }
-    return '\ud83c\udfc6';
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -449,7 +429,6 @@ class _CategoriesRow extends StatelessWidget {
           final isActive =
               sport == null ? selected == null : selected == sport.id;
           final label = sport?.name ?? 'All';
-          final emoji = sport != null ? _emojiFor(sport.name) : '\ud83c\udfc5';
 
           return GestureDetector(
             onTap: () => onSelect(sport?.id),
@@ -468,7 +447,11 @@ class _CategoriesRow extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(emoji, style: const TextStyle(fontSize: 28)),
+                  sport == null
+                      ? const ExcludeSemantics(
+                          child:
+                              Text('\u{1F3C5}', style: TextStyle(fontSize: 28)))
+                      : SportGlyph(name: sport.name, imageUrl: sport.image),
                   const SizedBox(height: 6),
                   Text(
                     label,

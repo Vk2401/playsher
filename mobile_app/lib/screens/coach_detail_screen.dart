@@ -23,7 +23,7 @@ class CoachDetailScreen extends ConsumerWidget {
       body: coachAsync.when(
         loading: () => const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
-          child: GroundCardShimmer(),
+          child: CoachCardShimmer(),
         ),
         error: (e, _) => ErrorView(
             message: apiErrorMessage(e, fallback: 'Could not load this coach')),

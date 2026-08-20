@@ -38,22 +38,18 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
   Widget build(BuildContext context) {
     final colors = context.colors;
     final booking = widget.bookingData ?? {};
-    final bookingRef = booking['booking_reference']?.toString() ??
-        booking['id']?.toString() ??
-        booking['booking_id']?.toString() ??
-        '\u2014';
-    final amount = booking['total_amount']?.toString() ??
-        booking['amount']?.toString() ??
-        '0';
-    final date = booking['date']?.toString() ?? '\u2014';
-    final sport = booking['sport']?.toString() ??
-        booking['sport_name']?.toString() ??
-        '\u2014';
-    final ground = booking['ground']?.toString() ??
-        booking['ground_name']?.toString() ??
-        '\u2014';
-    final paymentMethod =
-        booking['payment_method']?.toString() ?? 'Pay at Ground';
+    // Keys below are the Booking row POST /bookings actually returns
+    // (backend-api/src/models/Booking.js), plus the two display fields the
+    // booking flow carries in because the row has no ground or sport name.
+    // The previous alias chains ('date', 'sport', 'ground', 'booking_id')
+    // matched nothing the API sends, so those rows always rendered as em-dashes.
+    const missing = '\u2014';
+    final bookingRef = booking['booking_reference']?.toString() ?? missing;
+    final amount = booking['total_amount']?.toString() ?? '0';
+    final date = booking['slot_date']?.toString() ?? missing;
+    final sport = booking['sport_name']?.toString() ?? missing;
+    final ground = booking['ground_name']?.toString() ?? missing;
+    final paymentMethod = booking['payment_method']?.toString() ?? missing;
 
     return Scaffold(
       backgroundColor: colors.background,

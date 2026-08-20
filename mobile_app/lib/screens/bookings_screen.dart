@@ -63,7 +63,8 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen>
           ),
           Expanded(
             child: bookingsAsync.when(
-              loading: () => const ListShimmer(count: 4),
+              loading: () => ShimmerList(
+                  count: 4, itemBuilder: () => const BookingCardShimmer()),
               error: (e, _) => ErrorView(
                 message: apiErrorMessage(e,
                     fallback: 'Could not load your bookings'),

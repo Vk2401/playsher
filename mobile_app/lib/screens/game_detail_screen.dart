@@ -25,7 +25,7 @@ class GameDetailScreen extends ConsumerWidget {
       body: gameAsync.when(
         loading: () => const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
-          child: GroundCardShimmer(),
+          child: GameCardShimmer(),
         ),
         error: (e, _) => ErrorView(
             message: apiErrorMessage(e, fallback: 'Could not load this game')),
