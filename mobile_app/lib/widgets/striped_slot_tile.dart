@@ -30,7 +30,7 @@ class StripedSlotTile extends StatelessWidget {
     Color textColor;
     if (isSelected) {
       bgColor = AppColors.accent;
-      textColor = Colors.black;
+      textColor = AppColors.onPrimary;
     } else if (isBooked || !isAvailable) {
       bgColor = colors.border.withValues(alpha: 0.3);
       textColor = colors.textSecondary;
@@ -60,8 +60,8 @@ class StripedSlotTile extends StatelessWidget {
                 ),
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

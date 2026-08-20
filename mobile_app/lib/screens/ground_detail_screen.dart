@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/ground_model.dart';
 import '../models/ground_sport_model.dart';
+import '../providers/favorites_provider.dart';
 import '../providers/grounds_provider.dart';
 import '../widgets/error_view.dart';
 import '../widgets/review_card.dart';
@@ -33,10 +35,17 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
   int _contentSection = 0; // 0=Overview, 1=Amenities, 2=Reviews
 
   static const _sportEmojis = {
-    'cricket': '\u{1F3CF}', 'football': '\u26BD', 'soccer': '\u26BD',
-    'basketball': '\u{1F3C0}', 'volleyball': '\u{1F3D0}', 'badminton': '\u{1F3F8}',
-    'tennis': '\u{1F3BE}', 'hockey': '\u{1F3D1}', 'swimming': '\u{1F3CA}',
-    'kabaddi': '\u{1F93C}', 'gym': '\u{1F4AA}',
+    'cricket': '\u{1F3CF}',
+    'football': '\u26BD',
+    'soccer': '\u26BD',
+    'basketball': '\u{1F3C0}',
+    'volleyball': '\u{1F3D0}',
+    'badminton': '\u{1F3F8}',
+    'tennis': '\u{1F3BE}',
+    'hockey': '\u{1F3D1}',
+    'swimming': '\u{1F3CA}',
+    'kabaddi': '\u{1F93C}',
+    'gym': '\u{1F4AA}',
   };
 
   String _emoji(String name) => _sportEmojis.entries
@@ -64,13 +73,17 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
     return groundAsync.when(
       loading: () => Scaffold(
         backgroundColor: colors.background,
-        body: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        appBar: AppBar(backgroundColor: colors.background),
+        body: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: GroundCardShimmer(),
+        ),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: colors.background,
         appBar: AppBar(),
         body: ErrorView(
-          message: e.toString(),
+          message: apiErrorMessage(e, fallback: 'Could not load this ground'),
           onRetry: () => ref.invalidate(groundDetailProvider(id)),
         ),
       ),
@@ -80,9 +93,12 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
 
   Widget _buildScaffold(BuildContext context, GroundModel ground) {
     final colors = context.colors;
-    final images = ground.images.isNotEmpty
-        ? ground.images.map((i) => i.image).toList()
-        : ['https://picsum.photos/seed/${ground.id}/800/400'];
+    // Watched (not just read) so the hero heart repaints when the list changes.
+    ref.watch(favoritesProvider);
+    // No stock-photo fallback: an invented image reads as a real photo of a
+    // venue the user is about to pay for. An empty list renders the themed
+    // placeholder below.
+    final images = ground.images.map((i) => i.image).toList();
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -95,12 +111,14 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                 expandedHeight: 384,
                 pinned: true,
                 backgroundColor: colors.background,
-                leading: GestureDetector(
-                  onTap: () => context.pop(),
-                  child: Container(
-                    margin: const EdgeInsets.all(8),
+                leading: IconButton(
+                  onPressed: () => context.pop(),
+                  tooltip: 'Back',
+                  icon: Container(
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.4),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -111,40 +129,68 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                   ),
                 ),
                 actions: [
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.favorite_border_rounded, size: 20, color: Colors.white),
-                      onPressed: () {},
-                    ),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final isFav = ref
+                          .watch(favoritesProvider.notifier)
+                          .isFavorite(ground.id);
+                      return Container(
+                        margin: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            isFav
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            size: 20,
+                            color: isFav ? AppColors.error : Colors.white,
+                          ),
+                          tooltip:
+                              isFav ? 'Remove from saved' : 'Save this ground',
+                          onPressed: () => ref
+                              .read(favoritesProvider.notifier)
+                              .toggle(ground.id),
+                        ),
+                      );
+                    },
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      PageView.builder(
-                        controller: _pageCtrl,
-                        itemCount: images.length,
-                        onPageChanged: (i) => setState(() => _imgIndex = i),
-                        itemBuilder: (_, i) => CachedNetworkImage(
-                          imageUrl: images[i],
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(color: colors.input),
-                          errorWidget: (_, __, ___) => Container(
-                            color: colors.input,
-                            child: Icon(
-                              Icons.sports_soccer_rounded,
-                              size: 64,
-                              color: colors.border,
+                      if (images.isEmpty)
+                        Container(
+                          color: colors.input,
+                          child: Icon(
+                            Icons.sports_soccer_rounded,
+                            size: 64,
+                            color: colors.border,
+                          ),
+                        )
+                      else
+                        PageView.builder(
+                          controller: _pageCtrl,
+                          itemCount: images.length,
+                          onPageChanged: (i) => setState(() => _imgIndex = i),
+                          itemBuilder: (_, i) => CachedNetworkImage(
+                            imageUrl: images[i],
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) =>
+                                Container(color: colors.input),
+                            errorWidget: (_, __, ___) => Container(
+                              color: colors.input,
+                              child: Icon(
+                                Icons.sports_soccer_rounded,
+                                size: 64,
+                                color: colors.border,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       // Gradient overlay
                       Positioned.fill(
                         child: DecoratedBox(
@@ -153,9 +199,9 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.black.withOpacity(0.4),
+                                Colors.black.withValues(alpha: 0.4),
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.7),
+                                Colors.black.withValues(alpha: 0.7),
                               ],
                               stops: const [0.0, 0.4, 1.0],
                             ),
@@ -165,20 +211,23 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                       // Page dots
                       if (images.length > 1)
                         Positioned(
-                          bottom: 16, left: 0, right: 0,
+                          bottom: 16,
+                          left: 0,
+                          right: 0,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: List.generate(
                               images.length,
                               (i) => AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
-                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 3),
                                 width: i == _imgIndex ? 16 : 6,
                                 height: 6,
                                 decoration: BoxDecoration(
                                   color: i == _imgIndex
                                       ? Colors.white
-                                      : Colors.white.withOpacity(0.4),
+                                      : Colors.white.withValues(alpha: 0.4),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
@@ -195,7 +244,8 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.background,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(40)),
                   ),
                   transform: Matrix4.translationValues(0, -40, 0),
                   child: Column(
@@ -222,7 +272,8 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                             const SizedBox(width: 12),
                             if (ground.avgRating > 0)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
                                   color: AppColors.primary,
                                   borderRadius: BorderRadius.circular(8),
@@ -230,12 +281,13 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.star_rounded, size: 14, color: Colors.black),
+                                    const Icon(Icons.star_rounded,
+                                        size: 14, color: AppColors.onPrimary),
                                     const SizedBox(width: 3),
                                     Text(
                                       ground.avgRating.toStringAsFixed(1),
                                       style: const TextStyle(
-                                        color: Colors.black,
+                                        color: AppColors.onPrimary,
                                         fontWeight: FontWeight.w800,
                                         fontSize: 13,
                                       ),
@@ -250,29 +302,24 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                       const SizedBox(height: 10),
 
                       // Location row
-                      if ((ground.address ?? '').isNotEmpty || (ground.city ?? '').isNotEmpty)
+                      if ((ground.address ?? '').isNotEmpty ||
+                          (ground.city ?? '').isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Row(
                             children: [
-                              const Icon(Icons.location_on_rounded, size: 14, color: AppColors.primary),
+                              const Icon(Icons.location_on_rounded,
+                                  size: 14, color: AppColors.primary),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   [ground.address, ground.city]
                                       .where((s) => s != null && s.isNotEmpty)
                                       .join(', '),
-                                  style: TextStyle(fontSize: 13, color: colors.textSecondary),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: colors.textSecondary),
                                   overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'View Map',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -283,8 +330,10 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
 
                       // Stats row
                       Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           color: colors.input,
                           borderRadius: BorderRadius.circular(16),
@@ -293,24 +342,30 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _StatBox(
-                              icon: Icons.star_rounded,
-                              value: ground.avgRating.toStringAsFixed(1),
-                              label: 'RATING',
+                            Expanded(
+                              child: _StatBox(
+                                icon: Icons.star_rounded,
+                                value: ground.avgRating.toStringAsFixed(1),
+                                label: 'RATING',
+                              ),
                             ),
-                            _VertDivider(),
-                            _StatBox(
-                              icon: Icons.rate_review_rounded,
-                              value: '${ground.reviewCount}',
-                              label: 'REVIEWS',
+                            const _VertDivider(),
+                            Expanded(
+                              child: _StatBox(
+                                icon: Icons.rate_review_rounded,
+                                value: '${ground.reviewCount}',
+                                label: 'REVIEWS',
+                              ),
                             ),
-                            _VertDivider(),
-                            _StatBox(
-                              icon: Icons.attach_money_rounded,
-                              value: ground.startingPrice > 0
-                                  ? '\u20b9${ground.startingPrice.toStringAsFixed(0)}'
-                                  : '\u2014',
-                              label: 'FROM/SLOT',
+                            const _VertDivider(),
+                            Expanded(
+                              child: _StatBox(
+                                icon: Icons.attach_money_rounded,
+                                value: ground.startingPrice > 0
+                                    ? '\u20b9${ground.startingPrice.toStringAsFixed(0)}'
+                                    : '\u2014',
+                                label: 'FROM/SLOT',
+                              ),
                             ),
                           ],
                         ),
@@ -346,15 +401,20 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
                                   margin: const EdgeInsets.only(right: 8),
-                                  constraints: const BoxConstraints(minWidth: 100),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  constraints:
+                                      const BoxConstraints(minWidth: 100),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
                                     color: sel
-                                        ? AppColors.primary.withOpacity(0.1)
+                                        ? AppColors.primary
+                                            .withValues(alpha: 0.1)
                                         : colors.input,
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                      color: sel ? AppColors.primary : colors.border,
+                                      color: sel
+                                          ? AppColors.primary
+                                          : colors.border,
                                       width: sel ? 2 : 1,
                                     ),
                                   ),
@@ -363,7 +423,9 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: sel ? AppColors.primary : colors.textSecondary,
+                                      color: sel
+                                          ? AppColors.primary
+                                          : colors.textSecondary,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -387,9 +449,11 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                             ),
                             child: TableCalendar(
                               firstDay: DateTime.now(),
-                              lastDay: DateTime.now().add(const Duration(days: 30)),
+                              lastDay:
+                                  DateTime.now().add(const Duration(days: 30)),
                               focusedDay: _focusedDay,
-                              selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
+                              selectedDayPredicate: (d) =>
+                                  isSameDay(d, _selectedDay),
                               onDaySelected: (sel, foc) => setState(() {
                                 _selectedDay = sel;
                                 _focusedDay = foc;
@@ -401,21 +465,26 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                   shape: BoxShape.circle,
                                 ),
                                 selectedTextStyle: const TextStyle(
-                                  color: Colors.black,
+                                  color: AppColors.onPrimary,
                                   fontWeight: FontWeight.w700,
                                 ),
                                 todayDecoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.2),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.2),
                                   shape: BoxShape.circle,
                                 ),
                                 todayTextStyle: const TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w700,
                                 ),
-                                defaultTextStyle: TextStyle(color: colors.textPrimary),
-                                weekendTextStyle: TextStyle(color: colors.textSecondary),
-                                outsideTextStyle: TextStyle(color: colors.border),
-                                disabledTextStyle: TextStyle(color: colors.border),
+                                defaultTextStyle:
+                                    TextStyle(color: colors.textPrimary),
+                                weekendTextStyle:
+                                    TextStyle(color: colors.textSecondary),
+                                outsideTextStyle:
+                                    TextStyle(color: colors.border),
+                                disabledTextStyle:
+                                    TextStyle(color: colors.border),
                               ),
                               headerStyle: HeaderStyle(
                                 formatButtonVisible: false,
@@ -425,12 +494,16 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                   fontSize: 15,
                                   color: colors.textPrimary,
                                 ),
-                                leftChevronIcon: Icon(Icons.chevron_left, color: colors.textSecondary),
-                                rightChevronIcon: Icon(Icons.chevron_right, color: colors.textSecondary),
+                                leftChevronIcon: Icon(Icons.chevron_left,
+                                    color: colors.textSecondary),
+                                rightChevronIcon: Icon(Icons.chevron_right,
+                                    color: colors.textSecondary),
                               ),
                               daysOfWeekStyle: DaysOfWeekStyle(
-                                weekdayStyle: TextStyle(color: colors.textSecondary, fontSize: 12),
-                                weekendStyle: TextStyle(color: colors.textSecondary, fontSize: 12),
+                                weekdayStyle: TextStyle(
+                                    color: colors.textSecondary, fontSize: 12),
+                                weekendStyle: TextStyle(
+                                    color: colors.textSecondary, fontSize: 12),
                               ),
                             ),
                           ),
@@ -452,7 +525,8 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: _SlotsGrid(
                             groundSportId: _selectedGroundSport!.id,
-                            date: _selectedDay.toIso8601String().split('T').first,
+                            date:
+                                _selectedDay.toIso8601String().split('T').first,
                             selectedSlots: _selectedSlots,
                             onSlotToggle: (id) => setState(() {
                               if (_selectedSlots.contains(id)) {
@@ -473,9 +547,12 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           children: [
-                            _SectionPill('Overview', 0, _contentSection, () => setState(() => _contentSection = 0)),
-                            _SectionPill('Amenities', 1, _contentSection, () => setState(() => _contentSection = 1)),
-                            _SectionPill('Reviews', 2, _contentSection, () => setState(() => _contentSection = 2)),
+                            _SectionPill('Overview', 0, _contentSection,
+                                () => setState(() => _contentSection = 0)),
+                            _SectionPill('Amenities', 1, _contentSection,
+                                () => setState(() => _contentSection = 1)),
+                            _SectionPill('Reviews', 2, _contentSection,
+                                () => setState(() => _contentSection = 2)),
                           ],
                         ),
                       ),
@@ -487,8 +564,7 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                         _OverviewSection(ground: ground),
                       if (_contentSection == 1)
                         _AmenitiesSection(ground: ground),
-                      if (_contentSection == 2)
-                        _ReviewsSection(ground: ground),
+                      if (_contentSection == 2) _ReviewsSection(ground: ground),
 
                       // Extra bottom padding for booking bar
                       const SizedBox(height: 100),
@@ -502,7 +578,9 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
           // ── Fixed booking bar ──────────────────────────────────────────────
           if (_selectedGroundSport != null && _selectedSlots.isNotEmpty)
             Positioned(
-              bottom: 0, left: 0, right: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
               child: _BookingBar(
                 groundSport: _selectedGroundSport!,
                 slotCount: _selectedSlots.length,
@@ -531,7 +609,8 @@ class _StatBox extends StatelessWidget {
   final String value;
   final String label;
 
-  const _StatBox({required this.icon, required this.value, required this.label});
+  const _StatBox(
+      {required this.icon, required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -540,9 +619,10 @@ class _StatBox extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 36, height: 36,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.15),
+            color: AppColors.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 18, color: AppColors.primary),
@@ -556,6 +636,9 @@ class _StatBox extends StatelessWidget {
             letterSpacing: 0.6,
             fontWeight: FontWeight.w600,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 2),
         Text(
@@ -603,7 +686,7 @@ class _SectionPill extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: sel ? AppColors.primary.withOpacity(0.12) : colors.input,
+          color: sel ? AppColors.primary.withValues(alpha: 0.12) : colors.input,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: sel ? AppColors.primary : colors.border),
         ),
@@ -639,7 +722,10 @@ class _OverviewSection extends StatelessWidget {
           if (desc.isNotEmpty) ...[
             Text(
               'About',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary),
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colors.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
@@ -655,7 +741,10 @@ class _OverviewSection extends StatelessWidget {
           if ((ground.venueRules ?? '').isNotEmpty) ...[
             Text(
               'Venue Rules',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary),
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colors.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
@@ -686,7 +775,8 @@ class _AmenitiesSection extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
-          child: Text('No amenities listed.', style: TextStyle(color: colors.textSecondary)),
+          child: Text('No amenities listed.',
+              style: TextStyle(color: colors.textSecondary)),
         ),
       );
     }
@@ -696,17 +786,22 @@ class _AmenitiesSection extends StatelessWidget {
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 220,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          childAspectRatio: 4.0,
+          // Height, not ratio: a fixed ratio clips the label as text scales.
+          mainAxisExtent: 32 *
+              MediaQuery.textScalerOf(context)
+                  .clamp(maxScaleFactor: 1.4)
+                  .scale(1),
         ),
         itemCount: ground.amenities.length,
         itemBuilder: (_, i) => Row(
           children: [
             Container(
-              width: 8, height: 8,
+              width: 8,
+              height: 8,
               decoration: const BoxDecoration(
                 color: AppColors.primary,
                 shape: BoxShape.circle,
@@ -784,11 +879,14 @@ class _SlotsGrid extends ConsumerWidget {
 
     return slotsAsync.when(
       loading: () => Wrap(
-        spacing: 8, runSpacing: 8,
-        children: List.generate(8, (_) => const ShimmerBox(height: 56, width: 100)),
+        spacing: 8,
+        runSpacing: 8,
+        children:
+            List.generate(8, (_) => const ShimmerBox(height: 56, width: 100)),
       ),
       error: (e, _) => ErrorView(
-        message: e.toString(),
+        message:
+            apiErrorMessage(e, fallback: 'Could not load slots for this date'),
         onRetry: () => ref.invalidate(
           slotsProvider(SlotQuery(groundSportId: groundSportId, date: date)),
         ),
@@ -806,12 +904,15 @@ class _SlotsGrid extends ConsumerWidget {
           );
         }
         return Wrap(
-          spacing: 8, runSpacing: 8,
-          children: slots.map((s) => SlotTile(
-            slot: s,
-            selected: selectedSlots.contains(s.id),
-            onTap: !s.isAvailable ? null : () => onSlotToggle(s.id),
-          )).toList(),
+          spacing: 8,
+          runSpacing: 8,
+          children: slots
+              .map((s) => SlotTile(
+                    slot: s,
+                    selected: selectedSlots.contains(s.id),
+                    onTap: !s.isAvailable ? null : () => onSlotToggle(s.id),
+                  ))
+              .toList(),
         );
       },
     );
@@ -838,49 +939,67 @@ class _BookingBar extends StatelessWidget {
     final colors = context.colors;
     return Container(
       padding: EdgeInsets.fromLTRB(
-        20, 16, 20, MediaQuery.of(context).padding.bottom + 16,
+        20,
+        16,
+        20,
+        MediaQuery.of(context).padding.bottom + 16,
       ),
       decoration: BoxDecoration(
-        color: colors.background.withOpacity(0.92),
+        color: colors.background.withValues(alpha: 0.92),
         border: Border(top: BorderSide(color: colors.border)),
       ),
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'TOTAL PRICE',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: colors.textSecondary,
-                  letterSpacing: 1,
+          Flexible(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'TOTAL PRICE',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: colors.textSecondary,
+                    letterSpacing: 1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Text(
-                '\u20b9$totalPrice',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
+                Text(
+                  '\u20b9$totalPrice',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          ElevatedButton(
-            onPressed: onBook,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              minimumSize: Size.zero,
+              ],
             ),
-            child: Text(
-              'Book Now  ($slotCount slot${slotCount > 1 ? 's' : ''})',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            flex: 3,
+            child: ElevatedButton(
+              onPressed: onBook,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                minimumSize: const Size(0, 52),
+              ),
+              child: Text(
+                'Book Now ($slotCount slot${slotCount > 1 ? 's' : ''})',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ],

@@ -10,11 +10,25 @@ class AppColors {
   final Color textPrimary;
   final Color textSecondary;
 
-  // Shared across themes
+  // ── Shared across themes ──────────────────────────────────────────────────
   static const Color primary = Color(0xFF00D261);
   static const Color accent = Color(0xFFCCFF00);
   static const Color error = Color(0xFFFF4D4D);
   static const Color star = Color(0xFFCCFF00);
+
+  /// Foreground that sits on a [primary] / [accent] fill. Always black —
+  /// the neon fills are too light for white text in either theme.
+  static const Color onPrimary = Color(0xFF000000);
+
+  /// Muted variant of [onPrimary] for secondary text on a neon fill.
+  static const Color onPrimaryMuted = Color(0x8A000000);
+
+  // ── Semantic status tokens ────────────────────────────────────────────────
+  // Deliberately theme-independent: a "pending" badge must read the same in
+  // both themes. Tuned to stay legible on both the light and dark surfaces.
+  static const Color warning = Color(0xFFF59E0B); // pending / intermediate
+  static const Color info = Color(0xFF3B82F6); // completed / verified
+  static const Color neutral = Color(0xFF8A8A8E); // unknown / inactive
 
   const AppColors._({
     required this.background,

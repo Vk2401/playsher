@@ -36,8 +36,7 @@ class ProfileScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color:
-                                AppColors.accent.withValues(alpha: 0.2),
+                            color: AppColors.accent.withValues(alpha: 0.2),
                             width: 3,
                           ),
                         ),
@@ -48,8 +47,7 @@ class ProfileScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: colors.input,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                              color: AppColors.accent, width: 2),
+                          border: Border.all(color: AppColors.accent, width: 2),
                         ),
                         child: Center(
                           child: Text(
@@ -73,15 +71,14 @@ class ProfileScreen extends ConsumerWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.accent
-                                    .withValues(alpha: 0.4),
+                                color: AppColors.accent.withValues(alpha: 0.4),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
                           child: const Icon(Icons.edit_rounded,
-                              size: 18, color: Colors.black),
+                              size: 18, color: AppColors.onPrimary),
                         ),
                       ),
                     ],
@@ -99,8 +96,7 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     user?.email ?? user?.mobile ?? '',
-                    style: TextStyle(
-                        fontSize: 13, color: colors.textSecondary),
+                    style: TextStyle(fontSize: 13, color: colors.textSecondary),
                   ),
                   const SizedBox(height: 28),
                   // Stats
@@ -118,18 +114,12 @@ class ProfileScreen extends ConsumerWidget {
                             value: '$totalBookings',
                             label: 'BOOKINGS',
                             colors: colors),
-                        Container(
-                            width: 1,
-                            height: 36,
-                            color: colors.border),
+                        Container(width: 1, height: 36, color: colors.border),
                         _StatItem(
                             value: '${user?.gamesPlayed ?? 0}',
                             label: 'GAMES',
                             colors: colors),
-                        Container(
-                            width: 1,
-                            height: 36,
-                            color: colors.border),
+                        Container(width: 1, height: 36, color: colors.border),
                         _StatItem(
                             value: user?.rating != null && user!.rating > 0
                                 ? user.rating.toStringAsFixed(1)
@@ -158,30 +148,23 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 10),
                 _MenuItem(
                   icon: Icons.favorite_rounded,
-                  iconColor: const Color(0xFFFF4D4D),
+                  iconColor: AppColors.error,
                   title: 'Saved Turfs',
                   onTap: () => context.push('/saved-turfs'),
                 ),
                 const SizedBox(height: 10),
                 _MenuItem(
                   icon: Icons.notifications_rounded,
-                  iconColor: const Color(0xFFFFB300),
+                  iconColor: AppColors.warning,
                   title: 'Notifications',
                   onTap: () => context.push('/notifications'),
                 ),
                 const SizedBox(height: 10),
                 _MenuItem(
                   icon: Icons.settings_rounded,
-                  iconColor: const Color(0xFF2196F3),
+                  iconColor: AppColors.info,
                   title: 'Settings',
                   onTap: () => context.push('/settings'),
-                ),
-                const SizedBox(height: 10),
-                _MenuItem(
-                  icon: Icons.help_rounded,
-                  iconColor: const Color(0xFFFF9800),
-                  title: 'Help & Support',
-                  onTap: () {},
                 ),
                 const SizedBox(height: 10),
                 // Logout
@@ -201,8 +184,7 @@ class ProfileScreen extends ConsumerWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color:
-                                AppColors.error.withValues(alpha: 0.1),
+                            color: AppColors.error.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(Icons.logout_rounded,
@@ -236,8 +218,7 @@ class ProfileScreen extends ConsumerWidget {
                 Center(
                   child: Text(
                     '\u00a9 2025 ${AppConstants.appName}. All rights reserved.',
-                    style:
-                        TextStyle(fontSize: 10, color: colors.border),
+                    style: TextStyle(fontSize: 10, color: colors.border),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -259,13 +240,13 @@ class ProfileScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel',
-                style: TextStyle(color: colors.textSecondary)),
+            child:
+                Text('Cancel', style: TextStyle(color: colors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout',
-                style: TextStyle(color: AppColors.error)),
+            child:
+                const Text('Logout', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),

@@ -32,8 +32,7 @@ class FavoritesNotifier extends StateNotifier<AsyncValue<List<GroundModel>>> {
 
     // Optimistic update
     if (isFav) {
-      state = AsyncValue.data(
-          current.where((g) => g.id != groundId).toList());
+      state = AsyncValue.data(current.where((g) => g.id != groundId).toList());
     }
 
     try {

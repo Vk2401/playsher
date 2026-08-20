@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/theme.dart';
+import '../core/api_error.dart';
+import '../core/app_colors.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -13,9 +14,9 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
-  final _form   = GlobalKey<FormState>();
-  final _name   = TextEditingController();
-  final _email  = TextEditingController();
+  final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
 
   @override
   void dispose() {
@@ -24,35 +25,51 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.dispose();
   }
 
+  bool _submitting = false;
+
   Future<void> _register() async {
+    if (_submitting) return;
     if (!_form.currentState!.validate()) return;
+    setState(() => _submitting = true);
     try {
       await ref.read(authProvider.notifier).completeRegistration(
-        _name.text.trim(),
-        widget.mobile,
-        email: _email.text.trim().isEmpty ? null : _email.text.trim(),
-      );
-      if (mounted) context.go('/location', extra: true); // true = fromRegister
+            _name.text.trim(),
+            widget.mobile,
+            email: _email.text.trim().isEmpty ? null : _email.text.trim(),
+          );
+      if (!mounted) return;
+      // Leave _submitting set — the screen is being replaced and the loader
+      // must stay up until /location is on screen.
+      context.go('/location', extra: true); // true = fromRegister
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error),
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(apiErrorMessage(e,
+                fallback:
+                    'Could not complete your profile. Please try again.')),
+            backgroundColor: AppColors.error,
+          ),
         );
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final loading = ref.watch(authProvider).isLoading;
+    final colors = context.colors;
+    final loading = _submitting || ref.watch(authProvider).isLoading;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => context.pop(),
+          tooltip: 'Back',
+          onPressed: loading ? null : () => context.pop(),
         ),
       ),
       body: SafeArea(
@@ -64,53 +81,63 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Complete Your\nProfile',
                   style: TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary, height: 1.25,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: colors.textPrimary,
+                    height: 1.25,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   "You're almost there! Just fill in a few details.",
-                  style: TextStyle(fontSize: 14, color: AppTheme.textSecond, height: 1.5),
+                  style: TextStyle(
+                      fontSize: 14, color: colors.textSecondary, height: 1.5),
                 ),
                 const SizedBox(height: 36),
 
                 // Mobile (read-only)
-                const Text(
+                Text(
                   'Mobile',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   initialValue: widget.mobile,
                   readOnly: true,
-                  style: const TextStyle(color: AppTheme.textSecond),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFF9FAFB),
-                    prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                  style: TextStyle(color: colors.textSecondary),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.phone_outlined, size: 18),
                   ),
                 ),
                 const SizedBox(height: 20),
 
                 // Name
-                const Text(
+                Text(
                   'Full Name *',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _name,
+                  enabled: !loading,
                   textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(
-                    hintText: 'Ahmed Khan',
+                    hintText: 'Your full name',
                     prefixIcon: Icon(Icons.person_outline, size: 20),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Name is required';
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Name is required';
+                    }
                     if (v.trim().length < 2) return 'Enter a valid name';
                     return null;
                   },
@@ -118,16 +145,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 20),
 
                 // Email (optional)
-                const Text(
+                Text(
                   'Email (optional)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _email,
+                  enabled: !loading,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    hintText: 'ahmed@example.com',
+                    hintText: 'you@example.com',
                     prefixIcon: Icon(Icons.email_outlined, size: 20),
                   ),
                   validator: (v) {
@@ -143,8 +174,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onPressed: loading ? null : _register,
                   child: loading
                       ? const SizedBox(
-                          width: 22, height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: AppColors.onPrimary),
                         )
                       : const Text('Get Started'),
                 ),

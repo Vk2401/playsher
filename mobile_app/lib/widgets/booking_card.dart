@@ -40,8 +40,7 @@ class BookingCard extends StatelessWidget {
                             height: 80,
                             fit: BoxFit.cover,
                             placeholder: (_, __) => _placeholder(colors),
-                            errorWidget: (_, __, ___) =>
-                                _placeholder(colors),
+                            errorWidget: (_, __, ___) => _placeholder(colors),
                           )
                         : _placeholder(colors),
                   ),
@@ -71,20 +70,17 @@ class BookingCard extends StatelessWidget {
                             Text(
                               booking.bookingDate,
                               style: TextStyle(
-                                  fontSize: 11,
-                                  color: colors.textSecondary),
+                                  fontSize: 11, color: colors.textSecondary),
                             ),
                             if ((booking.sportName ?? '').isNotEmpty) ...[
                               const SizedBox(width: 8),
                               Icon(Icons.sports_rounded,
-                                  size: 12,
-                                  color: colors.textSecondary),
+                                  size: 12, color: colors.textSecondary),
                               const SizedBox(width: 4),
                               Text(
                                 booking.sportName!,
                                 style: TextStyle(
-                                    fontSize: 11,
-                                    color: colors.textSecondary),
+                                    fontSize: 11, color: colors.textSecondary),
                               ),
                             ],
                           ],
@@ -107,11 +103,10 @@ class BookingCard extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 color: colors.textPrimary.withValues(alpha: 0.04),
-                borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(16)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(16)),
               ),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
                   const Icon(Icons.info_outline_rounded,
@@ -119,8 +114,7 @@ class BookingCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     'Arrive 15 mins early',
-                    style: TextStyle(
-                        fontSize: 10, color: colors.textSecondary),
+                    style: TextStyle(fontSize: 10, color: colors.textSecondary),
                   ),
                   const Spacer(),
                   Text(
@@ -149,7 +143,7 @@ class BookingCard extends StatelessWidget {
           color: colors.card,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(Icons.sports_soccer,
-            color: AppColors.primary, size: 32),
+        child:
+            const Icon(Icons.sports_soccer, color: AppColors.primary, size: 32),
       );
 }

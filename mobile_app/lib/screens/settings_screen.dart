@@ -36,7 +36,10 @@ class SettingsScreen extends ConsumerWidget {
                   backgroundColor: AppColors.primary.withValues(alpha: 0.15),
                   child: Text(
                     user?.initials ?? '?',
-                    style: const TextStyle(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -44,8 +47,14 @@ class SettingsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(user?.name ?? 'Player', style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
-                      Text(user?.email ?? user?.mobile ?? '', style: TextStyle(color: colors.textSecondary, fontSize: 13)),
+                      Text(user?.name ?? 'Player',
+                          style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700)),
+                      Text(user?.email ?? user?.mobile ?? '',
+                          style: TextStyle(
+                              color: colors.textSecondary, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -56,7 +65,12 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Theme toggle
-          Text('Appearance', style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1)),
+          Text('Appearance',
+              style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1)),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(4),
@@ -67,28 +81,82 @@ class SettingsScreen extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                _ThemeButton(label: 'Light', icon: Icons.light_mode, selected: themeMode == ThemeMode.light, onTap: () => ref.read(themeProvider.notifier).setTheme(ThemeMode.light)),
-                _ThemeButton(label: 'Dark', icon: Icons.dark_mode, selected: themeMode == ThemeMode.dark, onTap: () => ref.read(themeProvider.notifier).setTheme(ThemeMode.dark)),
-                _ThemeButton(label: 'System', icon: Icons.settings_brightness, selected: themeMode == ThemeMode.system, onTap: () => ref.read(themeProvider.notifier).setTheme(ThemeMode.system)),
+                _ThemeButton(
+                    label: 'Light',
+                    icon: Icons.light_mode,
+                    selected: themeMode == ThemeMode.light,
+                    onTap: () => ref
+                        .read(themeProvider.notifier)
+                        .setTheme(ThemeMode.light)),
+                _ThemeButton(
+                    label: 'Dark',
+                    icon: Icons.dark_mode,
+                    selected: themeMode == ThemeMode.dark,
+                    onTap: () => ref
+                        .read(themeProvider.notifier)
+                        .setTheme(ThemeMode.dark)),
+                _ThemeButton(
+                    label: 'System',
+                    icon: Icons.settings_brightness,
+                    selected: themeMode == ThemeMode.system,
+                    onTap: () => ref
+                        .read(themeProvider.notifier)
+                        .setTheme(ThemeMode.system)),
               ],
             ),
           ),
           const SizedBox(height: 24),
 
           // Account settings
-          Text('ACCOUNT', style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1)),
+          Text('ACCOUNT',
+              style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1)),
           const SizedBox(height: 8),
-          _SettingsTile(icon: Icons.person, title: 'Edit Profile', colors: colors, onTap: () {}),
-          _SettingsTile(icon: Icons.lock, title: 'Privacy', colors: colors, onTap: () {}),
-          _SettingsTile(icon: Icons.notifications, title: 'Notifications', colors: colors, onTap: () => context.push('/notifications')),
+          _SettingsTile(
+              icon: Icons.person,
+              title: 'Edit Profile',
+              colors: colors,
+              onTap: () => context.push('/profile')),
+          _SettingsTile(
+              icon: Icons.lock,
+              title: 'Privacy',
+              colors: colors,
+              enabled: false),
+          _SettingsTile(
+              icon: Icons.notifications,
+              title: 'Notifications',
+              colors: colors,
+              onTap: () => context.push('/notifications')),
           const SizedBox(height: 24),
 
           // App settings
-          Text('APP', style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1)),
+          Text('APP',
+              style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1)),
           const SizedBox(height: 8),
-          _SettingsTile(icon: Icons.language, title: 'Language', trailing: 'English', colors: colors, onTap: () {}),
-          _SettingsTile(icon: Icons.info, title: 'About', colors: colors, onTap: () {}),
-          _SettingsTile(icon: Icons.description, title: 'Terms of Service', colors: colors, onTap: () {}),
+          _SettingsTile(
+              icon: Icons.language,
+              title: 'Language',
+              trailing: 'English',
+              colors: colors,
+              enabled: false),
+          _SettingsTile(
+              icon: Icons.info,
+              title: 'About',
+              trailing: 'v1.0.0',
+              colors: colors,
+              enabled: false),
+          _SettingsTile(
+              icon: Icons.description,
+              title: 'Terms of Service',
+              colors: colors,
+              enabled: false),
           const SizedBox(height: 24),
 
           // Logout
@@ -128,28 +196,47 @@ class _ThemeButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _ThemeButton({required this.label, required this.icon, required this.selected, required this.onTap});
+  const _ThemeButton(
+      {required this.label,
+      required this.icon,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, size: 20, color: selected ? Colors.black : colors.textSecondary),
-              const SizedBox(height: 4),
-              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? Colors.black : colors.textSecondary)),
-            ],
+      child: Semantics(
+        label: '$label theme',
+        button: true,
+        selected: selected,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                Icon(icon,
+                    size: 20,
+                    color:
+                        selected ? AppColors.onPrimary : colors.textSecondary),
+                const SizedBox(height: 4),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? AppColors.onPrimary
+                            : colors.textSecondary)),
+              ],
+            ),
           ),
         ),
       ),
@@ -161,20 +248,39 @@ class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? trailing;
-  final AppColors colors;
-  final VoidCallback onTap;
+  final AppColors? colors;
+  final VoidCallback? onTap;
 
-  const _SettingsTile({required this.icon, required this.title, this.trailing, required this.colors, required this.onTap});
+  /// A tile with nowhere to go is dimmed and non-tappable rather than
+  /// silently swallowing the tap, which reads as a broken screen.
+  final bool enabled;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.trailing,
+    this.colors,
+    this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final c = colors ?? context.colors;
+    final titleColor =
+        enabled ? c.textPrimary : c.textSecondary.withValues(alpha: 0.6);
+
     return ListTile(
-      onTap: onTap,
-      leading: Icon(icon, size: 20, color: colors.textSecondary),
-      title: Text(title, style: TextStyle(color: colors.textPrimary, fontSize: 14)),
+      enabled: enabled,
+      onTap: enabled ? onTap : null,
+      leading: Icon(icon, size: 20, color: c.textSecondary),
+      title: Text(title, style: TextStyle(color: titleColor, fontSize: 14)),
       trailing: trailing != null
-          ? Text(trailing!, style: TextStyle(color: colors.textSecondary, fontSize: 13))
-          : Icon(Icons.chevron_right, size: 18, color: colors.textSecondary),
+          ? Text(trailing!,
+              style: TextStyle(color: c.textSecondary, fontSize: 13))
+          : enabled
+              ? Icon(Icons.chevron_right, size: 18, color: c.textSecondary)
+              : null,
       contentPadding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
     );

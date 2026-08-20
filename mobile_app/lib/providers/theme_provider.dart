@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/storage.dart';
 
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.dark) {
+  // Start on `system` so the very first frame already matches the device;
+  // the stored preference is applied as soon as it loads.
+  ThemeNotifier() : super(ThemeMode.system) {
     _load();
   }
 
@@ -18,14 +20,14 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
   void toggleTheme() {
     switch (state) {
-      case ThemeMode.dark:
+      case ThemeMode.system:
         setTheme(ThemeMode.light);
         break;
       case ThemeMode.light:
-        setTheme(ThemeMode.system);
-        break;
-      case ThemeMode.system:
         setTheme(ThemeMode.dark);
+        break;
+      case ThemeMode.dark:
+        setTheme(ThemeMode.system);
         break;
     }
   }

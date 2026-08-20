@@ -50,8 +50,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
 
       if (permission == LocationPermission.deniedForever) {
         setState(() {
-          _error =
-              'Location permanently denied. Enable it in app settings.';
+          _error = 'Location permanently denied. Enable it in app settings.';
           _loading = false;
         });
         return;
@@ -76,7 +75,10 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
         );
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
-          final city = p.locality ?? p.subAdministrativeArea ?? p.administrativeArea ?? '';
+          final city = p.locality ??
+              p.subAdministrativeArea ??
+              p.administrativeArea ??
+              '';
           if (city.isNotEmpty) {
             ref.read(cityProvider.notifier).setCity(city);
           }
@@ -208,7 +210,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2.5, color: Colors.black),
+                              strokeWidth: 2.5, color: AppColors.onPrimary),
                         )
                       : const Icon(Icons.my_location_rounded, size: 20),
                   label: Text(
@@ -228,8 +230,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
                   child: Text(
                     'Skip for now',
                     style: TextStyle(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w500),
+                        color: colors.textPrimary, fontWeight: FontWeight.w500),
                   ),
                 ),
               ),
@@ -265,9 +266,7 @@ class _Benefit extends StatelessWidget {
             child: Icon(icon, size: 16, color: AppColors.primary),
           ),
           const SizedBox(width: 12),
-          Text(text,
-              style:
-                  TextStyle(fontSize: 14, color: colors.textPrimary)),
+          Text(text, style: TextStyle(fontSize: 14, color: colors.textPrimary)),
         ],
       ),
     );

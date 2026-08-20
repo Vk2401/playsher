@@ -7,9 +7,9 @@ class AppConstants {
   static const String baseUrl = 'https://playsher-api.vercel.app/api/v1';
 
   // Secure storage keys
-  static const String accessTokenKey  = 'playsher_access_token';
+  static const String accessTokenKey = 'playsher_access_token';
   static const String refreshTokenKey = 'playsher_refresh_token';
-  static const String userKey         = 'playsher_user';
+  static const String userKey = 'playsher_user';
 
   // Pagination
   static const int defaultPageSize = 20;

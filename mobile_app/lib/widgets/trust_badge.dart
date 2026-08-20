@@ -22,7 +22,7 @@ class TrustBadge extends StatelessWidget {
   factory TrustBadge.quality() => const TrustBadge(
         icon: Icons.shield,
         label: 'Quality Training',
-        iconColor: Colors.blue,
+        iconColor: AppColors.info,
       );
 
   factory TrustBadge.certified() => const TrustBadge(

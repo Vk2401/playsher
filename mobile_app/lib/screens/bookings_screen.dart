@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/booking_model.dart';
 import '../providers/bookings_provider.dart';
@@ -49,10 +50,10 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen>
             unselectedLabelColor: colors.textSecondary,
             indicatorColor: AppColors.primary,
             indicatorWeight: 2.5,
-            labelStyle: const TextStyle(
-                fontWeight: FontWeight.w700, fontSize: 14),
-            unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w400, fontSize: 14),
+            labelStyle:
+                const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            unselectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
             dividerColor: colors.border,
             tabs: const [
               Tab(text: 'Upcoming'),
@@ -64,23 +65,27 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen>
             child: bookingsAsync.when(
               loading: () => const ListShimmer(count: 4),
               error: (e, _) => ErrorView(
-                message: e.toString(),
+                message: apiErrorMessage(e,
+                    fallback: 'Could not load your bookings'),
                 onRetry: () => ref.invalidate(bookingsProvider),
               ),
               data: (bookings) {
-                final upcoming =
-                    bookings.where((b) => b.isUpcoming).toList();
-                final past =
-                    bookings.where((b) => b.isPast).toList();
-                final cancelled =
-                    bookings.where((b) => b.isCancelled).toList();
+                final upcoming = bookings.where((b) => b.isUpcoming).toList();
+                final past = bookings.where((b) => b.isPast).toList();
+                final cancelled = bookings.where((b) => b.isCancelled).toList();
 
                 return TabBarView(
                   controller: _tabCtrl,
                   children: [
-                    _BookingList(bookings: upcoming, emptyMessage: 'No upcoming bookings.\nBook a ground to get started!'),
-                    _BookingList(bookings: past, emptyMessage: 'No past bookings yet.'),
-                    _BookingList(bookings: cancelled, emptyMessage: 'No cancelled bookings.'),
+                    _BookingList(
+                        bookings: upcoming,
+                        emptyMessage:
+                            'No upcoming bookings.\nBook a ground to get started!'),
+                    _BookingList(
+                        bookings: past, emptyMessage: 'No past bookings yet.'),
+                    _BookingList(
+                        bookings: cancelled,
+                        emptyMessage: 'No cancelled bookings.'),
                   ],
                 );
               },
@@ -96,8 +101,7 @@ class _BookingList extends StatelessWidget {
   final List<BookingModel> bookings;
   final String emptyMessage;
 
-  const _BookingList(
-      {required this.bookings, required this.emptyMessage});
+  const _BookingList({required this.bookings, required this.emptyMessage});
 
   @override
   Widget build(BuildContext context) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/games_provider.dart';
 import '../widgets/participant_avatar.dart';
@@ -8,6 +9,7 @@ import '../widgets/status_badge.dart';
 import '../widgets/sticky_bottom_bar.dart';
 import '../widgets/trust_badge.dart';
 import '../widgets/error_view.dart';
+import '../widgets/shimmer_loader.dart';
 
 class GameDetailScreen extends ConsumerWidget {
   final String gameId;
@@ -21,8 +23,12 @@ class GameDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colors.background,
       body: gameAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => ErrorView(message: e.toString()),
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: GroundCardShimmer(),
+        ),
+        error: (e, _) => ErrorView(
+            message: apiErrorMessage(e, fallback: 'Could not load this game')),
         data: (game) => Stack(
           children: [
             CustomScrollView(
@@ -45,7 +51,8 @@ class GameDetailScreen extends ConsumerWidget {
                       ),
                       child: Center(
                         child: Icon(Icons.sports_cricket,
-                            size: 80, color: AppColors.primary.withValues(alpha: 0.3)),
+                            size: 80,
+                            color: AppColors.primary.withValues(alpha: 0.3)),
                       ),
                     ),
                   ),
@@ -72,7 +79,8 @@ class GameDetailScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          game.gameName ?? '${game.sportName ?? 'Game'} at ${game.groundName ?? 'Ground'}',
+                          game.gameName ??
+                              '${game.sportName ?? 'Game'} at ${game.groundName ?? 'Ground'}',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
@@ -82,14 +90,29 @@ class GameDetailScreen extends ConsumerWidget {
                         const SizedBox(height: 20),
                         // Stats grid
                         StatGrid(stats: [
-                          StatItem(label: 'Date', value: game.date, icon: Icons.calendar_today),
-                          StatItem(label: 'Time', value: game.time, icon: Icons.access_time),
-                          StatItem(label: 'Level', value: game.skillLevel.isNotEmpty ? game.skillLevel : 'Open', icon: Icons.emoji_events),
+                          StatItem(
+                              label: 'Date',
+                              value: game.date,
+                              icon: Icons.calendar_today),
+                          StatItem(
+                              label: 'Time',
+                              value: game.time,
+                              icon: Icons.access_time),
+                          StatItem(
+                              label: 'Level',
+                              value: game.skillLevel.isNotEmpty
+                                  ? game.skillLevel
+                                  : 'Open',
+                              icon: Icons.emoji_events),
                         ]),
                         const SizedBox(height: 20),
                         // Venue
                         if (game.groundName != null) ...[
-                          Text('Venue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary)),
+                          Text('Venue',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.textPrimary)),
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.all(14),
@@ -100,15 +123,23 @@ class GameDetailScreen extends ConsumerWidget {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.location_on, color: AppColors.primary, size: 20),
+                                const Icon(Icons.location_on,
+                                    color: AppColors.primary, size: 20),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(game.groundName!, style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600)),
+                                      Text(game.groundName!,
+                                          style: TextStyle(
+                                              color: colors.textPrimary,
+                                              fontWeight: FontWeight.w600)),
                                       if (game.groundAddress != null)
-                                        Text(game.groundAddress!, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                                        Text(game.groundAddress!,
+                                            style: TextStyle(
+                                                color: colors.textSecondary,
+                                                fontSize: 12)),
                                     ],
                                   ),
                                 ),
@@ -118,14 +149,19 @@ class GameDetailScreen extends ConsumerWidget {
                           const SizedBox(height: 20),
                         ],
                         // Participants
-                        Text('Players (${game.currentPlayers}/${game.maxPlayers})',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary)),
+                        Text(
+                            'Players (${game.currentPlayers}/${game.maxPlayers})',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: colors.textPrimary)),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 12,
                           runSpacing: 12,
                           children: [
-                            ...game.participants.map((p) => ParticipantAvatar(participant: p)),
+                            ...game.participants
+                                .map((p) => ParticipantAvatar(participant: p)),
                             ...List.generate(
                               game.spotsLeft.clamp(0, 6),
                               (_) => const ParticipantAvatar(),
@@ -134,10 +170,17 @@ class GameDetailScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 20),
                         // About
-                        if (game.description != null && game.description!.isNotEmpty) ...[
-                          Text('About Match', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary)),
+                        if (game.description != null &&
+                            game.description!.isNotEmpty) ...[
+                          Text('About Match',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.textPrimary)),
                           const SizedBox(height: 8),
-                          Text(game.description!, style: TextStyle(color: colors.textSecondary, height: 1.5)),
+                          Text(game.description!,
+                              style: TextStyle(
+                                  color: colors.textSecondary, height: 1.5)),
                           const SizedBox(height: 20),
                         ],
                         // Trust badges
@@ -164,11 +207,13 @@ class GameDetailScreen extends ConsumerWidget {
                 price: game.formattedFee,
                 priceLabel: 'Entry Fee',
                 buttonText: game.isFull ? 'Game Full' : 'Join Match',
-                onPressed: game.isFull ? null : () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Joined the game!')),
-                  );
-                },
+                onPressed: game.isFull
+                    ? null
+                    : () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Joined the game!')),
+                        );
+                      },
               ),
             ),
           ],

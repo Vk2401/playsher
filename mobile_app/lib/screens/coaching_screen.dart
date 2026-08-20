@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/coaches_provider.dart';
 import '../widgets/coach_card.dart';
@@ -38,7 +39,8 @@ class CoachingScreen extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Train with the best in your area',
-                      style: TextStyle(fontSize: 13, color: colors.textSecondary),
+                      style:
+                          TextStyle(fontSize: 13, color: colors.textSecondary),
                     ),
                   ],
                 ),
@@ -58,9 +60,12 @@ class CoachingScreen extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.search_rounded, color: colors.textSecondary, size: 20),
+                      Icon(Icons.search_rounded,
+                          color: colors.textSecondary, size: 20),
                       const SizedBox(width: 10),
-                      Text('Search coaches\u2026', style: TextStyle(fontSize: 14, color: colors.textSecondary)),
+                      Text('Search coaches\u2026',
+                          style: TextStyle(
+                              fontSize: 14, color: colors.textSecondary)),
                     ],
                   ),
                 ),
@@ -74,30 +79,42 @@ class CoachingScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [AppColors.primary.withValues(alpha: 0.15), Colors.transparent],
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.15),
+                        Colors.transparent
+                      ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                    border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 44, height: 44,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.school_rounded, color: AppColors.primary, size: 24),
+                        child: const Icon(Icons.school_rounded,
+                            color: AppColors.primary, size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Free Trial Session', style: TextStyle(fontWeight: FontWeight.w700, color: colors.textPrimary, fontSize: 14)),
-                            Text('Book your first coaching session free!', style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                            Text('Free Trial Session',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: colors.textPrimary,
+                                    fontSize: 14)),
+                            Text('Book your first coaching session free!',
+                                style: TextStyle(
+                                    fontSize: 12, color: colors.textSecondary)),
                           ],
                         ),
                       ),
@@ -108,15 +125,22 @@ class CoachingScreen extends ConsumerWidget {
             ),
             // Coaches list
             coachesAsync.when(
-              loading: () => const SliverToBoxAdapter(child: ListShimmer(count: 3)),
-              error: (e, _) => SliverToBoxAdapter(child: ErrorView(message: e.toString(), onRetry: () => ref.invalidate(coachesProvider))),
+              loading: () =>
+                  const SliverToBoxAdapter(child: ListShimmer(count: 3)),
+              error: (e, _) => SliverToBoxAdapter(
+                  child: ErrorView(
+                      message: apiErrorMessage(e,
+                          fallback: 'Could not load coaches'),
+                      onRetry: () => ref.invalidate(coachesProvider))),
               data: (coaches) {
                 if (coaches.isEmpty) {
                   return SliverToBoxAdapter(
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.all(40),
-                        child: Text('No coaches available yet.', style: TextStyle(color: colors.textSecondary, fontSize: 15)),
+                        child: Text('No coaches available yet.',
+                            style: TextStyle(
+                                color: colors.textSecondary, fontSize: 15)),
                       ),
                     ),
                   );

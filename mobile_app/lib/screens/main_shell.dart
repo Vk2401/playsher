@@ -15,7 +15,7 @@ class MainShell extends StatelessWidget {
         selectedIndex: shell.currentIndex,
         onDestinationSelected: (i) =>
             shell.goBranch(i, initialLocation: i == shell.currentIndex),
-        backgroundColor: context.isDark ? Colors.black : Colors.white,
+        backgroundColor: context.colors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         destinations: const [

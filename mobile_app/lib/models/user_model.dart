@@ -25,7 +25,9 @@ class UserModel {
         mobile: json['mobile'] as String? ?? json['phone'] as String? ?? '',
         email: json['email'] as String?,
         city: json['city'] as String?,
-        avatar: json['avatar'] as String? ?? json['profile_photo'] as String? ?? json['photo'] as String?,
+        avatar: json['avatar'] as String? ??
+            json['profile_photo'] as String? ??
+            json['photo'] as String?,
         gamesPlayed: json['games_played'] as int? ?? 0,
         rating: double.tryParse(json['rating']?.toString() ?? '0') ?? 0,
       );

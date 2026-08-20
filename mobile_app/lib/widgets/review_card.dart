@@ -74,8 +74,7 @@ class ReviewCard extends StatelessWidget {
               if (review.createdAt != null)
                 Text(
                   _formatDate(review.createdAt!),
-                  style: TextStyle(
-                      fontSize: 11, color: colors.textSecondary),
+                  style: TextStyle(fontSize: 11, color: colors.textSecondary),
                 ),
             ],
           ),
@@ -97,8 +96,18 @@ class ReviewCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return '${dt.day} ${months[dt.month - 1]}';
   }
