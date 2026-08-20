@@ -7,6 +7,7 @@ import '../core/api_client.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../core/booking_share.dart';
+import '../core/map_links.dart';
 import '../models/booking_model.dart';
 import '../providers/bookings_provider.dart';
 import '../widgets/app_back_button.dart';
@@ -81,6 +82,17 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
     }
   }
 
+  Future<void> _openDirections(BookingModel booking) async {
+    final opened = await MapLinks.openDirections(
+      latitude: booking.groundLatitude,
+      longitude: booking.groundLongitude,
+    );
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open a maps app.')),
+    );
+  }
+
   Future<void> _share(BookingModel booking) async {
     final text = BookingShare.build(
       reference: booking.referenceLabel,
@@ -94,6 +106,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
           booking.advanceAmount > 0 ? booking.formattedAdvance : null,
       balanceDue: booking.hasBalanceDue ? booking.formattedBalance : null,
       paymentMethod: booking.paymentMethodLabel,
+      directionsUrl: booking.directionsUrl,
+      address: booking.groundAddress,
     );
 
     final box = context.findRenderObject() as RenderBox?;
@@ -159,6 +173,21 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                 // what day, and what time. Given their own card at the top
                 // rather than buried among ids and money.
                 _WhenWhereCard(booking: booking),
+                if (booking.hasDirections) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openDirections(booking),
+                      icon: const Icon(Icons.directions_rounded, size: 18),
+                      label: const Text('Get directions'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 _Section(

@@ -2,7 +2,7 @@ const router = require('express').Router();
 const ctrl = require('../controllers/review.controller');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { createReview, updateReview } = require('../validators/review.validator');
+const { createReview, updateReview, reviewEligibility } = require('../validators/review.validator');
 
 /**
  * @swagger
@@ -35,6 +35,31 @@ const { createReview, updateReview } = require('../validators/review.validator')
  *       200: { description: Reviews list }
  */
 router.get('/', ctrl.list);
+
+/**
+ * @swagger
+ * /reviews/eligibility:
+ *   get:
+ *     tags: [Reviews]
+ *     summary: May the signed-in customer review this ground?
+ *     description: >
+ *       Reviewing a venue requires having booked and played there. This lets the
+ *       app decide whether to offer the form, instead of letting someone write a
+ *       review and only then be told it cannot be posted. `reason` is one of
+ *       `no_completed_booking` or `already_reviewed`.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: ground_id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Eligibility checked }
+ *       401: { description: Not signed in }
+ *       422: { description: ground_id missing or invalid }
+ */
+router.get('/eligibility', verifyToken, requireRole('user'), reviewEligibility, validate, ctrl.eligibility);
 
 /**
  * @swagger

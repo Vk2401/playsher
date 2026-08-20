@@ -6,6 +6,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/ground_model.dart';
+import '../models/review_eligibility_model.dart';
 import '../models/ground_sport_model.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/grounds_provider.dart';
@@ -13,6 +14,7 @@ import '../widgets/error_view.dart';
 import '../widgets/review_card.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/sport_glyph.dart';
+import '../widgets/write_review_sheet.dart';
 import '../widgets/sticky_bottom_bar.dart';
 import '../widgets/slot_tile.dart';
 
@@ -553,7 +555,7 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
 
                   // Section nav pills
                   SizedBox(
-                    height: 44,
+                    height: 48,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -692,16 +694,21 @@ class _SectionPill extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        // Centred both ways and floored at 44 high: the label used to sit
+        // wherever its own baseline fell, so the three pills read ragged.
+        alignment: Alignment.center,
+        constraints: const BoxConstraints(minHeight: 44, minWidth: 96),
         decoration: BoxDecoration(
           color: sel ? AppColors.primary.withValues(alpha: 0.12) : colors.input,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: sel ? AppColors.primary : colors.border),
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: sel ? AppColors.primary : colors.textSecondary,
           ),
@@ -835,29 +842,127 @@ class _AmenitiesSection extends StatelessWidget {
 
 // ── Reviews section ───────────────────────────────────────────────────────────
 
-class _ReviewsSection extends StatelessWidget {
+class _ReviewsSection extends ConsumerWidget {
   final GroundModel ground;
   const _ReviewsSection({required this.ground});
 
   @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final eligibility = ref.watch(reviewEligibilityProvider(ground.id));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The eligibility answer decides between a button, an explanation and
+          // nothing at all — never an error, since a failed check just means we
+          // do not offer the form.
+          eligibility.maybeWhen(
+            data: (e) => _ReviewAction(
+              eligibility: e,
+              ground: ground,
+              onPosted: () {
+                ref.invalidate(groundDetailProvider(ground.id));
+                ref.invalidate(reviewEligibilityProvider(ground.id));
+              },
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+
+          if (ground.reviews.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'No reviews yet. Be the first!',
+                  style: TextStyle(color: colors.textSecondary),
+                ),
+              ),
+            )
+          else
+            ...ground.reviews.map((r) => ReviewCard(review: r)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Either the button to write a review, or why it is not on offer.
+class _ReviewAction extends StatelessWidget {
+  final ReviewEligibility eligibility;
+  final GroundModel ground;
+  final VoidCallback onPosted;
+
+  const _ReviewAction({
+    required this.eligibility,
+    required this.ground,
+    required this.onPosted,
+  });
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    if (ground.reviews.isEmpty) {
+
+    if (eligibility.canReview) {
       return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: Text(
-            'No reviews yet. Be the first!',
-            style: TextStyle(color: colors.textSecondary),
+        padding: const EdgeInsets.only(bottom: 16),
+        child: SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final posted = await WriteReviewSheet.show(
+                context,
+                groundId: ground.id,
+                groundName: ground.name,
+              );
+              if (posted) onPosted();
+            },
+            icon: const Icon(Icons.rate_review_outlined, size: 18),
+            label: const Text('Write a review'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+            ),
           ),
         ),
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: ground.reviews.map((r) => ReviewCard(review: r)).toList(),
+    // Silent when the check could not run — an anonymous browser should not be
+    // told they are ineligible, only that reviews exist.
+    if (eligibility.reason == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.input,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            eligibility.alreadyReviewed
+                ? Icons.check_circle_outline_rounded
+                : Icons.lock_outline_rounded,
+            size: 16,
+            color: colors.textSecondary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              eligibility.message ??
+                  'Only players who have booked and played here can review.',
+              style: TextStyle(
+                fontSize: 12,
+                color: colors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

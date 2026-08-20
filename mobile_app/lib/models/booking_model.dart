@@ -1,3 +1,5 @@
+import '../core/map_links.dart';
+
 class BookingModel {
   final int id;
   final String bookingDate;
@@ -5,6 +7,13 @@ class BookingModel {
   final double totalPrice;
   final String? cancellationReason;
   final String? groundName;
+  final String? groundAddress;
+
+  /// Where the venue actually is. Carried so the ticket can offer directions
+  /// and the shared text can include a maps link.
+  final double? groundLatitude;
+  final double? groundLongitude;
+
   final String? sportName;
   final String? paymentStatus;
   final DateTime? createdAt;
@@ -32,6 +41,9 @@ class BookingModel {
     required this.totalPrice,
     this.cancellationReason,
     this.groundName,
+    this.groundAddress,
+    this.groundLatitude,
+    this.groundLongitude,
     this.sportName,
     this.paymentStatus,
     this.createdAt,
@@ -111,6 +123,13 @@ class BookingModel {
       cancellationReason: json['cancellation_reason'] as String? ??
           json['cancel_reason'] as String?,
       groundName: ground?['name'] as String? ?? json['ground_name'] as String?,
+      groundAddress:
+          ground?['address'] as String? ?? json['ground_address'] as String?,
+      // Numeric columns come back as strings over the wire.
+      groundLatitude:
+          double.tryParse(ground?['latitude']?.toString() ?? ''),
+      groundLongitude:
+          double.tryParse(ground?['longitude']?.toString() ?? ''),
       sportName: sport?['name'] as String? ?? category?['name'] as String?,
       paymentStatus: payment?['status'] as String? ??
           payment?['payment_status'] as String?,
@@ -144,6 +163,14 @@ class BookingModel {
   String get formattedPrice => '\u20b9${totalPrice.toStringAsFixed(0)}';
   String get formattedAdvance => '\u20b9${advanceAmount.toStringAsFixed(0)}';
   String get formattedBalance => '\u20b9${balanceDue.toStringAsFixed(0)}';
+
+  /// A directions link for the venue, or null when it has no coordinates.
+  String? get directionsUrl => MapLinks.directionsUrl(
+        latitude: groundLatitude,
+        longitude: groundLongitude,
+      );
+
+  bool get hasDirections => directionsUrl != null;
 
   /// True when money is still owed at the venue.
   bool get hasBalanceDue => balanceDue > 0;

@@ -347,19 +347,31 @@ class ApiClient {
     return {'data': raw['data'] ?? []};
   }
 
+  // GET /reviews/eligibility?ground_id=
+  // Whether this customer may review the ground, and why not if they may not.
+  static Future<Map<String, dynamic>> getReviewEligibility(int groundId) async {
+    final res = await instance.get(
+      '/reviews/eligibility',
+      queryParameters: {'ground_id': groundId},
+    );
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? {}};
+  }
+
   // POST /reviews
+  // bookingId is no longer sent: the API resolves the qualifying booking from
+  // the ground itself, because trusting a client-supplied id is what allowed
+  // the eligibility check to be skipped.
   static Future<Map<String, dynamic>> createReview({
     required int groundId,
     required int rating,
     required String comment,
-    int? bookingId,
   }) =>
       _post('/reviews', {
         'review_type': 'ground',
         'ground_id': groundId,
         'rating': rating,
         'comment': comment,
-        if (bookingId != null) 'booking_id': bookingId,
       });
 
   // ── Games ─────────────────────────────────────────────────────────────────

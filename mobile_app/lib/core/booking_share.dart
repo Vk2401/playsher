@@ -24,6 +24,7 @@ class BookingShare {
     String? amountPaid,
     String? balanceDue,
     String? paymentMethod,
+    String? directionsUrl,
   }) {
     final lines = <String>[];
 
@@ -41,6 +42,12 @@ class BookingShare {
     add('Venue', groundName);
     add('Address', address);
     add('Sport', sportName);
+
+    // A recipient's first question is how to get there, so the link goes with
+    // the address rather than at the bottom.
+    if (_present(directionsUrl)) {
+      lines.add('Directions: $directionsUrl');
+    }
 
     // The reference is what the venue looks the booking up by, so it earns its
     // own block rather than being buried mid-list.
