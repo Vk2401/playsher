@@ -296,14 +296,15 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0x1A2196F3),
+                color: AppColors.info.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0x332196F3)),
+                border:
+                    Border.all(color: AppColors.info.withValues(alpha: 0.20)),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.info_outline_rounded,
-                      size: 18, color: Color(0xFF2196F3)),
+                      size: 18, color: AppColors.info),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -414,7 +415,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 onPressed: _loading ? null : _confirmBooking,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.black,
+                  foregroundColor: AppColors.onPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 28),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
@@ -427,7 +428,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2.5, color: Colors.black),
+                            strokeWidth: 2.5, color: AppColors.onPrimary),
                       )
                     : Text(_paymentMethod == 'online'
                         ? 'Pay \u20b9$_totalPrice'

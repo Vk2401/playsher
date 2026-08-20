@@ -56,7 +56,7 @@ class CoachCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(Icons.emoji_events,
-                        size: 12, color: Colors.black),
+                        size: 12, color: AppColors.onPrimary),
                   ),
                 ),
               ],

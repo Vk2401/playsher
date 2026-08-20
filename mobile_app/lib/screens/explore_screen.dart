@@ -218,7 +218,7 @@ class _FilterPill extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.black : colors.textSecondary,
+            color: selected ? AppColors.onPrimary : colors.textSecondary,
           ),
         ),
       ),

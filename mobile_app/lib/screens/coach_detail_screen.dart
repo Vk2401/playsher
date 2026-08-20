@@ -7,6 +7,7 @@ import '../widgets/stat_grid.dart';
 import '../widgets/sticky_bottom_bar.dart';
 import '../widgets/trust_badge.dart';
 import '../widgets/error_view.dart';
+import '../widgets/shimmer_loader.dart';
 
 class CoachDetailScreen extends ConsumerWidget {
   final String coachId;
@@ -20,7 +21,10 @@ class CoachDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colors.background,
       body: coachAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: GroundCardShimmer(),
+        ),
         error: (e, _) => ErrorView(
             message: apiErrorMessage(e, fallback: 'Could not load this coach')),
         data: (coach) => Stack(
@@ -71,7 +75,7 @@ class CoachDetailScreen extends ConsumerWidget {
                               ),
                               child: const Text('PRO COACH',
                                   style: TextStyle(
-                                      color: Colors.black,
+                                      color: AppColors.onPrimary,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 1)),

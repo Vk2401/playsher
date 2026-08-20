@@ -129,17 +129,33 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                   ),
                 ),
                 actions: [
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.favorite_border_rounded,
-                          size: 20, color: Colors.white),
-                      onPressed: () {},
-                    ),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final isFav = ref
+                          .watch(favoritesProvider.notifier)
+                          .isFavorite(ground.id);
+                      return Container(
+                        margin: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            isFav
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            size: 20,
+                            color: isFav ? AppColors.error : Colors.white,
+                          ),
+                          tooltip:
+                              isFav ? 'Remove from saved' : 'Save this ground',
+                          onPressed: () => ref
+                              .read(favoritesProvider.notifier)
+                              .toggle(ground.id),
+                        ),
+                      );
+                    },
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
@@ -266,12 +282,12 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Icon(Icons.star_rounded,
-                                        size: 14, color: Colors.black),
+                                        size: 14, color: AppColors.onPrimary),
                                     const SizedBox(width: 3),
                                     Text(
                                       ground.avgRating.toStringAsFixed(1),
                                       style: const TextStyle(
-                                        color: Colors.black,
+                                        color: AppColors.onPrimary,
                                         fontWeight: FontWeight.w800,
                                         fontSize: 13,
                                       ),
@@ -449,7 +465,7 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                   shape: BoxShape.circle,
                                 ),
                                 selectedTextStyle: const TextStyle(
-                                  color: Colors.black,
+                                  color: AppColors.onPrimary,
                                   fontWeight: FontWeight.w700,
                                 ),
                                 todayDecoration: BoxDecoration(

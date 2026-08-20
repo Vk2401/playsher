@@ -119,9 +119,12 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.person,
               title: 'Edit Profile',
               colors: colors,
-              onTap: () {}),
+              onTap: () => context.push('/profile')),
           _SettingsTile(
-              icon: Icons.lock, title: 'Privacy', colors: colors, onTap: () {}),
+              icon: Icons.lock,
+              title: 'Privacy',
+              colors: colors,
+              enabled: false),
           _SettingsTile(
               icon: Icons.notifications,
               title: 'Notifications',
@@ -142,14 +145,18 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Language',
               trailing: 'English',
               colors: colors,
-              onTap: () {}),
+              enabled: false),
           _SettingsTile(
-              icon: Icons.info, title: 'About', colors: colors, onTap: () {}),
+              icon: Icons.info,
+              title: 'About',
+              trailing: 'v1.0.0',
+              colors: colors,
+              enabled: false),
           _SettingsTile(
               icon: Icons.description,
               title: 'Terms of Service',
               colors: colors,
-              onTap: () {}),
+              enabled: false),
           const SizedBox(height: 24),
 
           // Logout
@@ -241,27 +248,39 @@ class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? trailing;
-  final AppColors colors;
-  final VoidCallback onTap;
+  final AppColors? colors;
+  final VoidCallback? onTap;
 
-  const _SettingsTile(
-      {required this.icon,
-      required this.title,
-      this.trailing,
-      required this.colors,
-      required this.onTap});
+  /// A tile with nowhere to go is dimmed and non-tappable rather than
+  /// silently swallowing the tap, which reads as a broken screen.
+  final bool enabled;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.trailing,
+    this.colors,
+    this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final c = colors ?? context.colors;
+    final titleColor =
+        enabled ? c.textPrimary : c.textSecondary.withValues(alpha: 0.6);
+
     return ListTile(
-      onTap: onTap,
-      leading: Icon(icon, size: 20, color: colors.textSecondary),
-      title: Text(title,
-          style: TextStyle(color: colors.textPrimary, fontSize: 14)),
+      enabled: enabled,
+      onTap: enabled ? onTap : null,
+      leading: Icon(icon, size: 20, color: c.textSecondary),
+      title: Text(title, style: TextStyle(color: titleColor, fontSize: 14)),
       trailing: trailing != null
           ? Text(trailing!,
-              style: TextStyle(color: colors.textSecondary, fontSize: 13))
-          : Icon(Icons.chevron_right, size: 18, color: colors.textSecondary),
+              style: TextStyle(color: c.textSecondary, fontSize: 13))
+          : enabled
+              ? Icon(Icons.chevron_right, size: 18, color: c.textSecondary)
+              : null,
       contentPadding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
     );

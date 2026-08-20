@@ -30,7 +30,7 @@ class StripedSlotTile extends StatelessWidget {
     Color textColor;
     if (isSelected) {
       bgColor = AppColors.accent;
-      textColor = Colors.black;
+      textColor = AppColors.onPrimary;
     } else if (isBooked || !isAvailable) {
       bgColor = colors.border.withValues(alpha: 0.3);
       textColor = colors.textSecondary;

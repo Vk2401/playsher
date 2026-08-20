@@ -132,7 +132,7 @@ class GameCard extends StatelessWidget {
                     onPressed: game.isFull ? null : onJoin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.black,
+                      foregroundColor: AppColors.onPrimary,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       minimumSize: Size.zero,
                       shape: RoundedRectangleBorder(

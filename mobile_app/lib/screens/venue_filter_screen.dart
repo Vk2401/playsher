@@ -350,7 +350,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                 onPressed: () => context.pop(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.black,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                   textStyle: const TextStyle(
@@ -433,7 +433,7 @@ class _ChipButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.black : colors.textPrimary,
+            color: selected ? AppColors.onPrimary : colors.textPrimary,
           ),
         ),
       ),

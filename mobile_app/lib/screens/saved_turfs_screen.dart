@@ -4,6 +4,7 @@ import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/favorites_provider.dart';
 import '../widgets/ground_card.dart';
+import '../widgets/shimmer_loader.dart';
 import '../widgets/error_view.dart';
 
 class SavedTurfsScreen extends ConsumerWidget {
@@ -18,7 +19,7 @@ class SavedTurfsScreen extends ConsumerWidget {
       backgroundColor: colors.background,
       appBar: AppBar(title: const Text('Saved Turfs')),
       body: favAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ListShimmer(count: 3),
         error: (e, _) => ErrorView(
           message:
               apiErrorMessage(e, fallback: 'Could not load your saved grounds'),

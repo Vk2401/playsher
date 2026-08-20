@@ -70,7 +70,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final res = await ApiClient.verifyOtp(mobile, otp);
       // playsher-api returns: { success, message, data: { ... } }
-      if (kDebugMode) debugPrint('[Auth] verifyOtp response keys: ${res.keys.toList()}');
+      if (kDebugMode) {
+        debugPrint('[Auth] verifyOtp response keys: ${res.keys.toList()}');
+      }
 
       final data = res['data'] as Map<String, dynamic>?;
       if (data == null) {
@@ -146,7 +148,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } on DioException catch (e) {
       final errorMsg = _extractError(e);
-      if (kDebugMode) debugPrint('[Auth] completeRegistration error: $errorMsg');
+      if (kDebugMode) {
+        debugPrint('[Auth] completeRegistration error: $errorMsg');
+      }
       state = state.copyWith(isLoading: false, error: errorMsg);
       rethrow;
     } catch (e) {

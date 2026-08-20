@@ -82,7 +82,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                     ),
                     child: const Icon(
                       Icons.check_rounded,
-                      color: Colors.black,
+                      color: AppColors.onPrimary,
                       size: 44,
                     ),
                   ),
@@ -172,7 +172,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                         onPressed: () => context.go('/my-bookings'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.black,
+                          foregroundColor: AppColors.onPrimary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),

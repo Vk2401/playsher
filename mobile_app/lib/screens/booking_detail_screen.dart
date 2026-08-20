@@ -6,6 +6,7 @@ import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../providers/bookings_provider.dart';
 import '../widgets/error_view.dart';
+import '../widgets/shimmer_loader.dart';
 
 class BookingDetailScreen extends ConsumerStatefulWidget {
   final String bookingId;
@@ -94,8 +95,9 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
         ),
       ),
       body: bookingAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: GroundCardShimmer(),
         ),
         error: (e, _) => ErrorView(
           message: apiErrorMessage(e, fallback: 'Could not load this booking'),
@@ -236,12 +238,12 @@ class _StatusBanner extends StatelessWidget {
       fg = AppColors.error;
       icon = Icons.cancel_rounded;
     } else if (s == 'completed') {
-      bg = const Color(0x1A2196F3);
-      fg = const Color(0xFF2196F3);
+      bg = AppColors.info.withValues(alpha: 0.12);
+      fg = AppColors.info;
       icon = Icons.done_all_rounded;
     } else {
-      bg = const Color(0x1AFFB300);
-      fg = const Color(0xFFFFB300);
+      bg = AppColors.warning.withValues(alpha: 0.12);
+      fg = AppColors.warning;
       icon = Icons.hourglass_empty_rounded;
     }
 

@@ -74,7 +74,7 @@ class StickyBottomBar extends StatelessWidget {
                         height: 22,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.black,
+                          color: AppColors.onPrimary,
                         ),
                       )
                     : Text(buttonText),

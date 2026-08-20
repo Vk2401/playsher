@@ -9,6 +9,7 @@ import '../widgets/status_badge.dart';
 import '../widgets/sticky_bottom_bar.dart';
 import '../widgets/trust_badge.dart';
 import '../widgets/error_view.dart';
+import '../widgets/shimmer_loader.dart';
 
 class GameDetailScreen extends ConsumerWidget {
   final String gameId;
@@ -22,7 +23,10 @@ class GameDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colors.background,
       body: gameAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: GroundCardShimmer(),
+        ),
         error: (e, _) => ErrorView(
             message: apiErrorMessage(e, fallback: 'Could not load this game')),
         data: (game) => Stack(

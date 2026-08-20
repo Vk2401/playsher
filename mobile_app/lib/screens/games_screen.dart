@@ -86,7 +86,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                         ],
                       ),
                       child: const Icon(Icons.add_rounded,
-                          color: Colors.black, size: 28),
+                          color: AppColors.onPrimary, size: 28),
                     ),
                   ),
                 ],
@@ -167,7 +167,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen>
                     borderRadius: BorderRadius.circular(10),
                   ),
                   indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: Colors.black,
+                  labelColor: AppColors.onPrimary,
                   unselectedLabelColor: colors.textSecondary,
                   labelStyle: const TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 13),

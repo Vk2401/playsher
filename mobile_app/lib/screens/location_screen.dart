@@ -210,7 +210,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2.5, color: Colors.black),
+                              strokeWidth: 2.5, color: AppColors.onPrimary),
                         )
                       : const Icon(Icons.my_location_rounded, size: 20),
                   label: Text(
