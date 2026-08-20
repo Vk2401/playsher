@@ -6,7 +6,6 @@ import {
 import { useTheme } from '@mui/material/styles'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { useNotify } from '../hooks/useNotify.js'
 
 import EmailIcon from '@mui/icons-material/Email'
 import LockIcon from '@mui/icons-material/Lock'
@@ -19,8 +18,7 @@ import BusinessIcon from '@mui/icons-material/Business'
 export default function Login() {
   const theme = useTheme()
   const navigate = useNavigate()
-  const { loginAdmin, loginOwner, isAuthenticated, isAdmin, isOwner } = useAuth()
-  const { error: notifyError } = useNotify()
+  const { loginAdmin, loginOwner, isAuthenticated, isAdmin } = useAuth()
 
   const [tab, setTab] = useState(0)
   const [email, setEmail] = useState('')

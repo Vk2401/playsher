@@ -14,9 +14,7 @@ import dayjs from 'dayjs'
 
 import PersonIcon from '@mui/icons-material/Person'
 import EmailIcon from '@mui/icons-material/Email'
-import PhoneIcon from '@mui/icons-material/Phone'
 import BadgeIcon from '@mui/icons-material/Badge'
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 
 import PageHeader from '../../components/ui/PageHeader.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'

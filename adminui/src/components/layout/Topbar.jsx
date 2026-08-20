@@ -15,7 +15,7 @@ import PaletteIcon from '@mui/icons-material/Palette'
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'
 import MenuIcon from '@mui/icons-material/Menu'
 
-export default function Topbar({ sidebarOpen, onSidebarToggle }) {
+export default function Topbar({ onSidebarToggle }) {
   const theme = useTheme()
   const navigate = useNavigate()
   const { user, logout, isAdmin } = useAuth()

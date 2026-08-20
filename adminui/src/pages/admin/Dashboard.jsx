@@ -56,9 +56,21 @@ export default function AdminDashboard() {
     select: (res) => res.data,
   })
 
-  const bookings = bookingsData?.bookings ?? bookingsData?.data ?? []
-  const payments = paymentsData?.payments ?? paymentsData?.data ?? []
-  const grounds  = groundsData?.grounds   ?? groundsData?.data  ?? []
+  // Memoised: the `?? []` fallback allocates a new array on every render, so
+  // without this every useMemo below sees a changed dependency each time and
+  // recomputes the whole dashboard.
+  const bookings = useMemo(
+    () => bookingsData?.bookings ?? bookingsData?.data ?? [],
+    [bookingsData],
+  )
+  const payments = useMemo(
+    () => paymentsData?.payments ?? paymentsData?.data ?? [],
+    [paymentsData],
+  )
+  const grounds = useMemo(
+    () => groundsData?.grounds ?? groundsData?.data ?? [],
+    [groundsData],
+  )
 
   // ── Chart data — all from real API, empty arrays if no data ─────────────
 
