@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -57,6 +59,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
   @override
   void dispose() {
+    _holdTicker?.cancel();
     _razorpay.clear();
     super.dispose();
   }
@@ -67,6 +70,35 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   // that booking rather than create another one for the same slots.
   Map<String, dynamic>? _pendingBookingResult;
   int? _pendingBookingId;
+
+  /// Server-side deadline for the slot hold on a pending online booking.
+  /// Taken from the create response, never computed here: the device clock can
+  /// be minutes off, and the server is the one that will reclaim the slots.
+  DateTime? _holdExpiresAt;
+  Timer? _holdTicker;
+
+  Duration? get _holdRemaining {
+    final deadline = _holdExpiresAt;
+    if (deadline == null) return null;
+    final left = deadline.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  bool get _holdLapsed =>
+      _holdExpiresAt != null && _holdRemaining == Duration.zero;
+
+  void _startHoldTicker(DateTime deadline) {
+    _holdTicker?.cancel();
+    setState(() => _holdExpiresAt = deadline);
+    _holdTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {});
+      if (_holdRemaining == Duration.zero) timer.cancel();
+    });
+  }
 
   /// True once a booking exists server-side for this attempt.
   bool get _hasPendingBooking => _pendingBookingResult != null;
@@ -133,6 +165,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
       // Remember the attempt so a retry resumes it instead of re-booking.
       _pendingBookingResult = result;
+      final holdRaw = result['hold_expires_at']?.toString();
+      final hold =
+          holdRaw == null ? null : DateTime.tryParse(holdRaw)?.toLocal();
+      if (hold != null) _startHoldTicker(hold);
       _pendingBookingId =
           bookingId is int ? bookingId : int.tryParse(bookingId.toString());
 
@@ -241,6 +277,12 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
           'Complete the payment in ${response.walletName ?? 'your wallet app'}, '
           'then check My Bookings to confirm it went through.';
     });
+  }
+
+  static String _formatHold(Duration d) {
+    final m = d.inMinutes.remainder(60).toString();
+    final sec = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$sec';
   }
 
   String _parseError(Object e) {
@@ -374,6 +416,52 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               ),
             ),
 
+            // The server releases these slots when the hold lapses, so the
+            // countdown has to be visible — otherwise the booking silently
+            // stops working mid-payment.
+            if (_holdRemaining != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: (_holdLapsed ? AppColors.error : AppColors.warning)
+                      .withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (_holdLapsed ? AppColors.error : AppColors.warning)
+                        .withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _holdLapsed
+                          ? Icons.timer_off_rounded
+                          : Icons.timer_outlined,
+                      size: 18,
+                      color: _holdLapsed ? AppColors.error : AppColors.warning,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _holdLapsed
+                            ? 'Your slots were released. Go back and pick them '
+                                'again to continue.'
+                            : 'Slots held for ${_formatHold(_holdRemaining!)} — '
+                                'complete payment before the timer runs out.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              _holdLapsed ? AppColors.error : AppColors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             if (_error != null) ...[
               const SizedBox(height: 16),
               Container(
@@ -452,14 +540,16 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       bottomNavigationBar: StickyBottomBar(
         priceLabel: 'TOTAL AMOUNT',
         price: '\u20b9$_totalPrice',
-        buttonText: _hasPendingBooking
-            // The booking already exists; this attempt only settles payment.
-            ? 'Retry payment'
-            : _paymentMethod == 'online'
-                ? 'Pay \u20b9$_totalPrice'
-                : 'Confirm & Book',
+        buttonText: _holdLapsed
+            ? 'Slots released'
+            : _hasPendingBooking
+                // The booking already exists; this attempt only settles payment.
+                ? 'Retry payment'
+                : _paymentMethod == 'online'
+                    ? 'Pay \u20b9$_totalPrice'
+                    : 'Confirm & Book',
         isLoading: _loading,
-        onPressed: _confirmBooking,
+        onPressed: _holdLapsed ? null : _confirmBooking,
       ),
     );
   }

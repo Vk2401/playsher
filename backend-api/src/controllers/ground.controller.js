@@ -115,7 +115,7 @@ exports.destroy = async (req, res) => {
 // PATCH /grounds/:id/approve
 exports.approve = async (req, res) => {
   try {
-    const ground = await Ground.findByPk(req.params.id);
+    const ground = await Ground.findOne({ where: { id: req.params.id, deleted_at: null } });
     if (!ground) return error(res, 'Ground not found.', 404);
     await ground.update({ is_approved: true });
     return success(res, 'Ground approved.', ground);
@@ -127,7 +127,7 @@ exports.approve = async (req, res) => {
 // PATCH /grounds/:id/toggle-status
 exports.toggleStatus = async (req, res) => {
   try {
-    const ground = await Ground.findByPk(req.params.id);
+    const ground = await Ground.findOne({ where: { id: req.params.id, deleted_at: null } });
     if (!ground) return error(res, 'Ground not found.', 404);
     await ground.update({ is_active: !ground.is_active });
     return success(res, `Ground ${ground.is_active ? 'activated' : 'deactivated'}.`, ground);
@@ -169,7 +169,7 @@ exports.removeImage = async (req, res) => {
 exports.addAmenities = async (req, res) => {
   try {
     const { amenity_ids } = req.body;
-    const ground = await Ground.findByPk(req.params.id);
+    const ground = await Ground.findOne({ where: { id: req.params.id, deleted_at: null } });
     if (!ground) return error(res, 'Ground not found.', 404);
     const records = amenity_ids.map((aid) => ({ ground_id: ground.id, amenity_id: aid }));
     await GroundAmenity.bulkCreate(records, { ignoreDuplicates: true });
