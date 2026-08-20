@@ -176,6 +176,11 @@ export default function Bookings() {
   const [cancelReason, setCancelReason] = useState(DEFAULT_CANCEL_REASON)
   const [detailBooking, setDetailBooking] = useState(null)
 
+  // Bookings arrive with the ground nested under groundSport; older admin
+  // endpoints occasionally flatten it, so accept both.
+  const groundNameOf = (row) =>
+    row.groundSport?.ground?.name || row.ground?.name || row.ground_name || '—'
+
   // ── Query ──────────────────────────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'bookings'],
@@ -190,7 +195,7 @@ export default function Bookings() {
       const q = search.trim().toLowerCase()
       if (!q) return matchStatus
       const userName = `${r.user?.name || ''} ${r.user?.email || ''}`.toLowerCase()
-      const groundName = (r.ground?.name || r.ground_name || '').toLowerCase()
+      const groundName = groundNameOf(r).toLowerCase()
       return matchStatus && (userName.includes(q) || groundName.includes(q))
     })
   }, [data, search, statusFilter])
@@ -215,7 +220,7 @@ export default function Bookings() {
   }
 
   const handleCancelOpen = (row) => {
-    const userLabel = row.user?.name || row.user?.email || `#${row.id}`
+    const userLabel = row.user?.name || row.user?.mobile || `#${row.id}`
     setCancelTarget({ id: row.id, userLabel })
     setCancelReason(DEFAULT_CANCEL_REASON)
   }
@@ -235,11 +240,11 @@ export default function Bookings() {
       headerName: 'Customer',
       flex: 1,
       minWidth: 170,
-      valueGetter: ({ row }) => row.user?.name || row.user?.email || '—',
+      valueGetter: ({ row }) => row.user?.name || row.user?.mobile || '—',
       renderCell: ({ row }) => (
         <Box>
           <Typography variant="body2" fontWeight={600} noWrap>{row.user?.name || '—'}</Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>{row.user?.email || ''}</Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>{row.user?.mobile || ''}</Typography>
         </Box>
       ),
     },
@@ -248,10 +253,10 @@ export default function Bookings() {
       headerName: 'Ground',
       flex: 1,
       minWidth: 150,
-      valueGetter: ({ row }) => row.ground?.name || row.ground_name || '—',
+      valueGetter: ({ row }) => groundNameOf(row),
       renderCell: ({ row }) => (
         <Typography variant="body2" fontWeight={500} noWrap>
-          {row.ground?.name || row.ground_name || '—'}
+          {groundNameOf(row)}
         </Typography>
       ),
     },
@@ -260,8 +265,10 @@ export default function Bookings() {
       headerName: 'Slot Date / Time',
       width: 170,
       renderCell: ({ row }) => {
-        const date = row.slot_date || row.booked_slot?.date || row.date
-        const time = row.slot_time || row.booked_slot?.start_time || row.start_time
+        const date = row.slot_date
+        const from = (row.slot_time_from || '').slice(0, 5)
+        const to = (row.slot_time_to || '').slice(0, 5)
+        const time = from && to ? `${from} – ${to}` : from
         return (
           <Box>
             <Typography variant="body2" fontWeight={500}>
@@ -277,7 +284,7 @@ export default function Bookings() {
       headerName: 'Amount (PKR)',
       width: 130,
       renderCell: ({ row }) => {
-        const amt = row.payment?.amount ?? row.total_amount ?? row.amount ?? null
+        const amt = row.total_amount ?? row.payment?.amount ?? null
         return (
           <Typography variant="body2" fontWeight={600} color="primary.main">
             {amt != null ? `₨ ${Number(amt).toLocaleString()}` : '—'}

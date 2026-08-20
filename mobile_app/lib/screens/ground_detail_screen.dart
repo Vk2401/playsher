@@ -182,19 +182,24 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                         ),
                       ),
                     ),
-                  // Gradient overlay
+                  // Gradient overlay. Decorative, so it must not take hits:
+                  // this layer fills the hero above the PageView, and without
+                  // IgnorePointer it absorbs the horizontal drag — the gallery
+                  // simply never swipes.
                   Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.4),
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.7),
-                          ],
-                          stops: const [0.0, 0.4, 1.0],
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.4),
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.7),
+                            ],
+                            stops: const [0.0, 0.4, 1.0],
+                          ),
                         ),
                       ),
                     ),
