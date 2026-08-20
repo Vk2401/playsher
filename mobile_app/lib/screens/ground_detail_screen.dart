@@ -894,13 +894,22 @@ class _SlotsGrid extends ConsumerWidget {
           slotsProvider(SlotQuery(groundSportId: groundSportId, date: date)),
         ),
       ),
-      data: (slots) {
+      data: (allSlots) {
+        // Second line of defence behind the API's own filter: never offer a
+        // slot whose start time has gone by, or the tap dies at checkout.
+        final slots = allSlots.where((s) => !s.hasStarted).toList();
         if (slots.isEmpty) {
+          // "Today is over" is a different answer from "this venue is shut",
+          // and sending someone to tomorrow is only useful for the first one.
+          final dayIsSpent = allSlots.isNotEmpty;
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                'No slots available for this date.',
+                dayIsSpent
+                    ? "Today's slots have all started. Try another date."
+                    : 'No slots available for this date.',
+                textAlign: TextAlign.center,
                 style: TextStyle(color: colors.textSecondary),
               ),
             ),

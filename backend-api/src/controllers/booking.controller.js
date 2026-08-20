@@ -4,6 +4,7 @@ const { getPagination, paginationMeta } = require('../utils/helpers');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
 const { releaseExpiredHolds, holdDeadline } = require('../utils/slotHolds');
 const { splitPayment } = require('../utils/pricing');
+const { isPastSlot } = require('../utils/appTime');
 
 exports.list = async (req, res) => {
   try {
@@ -101,6 +102,15 @@ exports.create = async (req, res) => {
     if (slots.length !== slot_ids.length) {
       await t.rollback();
       return error(res, 'Some slots are unavailable or invalid.');
+    }
+
+    // A client holding a stale slot list — one fetched before the hour turned,
+    // or served from cache — must not be able to buy a slot that has already
+    // been played. Judged in the app timezone, like the listing is.
+    const expired = slots.filter((s) => isPastSlot(slot_date, s.slot_start_time));
+    if (expired.length > 0) {
+      await t.rollback();
+      return error(res, 'That time has already passed. Please pick a later slot.');
     }
 
     const total_amount = parseFloat(gs.price_per_half_hour) * slots.length;

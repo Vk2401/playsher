@@ -1,4 +1,15 @@
 const { Slot, ScheduleTemplate } = require('../models');
+const { appToday, isPastSlot, dayOfWeek } = require('./appTime');
+
+/**
+ * Slots whose start time has already passed are dropped.
+ * They cannot be booked, and listing them made the day look full of options
+ * that all failed on tap. "Passed" is judged in the app timezone, not the
+ * server's — see utils/appTime.js.
+ */
+function dropPastSlots(slots, slotDate) {
+  return slots.filter((slot) => !isPastSlot(slotDate, slot.slot_start_time));
+}
 
 /**
  * Ensure concrete Slot rows exist for a given GroundSport + date.
@@ -11,34 +22,9 @@ const { Slot, ScheduleTemplate } = require('../models');
  * @param {import('sequelize').Transaction} [transaction]
  * @returns {Promise<Array>} slots for the date
  */
-/**
- * Slots whose start time has already passed, on today's date, are dropped.
- * They cannot be booked, and listing them made the day look full of options
- * that all failed on tap.
- */
-function dropPastSlots(slots, slotDate) {
-  const now = new Date();
-  const today = localDateString(now);
-  if (slotDate !== today) return slots;
-
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  return slots.filter((slot) => {
-    const [h, m] = String(slot.slot_start_time).split(':').map(Number);
-    return h * 60 + m > nowMinutes;
-  });
-}
-
-/** Local calendar date, not UTC — toISOString() shifts the day either side of midnight. */
-function localDateString(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
 async function ensureSlotsForDate(groundSportId, slotDate, transaction) {
   // Guard: refuse past dates
-  const today = localDateString(new Date());
+  const today = appToday();
   if (slotDate < today) return [];
 
   // Check if slots already exist for this date
@@ -50,9 +36,9 @@ async function ensureSlotsForDate(groundSportId, slotDate, transaction) {
   if (existing.length > 0) return dropPastSlots(existing, slotDate);
 
   // Look up the schedule template for this day_of_week
-  const dayOfWeek = new Date(slotDate + 'T00:00:00').getDay(); // 0=Sun … 6=Sat
+  const day = dayOfWeek(slotDate); // 0=Sun … 6=Sat
   const template = await ScheduleTemplate.findOne({
-    where: { ground_sport_id: groundSportId, day_of_week: dayOfWeek },
+    where: { ground_sport_id: groundSportId, day_of_week: day },
     ...(transaction ? { transaction } : {}),
   });
 
@@ -97,4 +83,4 @@ async function ensureSlotsForDate(groundSportId, slotDate, transaction) {
   return dropPastSlots(created, slotDate);
 }
 
-module.exports = { ensureSlotsForDate, dropPastSlots, localDateString };
+module.exports = { ensureSlotsForDate, dropPastSlots };
