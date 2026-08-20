@@ -160,10 +160,10 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                         label: 'Total Amount',
                         value: booking.formattedPrice,
                       ),
-                      const _InfoItem(
+                      _InfoItem(
                         icon: Icons.payment_rounded,
                         label: 'Payment Method',
-                        value: 'Pay at Ground',
+                        value: booking.paymentMethodLabel,
                       ),
                       _InfoItem(
                         icon: Icons.check_circle_outline_rounded,

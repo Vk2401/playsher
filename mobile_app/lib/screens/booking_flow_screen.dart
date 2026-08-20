@@ -7,6 +7,8 @@ import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../models/ground_sport_model.dart';
+import '../providers/auth_provider.dart';
+import '../widgets/sticky_bottom_bar.dart';
 
 class BookingFlowScreen extends ConsumerStatefulWidget {
   final int groundId;
@@ -50,8 +52,15 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     super.dispose();
   }
 
-  // Stores booking response for use after Razorpay callback
+  // ── Pending-attempt state ─────────────────────────────────────────────────
+  // A booking is created once, then paid for — possibly across several
+  // attempts. Holding the created booking here is what makes a retry *resume*
+  // that booking rather than create another one for the same slots.
   Map<String, dynamic>? _pendingBookingResult;
+  int? _pendingBookingId;
+
+  /// True once a booking exists server-side for this attempt.
+  bool get _hasPendingBooking => _pendingBookingResult != null;
 
   Future<void> _confirmBooking() async {
     // The CTA is disabled while loading, but guard re-entry here too: this is
@@ -63,20 +72,31 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       _error = null;
     });
 
+    final user = ref.read(authProvider).user;
+
     try {
-      // Step 1: Create booking via playsher-api
-      final groundSportId = _groundSport?.id ?? widget.groundId;
-      final rawResult = await ApiClient.createBooking(
-        groundSportId: groundSportId,
-        slotDate: _date,
-        slotIds: _slotIds,
-        paymentMethod: _paymentMethod == 'online' ? 'online' : 'pay_at_ground',
-      );
+      // Step 1: Create the booking — but only once. A previous attempt that
+      // reached Razorpay and failed there already holds a booking for these
+      // slots; creating another would double-book the player against their
+      // own orphaned attempt and surface as "slots already booked".
+      final Map<String, dynamic> result;
+      if (_pendingBookingResult != null) {
+        result = _pendingBookingResult!;
+      } else {
+        final groundSportId = _groundSport?.id ?? widget.groundId;
+        final rawResult = await ApiClient.createBooking(
+          groundSportId: groundSportId,
+          slotDate: _date,
+          slotIds: _slotIds,
+          paymentMethod:
+              _paymentMethod == 'online' ? 'online' : 'pay_at_ground',
+        );
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      // playsher-api wraps response: { success, data: { id, requires_payment, ... } }
-      final result = rawResult['data'] as Map<String, dynamic>? ?? rawResult;
+        // playsher-api wraps response: { success, data: { id, requires_payment, ... } }
+        result = rawResult['data'] as Map<String, dynamic>? ?? rawResult;
+      }
 
       // Step 2: If pay at ground, go directly to confirmation
       if (_paymentMethod == 'pay_at_ground') {
@@ -100,13 +120,19 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         return;
       }
 
-      // Save booking result for use after Razorpay callback
+      // Remember the attempt so a retry resumes it instead of re-booking.
       _pendingBookingResult = result;
+      _pendingBookingId =
+          bookingId is int ? bookingId : int.tryParse(bookingId.toString());
 
-      // Step 4: Create Razorpay order using booking ID
-      final rawOrder = await ApiClient.createRazorpayOrder(
-        bookingId is int ? bookingId : int.parse(bookingId.toString()),
-      );
+      // Step 4: Create a Razorpay order for the pending booking. On a retry
+      // this runs again against the *same* booking id, which is the point:
+      // a fresh order against an existing booking, not a fresh booking.
+      final payableBookingId = _pendingBookingId;
+      if (payableBookingId == null) {
+        throw StateError('Booking was created without a usable id');
+      }
+      final rawOrder = await ApiClient.createRazorpayOrder(payableBookingId);
 
       if (!mounted) return;
 
@@ -126,9 +152,12 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         'name': AppConstants.appName,
         'description':
             '${_groundSport?.sport?.name ?? 'Sport'} Booking - ${_slotIds.length} slot${_slotIds.length > 1 ? 's' : ''}',
+        // The player verified this mobile via OTP to get here; making them
+        // retype it into Razorpay's sheet is pure friction.
         'prefill': {
-          'contact': '',
-          'email': '',
+          'contact': user?.mobile ?? '',
+          'email': user?.email ?? '',
+          'name': user?.name ?? '',
         },
         'theme': {
           'color': '#00D261',
@@ -260,7 +289,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               label: 'Pay Online',
               subtitle: 'UPI, Cards, Net Banking',
               selected: _paymentMethod == 'online',
-              onTap: _loading
+              onTap: _loading || _hasPendingBooking
                   ? null
                   : () => setState(() => _paymentMethod = 'online'),
             ),
@@ -270,7 +299,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               label: 'Pay at Ground',
               subtitle: 'Pay when you arrive',
               selected: _paymentMethod == 'pay_at_ground',
-              onTap: _loading
+              onTap: _loading || _hasPendingBooking
                   ? null
                   : () => setState(() => _paymentMethod = 'pay_at_ground'),
             ),
@@ -349,10 +378,25 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                         size: 18, color: AppColors.error),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.error),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _error!,
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.error),
+                          ),
+                          if (_hasPendingBooking) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Your slots are still held under this booking — '
+                              'retrying settles its payment rather than '
+                              'booking again.',
+                              style: TextStyle(
+                                  fontSize: 12, color: colors.textSecondary),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],
@@ -391,66 +435,19 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         ),
       ),
 
-      // Bottom bar
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.fromLTRB(
-            20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
-        decoration: BoxDecoration(
-          color: colors.background,
-          border: Border(top: BorderSide(color: colors.border)),
-        ),
-        child: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'TOTAL AMOUNT',
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: colors.textSecondary,
-                      letterSpacing: 1),
-                ),
-                Text(
-                  '\u20b9$_totalPrice',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _confirmBooking,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.onPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  minimumSize: Size.zero,
-                  textStyle: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w800),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2.5, color: AppColors.onPrimary),
-                      )
-                    : Text(_paymentMethod == 'online'
-                        ? 'Pay \u20b9$_totalPrice'
-                        : 'Confirm & Book'),
-              ),
-            ),
-          ],
-        ),
+      // Bottom bar — the shared widget, not a hand-rolled copy: it already
+      // owns the safe-area inset and the double-submit guard.
+      bottomNavigationBar: StickyBottomBar(
+        priceLabel: 'TOTAL AMOUNT',
+        price: '\u20b9$_totalPrice',
+        buttonText: _hasPendingBooking
+            // The booking already exists; this attempt only settles payment.
+            ? 'Retry payment'
+            : _paymentMethod == 'online'
+                ? 'Pay \u20b9$_totalPrice'
+                : 'Confirm & Book',
+        isLoading: _loading,
+        onPressed: _confirmBooking,
       ),
     );
   }

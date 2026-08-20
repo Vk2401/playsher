@@ -13,6 +13,9 @@ class BookingModel {
   final String? endTime;
   final String? bookingReference;
 
+  /// Raw API value: 'online' or 'pay_at_ground'.
+  final String? paymentMethod;
+
   const BookingModel({
     required this.id,
     required this.bookingDate,
@@ -27,6 +30,7 @@ class BookingModel {
     this.startTime,
     this.endTime,
     this.bookingReference,
+    this.paymentMethod,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -67,14 +71,16 @@ class BookingModel {
     }
 
     // Total price: try multiple field names
-    final price = double.tryParse(json['total_price']?.toString() ?? '') ??
+    final price = double.tryParse(json['total_amount']?.toString() ?? '') ??
+        double.tryParse(json['total_price']?.toString() ?? '') ??
         double.tryParse(json['total']?.toString() ?? '') ??
         double.tryParse(payment?['total']?.toString() ?? '') ??
         0;
 
     return BookingModel(
       id: json['id'] as int,
-      bookingDate: json['booking_date'] as String? ?? '',
+      bookingDate:
+          json['slot_date'] as String? ?? json['booking_date'] as String? ?? '',
       status: json['status'] as String? ?? 'pending',
       totalPrice: price,
       cancellationReason: json['cancellation_reason'] as String? ??
@@ -87,9 +93,14 @@ class BookingModel {
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
       groundImage: primaryImg ?? json['ground_image'] as String?,
-      startTime: sTime ?? json['start_time'] as String?,
-      endTime: eTime ?? json['end_time'] as String?,
+      startTime: sTime ??
+          json['slot_time_from'] as String? ??
+          json['start_time'] as String?,
+      endTime: eTime ??
+          json['slot_time_to'] as String? ??
+          json['end_time'] as String?,
       bookingReference: json['booking_reference'] as String?,
+      paymentMethod: json['payment_method'] as String?,
     );
   }
 
@@ -102,6 +113,20 @@ class BookingModel {
   bool get isCancelled => status == 'cancelled';
 
   String get formattedPrice => '\u20b9${totalPrice.toStringAsFixed(0)}';
+
+  /// Human label for [paymentMethod]. Falls back to the API's own default
+  /// rather than asserting a method the booking may not have used.
+  String get paymentMethodLabel {
+    switch (paymentMethod) {
+      case 'online':
+        return 'Paid Online';
+      case 'pay_at_ground':
+        return 'Pay at Ground';
+      default:
+        return 'Not specified';
+    }
+  }
+
   double get totalAmount => totalPrice;
   String get date => bookingDate;
   int get slotCount => 1;
