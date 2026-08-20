@@ -24,6 +24,7 @@ const RefreshToken     = require('./RefreshToken')(sequelize);
 const Otp              = require('./Otp')(sequelize);
 const BankDetails      = require('./BankDetails')(sequelize);
 const ScheduleTemplate = require('./ScheduleTemplate')(sequelize);
+const AppVersion       = require('./AppVersion')(sequelize);
 
 // ── Associations ──────────────────────────────────────────────────────────────
 
@@ -149,4 +150,5 @@ module.exports = {
   Otp,
   BankDetails,
   ScheduleTemplate,
+  AppVersion,
 };

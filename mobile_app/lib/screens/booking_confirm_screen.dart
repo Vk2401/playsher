@@ -46,6 +46,12 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
     const missing = '\u2014';
     final bookingRef = booking['booking_reference']?.toString() ?? missing;
     final amount = booking['total_amount']?.toString() ?? '0';
+    // The full money picture belongs on the ticket: what was charged online and
+    // what the player still owes when they arrive. Showing only the total made
+    // the confirmation disagree with the amount actually taken.
+    final advance = booking['advance_amount']?.toString();
+    final balance = booking['balance_due']?.toString();
+    final balanceDue = double.tryParse(balance ?? '') ?? 0;
     final date = booking['slot_date']?.toString() ?? missing;
     final sport = booking['sport_name']?.toString() ?? missing;
     final ground = booking['ground_name']?.toString() ?? missing;
@@ -137,7 +143,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                           _ConfirmRow(label: 'Date', value: date),
                           const SizedBox(height: 10),
                           _ConfirmRow(
-                            label: 'Amount',
+                            label: 'Booking total',
                             value: '\u20b9$amount',
                             valueStyle: const TextStyle(
                               fontSize: 15,
@@ -146,6 +152,17 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                             ),
                           ),
                           const SizedBox(height: 10),
+                          if (advance != null)
+                            _ConfirmRow(
+                              label: balanceDue > 0 ? 'Advance paid' : 'Paid',
+                              value: '\u20b9$advance',
+                            ),
+                          if (balanceDue > 0)
+                            _ConfirmRow(
+                              label: 'Due at the ground',
+                              value: '\u20b9$balance',
+                              highlight: true,
+                            ),
                           _ConfirmRow(label: 'Payment', value: paymentMethod),
                         ],
                       ),
@@ -212,8 +229,15 @@ class _ConfirmRow extends StatelessWidget {
   final String value;
   final TextStyle? valueStyle;
 
-  const _ConfirmRow(
-      {required this.label, required this.value, this.valueStyle});
+  /// Draws attention to money the player still owes.
+  final bool highlight;
+
+  const _ConfirmRow({
+    required this.label,
+    required this.value,
+    this.valueStyle,
+    this.highlight = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +253,7 @@ class _ConfirmRow extends StatelessWidget {
               TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: colors.textPrimary,
+                color: highlight ? AppColors.warning : colors.textPrimary,
               ),
         ),
       ],

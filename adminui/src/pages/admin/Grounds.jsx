@@ -23,6 +23,7 @@ import dayjs from 'dayjs'
 import AddIcon from '@mui/icons-material/Add'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import EditIcon from '@mui/icons-material/Edit'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import SearchIcon from '@mui/icons-material/Search'
 import SportsIcon from '@mui/icons-material/Sports'
@@ -41,7 +42,7 @@ import { groundOwnersApi } from '../../api/groundOwners.js'
 const EMPTY_FORM = {
   name: '', description: '', about: '', venue_rules: '',
   address: '', latitude: '', longitude: '', contact_number: '',
-  open_for_booking: true, owner_id: '',
+  is_active: true, owner_id: '',
 }
 
 export default function AdminGrounds() {
@@ -57,6 +58,10 @@ export default function AdminGrounds() {
 
   // ── Delete confirm state ──────────────────────────────────────────────────
   const [deleteTarget, setDeleteTarget] = useState(null) // { id, name }
+  // null = the drawer is in create mode; a row = editing that ground. The two
+  // modes take exactly the same fields, so they share one drawer rather than a
+  // second copy of the form.
+  const [editTarget, setEditTarget] = useState(null)
 
   // ── Fetch ────────────────────────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({
@@ -115,6 +120,18 @@ export default function AdminGrounds() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }) => groundsApi.adminUpdate(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'grounds'] })
+      notify.success('Ground updated successfully')
+      handleCloseDrawer()
+    },
+    onError: (err) => {
+      notify.error(err?.response?.data?.message || 'Failed to update ground')
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (id) => groundsApi.delete(id),
     onSuccess: () => {
@@ -129,13 +146,35 @@ export default function AdminGrounds() {
 
   // ── Drawer helpers ────────────────────────────────────────────────────────
   const handleOpenDrawer = () => {
+    setEditTarget(null)
     setForm(EMPTY_FORM)
+    setFormErrors({})
+    setDrawerOpen(true)
+  }
+
+  const handleOpenEdit = (row) => {
+    setEditTarget(row)
+    // Every field falls back to the empty string: a null column must land in a
+    // controlled input, or React switches it to uncontrolled and warns.
+    setForm({
+      name: row.name ?? '',
+      description: row.description ?? '',
+      about: row.about ?? '',
+      venue_rules: row.venue_rules ?? '',
+      address: row.address ?? '',
+      latitude: row.latitude != null ? String(row.latitude) : '',
+      longitude: row.longitude != null ? String(row.longitude) : '',
+      contact_number: row.contact_number ?? '',
+      is_active: String(row.status ?? '').toLowerCase() === 'active',
+      owner_id: row.owner_id != null ? String(row.owner_id) : '',
+    })
     setFormErrors({})
     setDrawerOpen(true)
   }
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false)
+    setEditTarget(null)
     setForm(EMPTY_FORM)
     setFormErrors({})
   }
@@ -147,7 +186,7 @@ export default function AdminGrounds() {
   }
 
   const handleSwitchChange = (e) => {
-    setForm((prev) => ({ ...prev, open_for_booking: e.target.checked }))
+    setForm((prev) => ({ ...prev, is_active: e.target.checked }))
   }
 
   const validate = () => {
@@ -162,7 +201,7 @@ export default function AdminGrounds() {
     if (!validate()) return
     const payload = {
       name: form.name.trim(),
-      open_for_booking: form.open_for_booking,
+      is_active: form.is_active,
     }
     const optionalText = ['description', 'about', 'venue_rules', 'address', 'contact_number']
     optionalText.forEach((key) => {
@@ -171,7 +210,9 @@ export default function AdminGrounds() {
     if (form.latitude !== '') payload.latitude = parseFloat(form.latitude)
     if (form.longitude !== '') payload.longitude = parseFloat(form.longitude)
     if (form.owner_id !== '') payload.owner_id = Number(form.owner_id)
-    createMutation.mutate(payload)
+
+    if (editTarget) updateMutation.mutate({ id: editTarget.id, payload })
+    else createMutation.mutate(payload)
   }
 
   // ── Columns ───────────────────────────────────────────────────────────────
@@ -242,7 +283,7 @@ export default function AdminGrounds() {
     {
       field: '_actions',
       headerName: 'Actions',
-      width: 160,
+      width: 200,
       sortable: false,
       filterable: false,
       renderCell: ({ row }) => {
@@ -291,6 +332,16 @@ export default function AdminGrounds() {
                   )}
                 </IconButton>
               </span>
+            </Tooltip>
+
+            {/* Edit */}
+            <Tooltip title="Edit ground">
+              <IconButton
+                size="small"
+                onClick={() => handleOpenEdit(row)}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
             </Tooltip>
 
             {/* View detail */}
@@ -369,10 +420,10 @@ export default function AdminGrounds() {
       <DrawerForm
         open={drawerOpen}
         onClose={handleCloseDrawer}
-        title="Add New Ground"
+        title={editTarget ? `Edit ${editTarget.name}` : 'Add New Ground'}
         onSubmit={handleSubmit}
-        loading={createMutation.isPending}
-        submitLabel="Create Ground"
+        loading={createMutation.isPending || updateMutation.isPending}
+        submitLabel={editTarget ? 'Save Changes' : 'Create Ground'}
         width={500}
       >
         <Stack spacing={2.5}>
@@ -482,7 +533,7 @@ export default function AdminGrounds() {
           <FormControlLabel
             control={
               <Switch
-                checked={form.open_for_booking}
+                checked={form.is_active}
                 onChange={handleSwitchChange}
                 color="primary"
               />

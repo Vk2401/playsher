@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { User, Sport, UserSportPreference } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
@@ -91,9 +92,31 @@ exports.updateProfile = async (req, res) => {
   try {
     const user = await User.findOne({ where: { id: req.user.id, deleted_at: null } });
     if (!user) return error(res, 'User not found.', 404);
-    const { password_hash, deleted_at, ...updateData } = req.body;
-    await user.update(updateData);
-    return success(res, 'Profile updated.', user);
+    // Whitelist rather than blocklist. The previous version stripped only
+    // password_hash and deleted_at, so a customer could set is_verified on
+    // themselves — or change `mobile`, which is the login identifier: taking
+    // over another account's number must go through OTP re-verification, not a
+    // plain profile PUT.
+    const EDITABLE = ['name', 'email', 'profile_picture'];
+    const patch = {};
+    for (const key of EDITABLE) {
+      if (req.body[key] !== undefined) patch[key] = req.body[key];
+    }
+    if (Object.keys(patch).length === 0) {
+      return error(res, 'No updatable fields supplied.');
+    }
+
+    if (patch.email) {
+      const clash = await User.findOne({
+        where: { email: patch.email, id: { [Op.ne]: user.id }, deleted_at: null },
+      });
+      if (clash) return error(res, 'That email already belongs to another account.');
+    }
+
+    await user.update(patch);
+    const json = user.toJSON();
+    delete json.password_hash;
+    return success(res, 'Profile updated.', json);
   } catch (err) {
     return error(res, err.message, 500);
   }

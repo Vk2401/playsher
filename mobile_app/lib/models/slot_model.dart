@@ -33,6 +33,24 @@ class SlotModel {
   static List<SlotModel> listFromJson(List<dynamic> list) =>
       list.map((e) => SlotModel.fromJson(e as Map<String, dynamic>)).toList();
 
+  /// Has this slot's start time already passed?
+  ///
+  /// The API filters past slots out, but a screen left open while the hour
+  /// turns, a cached response, or a server whose clock is not on the venue's
+  /// timezone can still surface one — and it fails at checkout. Guarding on
+  /// the device clock too means an unbookable slot is never offered.
+  bool get hasStarted {
+    final date = DateTime.tryParse(slotDate);
+    if (date == null) return false;
+    final parts = slotStartTime.split(':');
+    if (parts.length < 2) return false;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return false;
+    return !DateTime(date.year, date.month, date.day, h, m)
+        .isAfter(DateTime.now());
+  }
+
   /// "6:00 AM" style
   String get formattedStart => _fmt(slotStartTime);
   String get formattedEnd => _fmt(slotEndTime);

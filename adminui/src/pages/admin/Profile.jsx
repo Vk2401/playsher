@@ -10,6 +10,7 @@ import EmailIcon from '@mui/icons-material/Email'
 import BadgeIcon from '@mui/icons-material/Badge'
 
 import PageHeader from '../../components/ui/PageHeader.jsx'
+import ChangePasswordCard from '../../components/ui/ChangePasswordCard.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 
 function getInitials(name) {
@@ -135,6 +136,10 @@ export default function AdminProfile() {
               )}
             </Grid>
           </Paper>
+        </Grid>
+
+        <Grid item xs={12}>
+          <ChangePasswordCard />
         </Grid>
       </Grid>
     </Box>

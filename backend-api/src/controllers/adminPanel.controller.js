@@ -8,7 +8,7 @@ const { Op } = require('sequelize');
 const {
   Ground, GroundOwner, GroundImage, GroundSport,
   Sport, Amenity, Coach, Review, User, Booking,
-  Payment, Game, GameParticipant,
+  Payment, Game, GameParticipant, RefreshToken,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
@@ -530,5 +530,132 @@ exports.getVendorStats = async (req, res) => {
         total_revenue: totalRevenue,
       },
     });
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// ── Admin edits of owners, users and grounds ─────────────────────────────────
+// The admin routes previously covered list, create, approve, toggle and delete —
+// but no update, so nothing an owner had entered was ever correctable by an
+// administrator. Each whitelist below is deliberately wider than the owner's own
+// (it includes moderation flags) and still excludes identity and credentials.
+
+const ADMIN_OWNER_FIELDS  = ['name', 'email', 'mobile', 'profile_picture', 'is_active', 'is_approved'];
+const ADMIN_USER_FIELDS   = ['name', 'email', 'mobile', 'profile_picture', 'is_active'];
+const ADMIN_GROUND_FIELDS = [
+  'name', 'about', 'description', 'latitude', 'longitude', 'address',
+  'venue_rules', 'contact_number', 'is_active', 'is_approved', 'owner_id',
+];
+
+function pick(body, fields) {
+  const patch = {};
+  for (const key of fields) if (body[key] !== undefined) patch[key] = body[key];
+  return patch;
+}
+
+/** Reject a change that would collide with another row's unique email/mobile. */
+async function uniqueConflict(Model, patch, id) {
+  const clauses = [];
+  if (patch.email)  clauses.push({ email: patch.email });
+  if (patch.mobile) clauses.push({ mobile: patch.mobile });
+  if (clauses.length === 0) return null;
+
+  const clash = await Model.findOne({
+    where: { [Op.or]: clauses, id: { [Op.ne]: id } },
+  });
+  return clash ? 'That email or mobile already belongs to another account.' : null;
+}
+
+/**
+ * Revoke every refresh token for an account.
+ * A password change that leaves old refresh tokens alive is not a password
+ * change — whoever holds one keeps the session.
+ */
+async function revokeSessions(userId, userType) {
+  await RefreshToken.update(
+    { is_revoked: true },
+    { where: { user_id: userId, user_type: userType, is_revoked: false } },
+  );
+}
+
+// PUT /admin/ground-owners/:id
+exports.updateGroundOwner = async (req, res) => {
+  try {
+    const owner = await GroundOwner.findByPk(req.params.id);
+    if (!owner) return error(res, 'Ground owner not found.', 404);
+
+    const patch = pick(req.body, ADMIN_OWNER_FIELDS);
+    if (Object.keys(patch).length === 0) return error(res, 'No updatable fields supplied.');
+
+    const conflict = await uniqueConflict(GroundOwner, patch, owner.id);
+    if (conflict) return error(res, conflict);
+
+    await owner.update(patch);
+    // Deactivating must end the session too, or the owner keeps working until
+    // their access token lapses.
+    if (patch.is_active === false) await revokeSessions(owner.id, 'ground_owner');
+
+    const json = owner.toJSON();
+    delete json.password_hash;
+    return success(res, 'Ground owner updated.', json);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// PATCH /admin/ground-owners/:id/password
+exports.resetGroundOwnerPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || String(password).length < 8) {
+      return error(res, 'Password must be at least 8 characters.', 422);
+    }
+    const owner = await GroundOwner.findByPk(req.params.id);
+    if (!owner) return error(res, 'Ground owner not found.', 404);
+
+    await owner.update({ password_hash: await bcrypt.hash(password, SALT_ROUNDS) });
+    await revokeSessions(owner.id, 'ground_owner');
+
+    return success(res, 'Password reset. The owner has been signed out everywhere.');
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// PUT /admin/users/:id
+exports.updateUser = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return error(res, 'User not found.', 404);
+
+    const patch = pick(req.body, ADMIN_USER_FIELDS);
+    if (Object.keys(patch).length === 0) return error(res, 'No updatable fields supplied.');
+
+    const conflict = await uniqueConflict(User, patch, user.id);
+    if (conflict) return error(res, conflict);
+
+    await user.update(patch);
+    if (patch.is_active === false) await revokeSessions(user.id, 'user');
+
+    const json = user.toJSON();
+    delete json.password_hash;
+    return success(res, 'User updated.', json);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// PUT /admin/grounds/:id
+exports.updateGround = async (req, res) => {
+  try {
+    const ground = await Ground.findOne({
+      where: { id: req.params.id, deleted_at: null },
+    });
+    if (!ground) return error(res, 'Ground not found.', 404);
+
+    const patch = pick(req.body, ADMIN_GROUND_FIELDS);
+    if (Object.keys(patch).length === 0) return error(res, 'No updatable fields supplied.');
+
+    // Reassigning a ground to a non-existent owner would orphan it.
+    if (patch.owner_id !== undefined) {
+      const owner = await GroundOwner.findByPk(patch.owner_id);
+      if (!owner) return error(res, 'That ground owner does not exist.', 422);
+    }
+
+    await ground.update(patch);
+    return success(res, 'Ground updated.', ground);
   } catch (err) { return error(res, err.message, 500); }
 };

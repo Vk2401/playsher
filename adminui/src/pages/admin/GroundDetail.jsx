@@ -144,7 +144,7 @@ export default function AdminGroundDetail() {
   const [editDrawerOpen, setEditDrawerOpen] = useState(false)
   const [editForm, setEditForm] = useState({
     name: '', description: '', about: '', venue_rules: '',
-    address: '', latitude: '', longitude: '', contact_number: '', open_for_booking: true, owner_id: '',
+    address: '', latitude: '', longitude: '', contact_number: '', is_active: true, owner_id: '',
   })
 
   const { data: ground, isLoading, error } = useQuery({
@@ -243,7 +243,7 @@ export default function AdminGroundDetail() {
       latitude: ground?.latitude ?? '',
       longitude: ground?.longitude ?? '',
       contact_number: ground?.contact_number ?? '',
-      open_for_booking: ground?.open_for_booking ?? ground?.is_booking_open ?? true,
+      is_active: ground?.is_active ?? true,
       owner_id: ground?.owner_id ?? ground?.user_id ?? '',
     })
     setEditDrawerOpen(true)
@@ -442,7 +442,7 @@ export default function AdminGroundDetail() {
                   >
                     Open for Bookings
                   </Typography>
-                  <BoolChip value={ground?.is_booking_open ?? ground?.open_for_booking} />
+                  <BoolChip value={ground?.is_active} />
                 </Box>
                 <Divider sx={{ opacity: 0.4 }} />
                 <DetailRow
@@ -773,8 +773,8 @@ export default function AdminGroundDetail() {
           <FormControlLabel
             control={
               <Switch
-                checked={editForm.open_for_booking}
-                onChange={(e) => setEditForm((p) => ({ ...p, open_for_booking: e.target.checked }))}
+                checked={editForm.is_active}
+                onChange={(e) => setEditForm((p) => ({ ...p, is_active: e.target.checked }))}
               />
             }
             label="Open for Booking"

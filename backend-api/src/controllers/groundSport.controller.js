@@ -47,7 +47,29 @@ exports.update = async (req, res) => {
   try {
     const gs = await GroundSport.findOne({ where: { id: req.params.id, ground_id: req.params.groundId } });
     if (!gs) return error(res, 'Ground sport not found.', 404);
-    await gs.update(req.body);
+
+    // requireRole proves the caller is *a* ground owner, not that they own
+    // this ground — without this any owner could reprice a competitor's venue.
+    if (req.user.role === 'ground_owner') {
+      const ground = await Ground.findOne({
+        where: { id: req.params.groundId, owner_id: req.user.id, deleted_at: null },
+      });
+      if (!ground) return error(res, 'Forbidden.', 403);
+    }
+
+    // Whitelist: ground_id and sport_id are identity. Letting them through
+    // would reassign every slot and booking already hanging off this row.
+    const { price_per_half_hour, min_slots, max_slots, player_counts,
+            cancellation_policy, is_active } = req.body;
+    const patch = {};
+    if (price_per_half_hour !== undefined) patch.price_per_half_hour = price_per_half_hour;
+    if (min_slots           !== undefined) patch.min_slots           = min_slots;
+    if (max_slots           !== undefined) patch.max_slots           = max_slots;
+    if (player_counts       !== undefined) patch.player_counts       = player_counts;
+    if (cancellation_policy !== undefined) patch.cancellation_policy = cancellation_policy;
+    if (is_active           !== undefined) patch.is_active           = is_active;
+
+    await gs.update(patch);
     return success(res, 'Ground sport updated.', gs);
   } catch (err) {
     return error(res, err.message, 500);

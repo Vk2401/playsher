@@ -73,7 +73,13 @@ exports.create = async (req, res) => {
       transaction_id,
     });
 
-    await booking.update({ payment_id: payment.id, status: 'confirmed' });
+    await booking.update({
+      payment_id: payment.id,
+      status: 'confirmed',
+      // Paid: the slot hold becomes permanent, so the expiry sweep must not
+      // reclaim it.
+      hold_expires_at: null,
+    });
     return success(res, 'Payment recorded.', payment, 201);
   } catch (err) {
     return error(res, err.message, 500);
@@ -90,8 +96,12 @@ exports.createRazorpayOrder = async (req, res) => {
     if (!booking) return error(res, 'Booking not found.', 404);
     if (booking.user_id !== req.user.id) return error(res, 'Forbidden.', 403);
 
-    // Amount in paise (INR smallest unit)
-    const amountInPaise = Math.round(parseFloat(booking.total_amount) * 100);
+    // Charge what is due online now: the advance on a pay-at-ground booking,
+    // the full amount on an online one. advance_amount holds both cases, so
+    // this never needs to know which method was chosen.
+    const payableNow = parseFloat(booking.advance_amount ?? booking.total_amount);
+    if (!(payableNow > 0)) return error(res, 'This booking has nothing left to pay.');
+    const amountInPaise = Math.round(payableNow * 100);
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,
@@ -111,7 +121,7 @@ exports.createRazorpayOrder = async (req, res) => {
       payment_method: 'razorpay',
       payment_mode: 'online',
       payment_timestamp: new Date(),
-      amount: booking.total_amount,
+      amount: payableNow,
       razorpay_order_id: order.id,
     });
 
@@ -159,7 +169,13 @@ exports.verifyRazorpayPayment = async (req, res) => {
     // Mark booking as confirmed
     const booking = await Booking.findByPk(payment.booking_id);
     if (booking) {
-      await booking.update({ payment_id: payment.id, status: 'confirmed' });
+      await booking.update({
+      payment_id: payment.id,
+      status: 'confirmed',
+      // Paid: the slot hold becomes permanent, so the expiry sweep must not
+      // reclaim it.
+      hold_expires_at: null,
+    });
     }
 
     return success(res, 'Payment verified successfully.', { payment, booking });

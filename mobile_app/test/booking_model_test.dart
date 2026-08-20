@@ -17,6 +17,8 @@ void main() {
         'slot_time_from': '18:00:00',
         'slot_time_to': '19:00:00',
         'total_amount': '1250.00',
+        'advance_amount': '125.00',
+        'balance_due': '1125.00',
         'is_game': false,
         'is_canceled': false,
         'booking_reference': 'PSH-000042',
@@ -50,6 +52,33 @@ void main() {
           .paymentMethodLabel,
       'Pay at Ground',
     );
+  });
+
+  test('reads the advance / balance split for the ticket', () {
+    final booking = BookingModel.fromJson(apiRow());
+    expect(booking.advanceAmount, 125.0);
+    expect(booking.balanceDue, 1125.0);
+    expect(booking.formattedAdvance, '₹125');
+    expect(booking.formattedBalance, '₹1125');
+    expect(booking.hasBalanceDue, isTrue);
+  });
+
+  test('an online booking owes nothing at the ground', () {
+    final row = apiRow(paymentMethod: 'online')
+      ..['advance_amount'] = '1250.00'
+      ..['balance_due'] = '0.00';
+    final booking = BookingModel.fromJson(row);
+    expect(booking.hasBalanceDue, isFalse);
+    expect(booking.advanceAmount, booking.totalPrice);
+  });
+
+  test('a row without the advance columns still parses', () {
+    final row = apiRow()
+      ..remove('advance_amount')
+      ..remove('balance_due');
+    final booking = BookingModel.fromJson(row);
+    expect(booking.advanceAmount, 0);
+    expect(booking.hasBalanceDue, isFalse);
   });
 
   test('does not claim a payment method the booking does not carry', () {

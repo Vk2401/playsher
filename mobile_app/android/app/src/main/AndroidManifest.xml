@@ -45,5 +45,17 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!-- Package visibility on Android 11+ hides other apps unless declared.
+             Without these, url_launcher cannot resolve a handler and the
+             "Update now" button on the update prompt silently does nothing. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="market"/>
+        </intent>
     </queries>
 </manifest>

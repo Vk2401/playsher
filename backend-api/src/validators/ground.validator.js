@@ -41,4 +41,21 @@ const updateGroundSport = [
   body('max_slots').optional().isInt({ min: 1 }),
 ];
 
-module.exports = { createGround, updateGround, addAmenities, createGroundSport, updateGroundSport };
+// Owner-panel variant: that route names its params :id and :sportId, where
+// sportId is the ground_sport row id.
+const updateOwnerGroundSport = [
+  param('id').isInt({ min: 1 }).withMessage('Invalid ground ID.'),
+  param('sportId').isInt({ min: 1 }).withMessage('Invalid ground-sport ID.'),
+  body('price_per_half_hour').optional().isFloat({ min: 0 })
+    .withMessage('price_per_half_hour must be >= 0.'),
+  body('min_slots').optional().isInt({ min: 1 }).withMessage('min_slots must be >= 1.'),
+  body('max_slots').optional().isInt({ min: 1 }).withMessage('max_slots must be >= 1.'),
+  body('player_counts').optional().isString(),
+  body('cancellation_policy').optional().isString(),
+  body('is_active').optional().isBoolean().withMessage('is_active must be a boolean.'),
+];
+
+module.exports = {
+  createGround, updateGround, addAmenities,
+  createGroundSport, updateGroundSport, updateOwnerGroundSport,
+};

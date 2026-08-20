@@ -5,9 +5,12 @@
 const { Op } = require('sequelize');
 const {
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
-  Sport, Amenity, Slot, Booking, User, Game, GameParticipant, Payment,
+  Sport, Amenity, Slot, Booking, BookedSlot, User, Game, GameParticipant, Payment,
 } = require('../models');
 const { success, error } = require('../utils/response');
+const { pickGroundFields } = require('../utils/groundFields');
+const { ensureSlotsForDate } = require('../utils/slotGenerator');
+const { releaseExpiredHolds } = require('../utils/slotHolds');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
@@ -58,7 +61,10 @@ exports.getGround = async (req, res) => {
 /** POST /ground-owner/grounds (with optional main_image upload) */
 exports.createGround = async (req, res) => {
   try {
-    const ground = await Ground.create({ ...req.body, owner_id: req.user.id });
+    const ground = await Ground.create({
+      ...pickGroundFields(req.body),
+      owner_id: req.user.id,
+    });
     if (req.file) {
       await GroundImage.create({
         ground_id: ground.id,
@@ -75,7 +81,12 @@ exports.updateGround = async (req, res) => {
   try {
     const ground = await Ground.findOne({ where: { id: req.params.id, owner_id: req.user.id, deleted_at: null } });
     if (!ground) return error(res, 'Ground not found.', 404);
-    await ground.update(req.body);
+
+    const patch = pickGroundFields(req.body);
+    if (Object.keys(patch).length === 0) {
+      return error(res, 'No updatable fields supplied.');
+    }
+    await ground.update(patch);
     return success(res, 'Ground updated.', ground);
   } catch (err) { return error(res, err.message, 500); }
 };
@@ -194,6 +205,38 @@ exports.addSport = async (req, res) => {
   } catch (err) { return error(res, err.message, 500); }
 };
 
+/** PUT /ground-owner/grounds/:id/sports/:sportId — sportId is the ground_sport row id */
+exports.updateSport = async (req, res) => {
+  try {
+    const ground = await Ground.findOne({ where: { id: req.params.id, owner_id: req.user.id, deleted_at: null } });
+    if (!ground) return error(res, 'Ground not found.', 404);
+
+    const gs = await GroundSport.findOne({ where: { id: req.params.sportId, ground_id: ground.id } });
+    if (!gs) return error(res, 'Ground sport not found.', 404);
+
+    // Whitelist: sport_id and ground_id are identity, not settings. Changing
+    // sport_id here would silently reassign every slot and booking already
+    // attached to this row.
+    const { price_per_half_hour, min_slots, max_slots, player_counts, cancellation_policy, is_active } = req.body;
+    const patch = {};
+    if (price_per_half_hour !== undefined) patch.price_per_half_hour = price_per_half_hour;
+    if (min_slots           !== undefined) patch.min_slots           = min_slots;
+    if (max_slots           !== undefined) patch.max_slots           = max_slots;
+    if (player_counts       !== undefined) patch.player_counts       = player_counts;
+    if (cancellation_policy !== undefined) patch.cancellation_policy = cancellation_policy;
+    if (is_active           !== undefined) patch.is_active           = is_active;
+
+    if (Object.keys(patch).length === 0) return error(res, 'No updatable fields supplied.');
+    if (patch.min_slots !== undefined && patch.max_slots !== undefined
+        && Number(patch.min_slots) > Number(patch.max_slots)) {
+      return error(res, 'min_slots cannot exceed max_slots.');
+    }
+
+    await gs.update(patch);
+    return success(res, 'Sport updated.', gs);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
 /** DELETE /ground-owner/grounds/:id/sports/:sportId — sportId is the ground_sport row id */
 exports.removeSport = async (req, res) => {
   try {
@@ -219,6 +262,20 @@ exports.listSlots = async (req, res) => {
       include: [{ model: Sport, as: 'sport', attributes: ['id', 'name'] }],
     });
     const gsIds = groundSports.map((gs) => gs.id);
+
+    // Slots are generated on demand from the weekly schedule, so a future date
+    // holds no rows until someone asks for it. Generate here too, otherwise the
+    // owner sees an empty day while customers see a bookable one — and cannot
+    // close an individual slot ahead of time.
+    if (req.query.date) {
+      for (const gsId of gsIds) {
+        await releaseExpiredHolds(
+          { Booking, BookedSlot, Slot },
+          { groundSportId: gsId, slotDate: req.query.date },
+        );
+        await ensureSlotsForDate(gsId, req.query.date);
+      }
+    }
 
     const where = gsIds.length ? { ground_sport_id: { [Op.in]: gsIds } } : { ground_sport_id: -1 };
     if (req.query.date) where.slot_date = req.query.date;

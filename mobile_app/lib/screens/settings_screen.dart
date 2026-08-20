@@ -119,7 +119,7 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.person,
               title: 'Edit Profile',
               colors: colors,
-              onTap: () => context.push('/profile')),
+              onTap: () => context.push('/profile/edit')),
           _SettingsTile(
               icon: Icons.lock,
               title: 'Privacy',

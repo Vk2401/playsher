@@ -9,11 +9,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 
+import SlotManager from '../../components/owner/SlotManager.jsx'
+
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditIcon from '@mui/icons-material/Edit'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ScheduleIcon from '@mui/icons-material/Schedule'
+import PaymentsIcon from '@mui/icons-material/Payments'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
 import PageHeader from '../../components/ui/PageHeader.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'
@@ -44,9 +48,13 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 
 const DEFAULT_DAY_SCHEDULE = { start_time: '06:00', end_time: '22:00', is_closed: false }
 const EMPTY_SPORT = { sport_id: '', price_per_half_hour: '', min_slots: 1, max_slots: 8 }
+const EMPTY_PRICING = {
+  price_per_half_hour: '', min_slots: 1, max_slots: 8,
+  player_counts: '', cancellation_policy: '', is_active: true,
+}
 const EMPTY_GROUND_FORM = {
   name: '', description: '', about: '', venue_rules: '',
-  address: '', latitude: '', longitude: '', contact_number: '', open_for_booking: true,
+  address: '', latitude: '', longitude: '', contact_number: '', is_active: true,
 }
 
 export default function GroundDetail() {
@@ -62,6 +70,9 @@ export default function GroundDetail() {
   const [sportDialogOpen, setSportDialogOpen] = useState(false)
   const [sportForm, setSportForm] = useState(EMPTY_SPORT)
   const [deleteSportTarget, setDeleteSportTarget] = useState(null)
+  const [pricingTarget, setPricingTarget] = useState(null)
+  const [pricingForm, setPricingForm] = useState(EMPTY_PRICING)
+  const [pricingErrors, setPricingErrors] = useState({})
 
   // Edit sport + schedule drawer state
   const [editSportDrawerOpen, setEditSportDrawerOpen] = useState(false)
@@ -145,6 +156,17 @@ export default function GroundDetail() {
     onError: (e) => notify.error(e?.response?.data?.message || 'Failed to add sport'),
   })
 
+  const updateSportMutation = useMutation({
+    mutationFn: ({ groundSportId, data }) =>
+      groundsApi.updateSport(id, groundSportId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['owner', 'ground', id] })
+      notify.success('Pricing updated')
+      setPricingTarget(null)
+    },
+    onError: (e) => notify.error(e?.response?.data?.message || 'Failed to update pricing'),
+  })
+
   const removeSportMutation = useMutation({
     mutationFn: (groundSportId) => groundsApi.removeSport(id, groundSportId),
     onSuccess: () => {
@@ -213,6 +235,63 @@ export default function GroundDetail() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  /**
+   * True when this sport has at least one open day in its weekly schedule.
+   *
+   * Slots are generated on demand from the schedule template, so a sport with
+   * no open day produces an empty slot list and the customer app shows
+   * "no slots available" — with nothing on this screen explaining why.
+   */
+  const hasOpenSchedule = (groundSportId) => {
+    const entry = scheduleGroundSports.find((g) => g.id === groundSportId)
+    const schedules = entry?.schedules ?? []
+    return schedules.some((sc) => !sc.is_closed)
+  }
+
+  const handleOpenPricing = (gs) => {
+    setPricingForm({
+      price_per_half_hour: gs.price_per_half_hour ?? '',
+      min_slots: gs.min_slots ?? 1,
+      max_slots: gs.max_slots ?? 8,
+      player_counts: gs.player_counts ?? '',
+      cancellation_policy: gs.cancellation_policy ?? '',
+      is_active: gs.is_active ?? true,
+    })
+    setPricingErrors({})
+    setPricingTarget({ id: gs.id, name: gs.sport?.name ?? `Sport #${gs.sport_id}` })
+  }
+
+  const handlePricingSubmit = () => {
+    const errors = {}
+    const price = Number(pricingForm.price_per_half_hour)
+    const min = Number(pricingForm.min_slots)
+    const max = Number(pricingForm.max_slots)
+
+    if (pricingForm.price_per_half_hour === '' || Number.isNaN(price) || price < 0) {
+      errors.price_per_half_hour = 'Enter a price of 0 or more'
+    }
+    if (!Number.isInteger(min) || min < 1) errors.min_slots = 'Must be at least 1'
+    if (!Number.isInteger(max) || max < 1) errors.max_slots = 'Must be at least 1'
+    if (!errors.min_slots && !errors.max_slots && min > max) {
+      errors.max_slots = 'Max must be greater than or equal to min'
+    }
+
+    setPricingErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    updateSportMutation.mutate({
+      groundSportId: pricingTarget.id,
+      data: {
+        price_per_half_hour: price,
+        min_slots: min,
+        max_slots: max,
+        player_counts: pricingForm.player_counts.trim(),
+        cancellation_policy: pricingForm.cancellation_policy.trim(),
+        is_active: pricingForm.is_active,
+      },
+    })
+  }
+
   const handleOpenSportEdit = (gs) => {
     setEditSportGsId(gs.id)
     setEditSportName(gs.sport?.name ?? `Sport #${gs.sport_id}`)
@@ -280,7 +359,7 @@ export default function GroundDetail() {
       latitude: ground?.latitude ?? '',
       longitude: ground?.longitude ?? '',
       contact_number: ground?.contact_number ?? '',
-      open_for_booking: ground?.open_for_booking ?? true,
+      is_active: ground?.is_active ?? true,
     })
     setEditImageFile(null)
     setEditDrawerOpen(true)
@@ -293,7 +372,7 @@ export default function GroundDetail() {
     }
     const fd = new FormData()
     Object.entries(editForm).forEach(([k, v]) => {
-      if (k === 'open_for_booking') {
+      if (k === 'is_active') {
         fd.append(k, v ? 'true' : 'false')
       } else if (v !== '') {
         fd.append(k, v)
@@ -323,6 +402,7 @@ export default function GroundDetail() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable">
           <Tab label="Details" />
           <Tab label="Sports & Pricing" />
+          <Tab label="Slots" />
           <Tab label="Amenities" />
           <Tab label="Images" />
         </Tabs>
@@ -359,8 +439,8 @@ export default function GroundDetail() {
                     size="small" sx={{ fontWeight: 600 }}
                   />
                   <Chip
-                    label={ground?.open_for_booking ? 'Open for Booking' : 'Closed'}
-                    color={ground?.open_for_booking ? 'info' : 'default'}
+                    label={ground?.is_active ? 'Open for Booking' : 'Closed'}
+                    color={ground?.is_active ? 'info' : 'default'}
                     size="small" sx={{ fontWeight: 600 }}
                   />
                 </Box>
@@ -411,16 +491,32 @@ export default function GroundDetail() {
           <Stack spacing={1.5}>
             {groundSportsList.map((gs) => (
               <Paper key={gs.id} sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
+                <Box sx={{ minWidth: 0 }}>
                   <Typography fontWeight={600}>{gs.sport?.name ?? `Sport #${gs.sport_id}`}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     ₨{gs.price_per_half_hour}/30min · min {gs.min_slots} slot · max {gs.max_slots} slots
                     {gs.player_counts ? ` · ${gs.player_counts} players` : ''}
                   </Typography>
+                  {!hasOpenSchedule(gs.id) && (
+                    <Typography
+                      variant="caption"
+                      color="warning.main"
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, fontWeight: 600 }}
+                    >
+                      <WarningAmberIcon sx={{ fontSize: 15 }} />
+                      No weekly schedule — customers see &ldquo;no slots available&rdquo;
+                    </Typography>
+                  )}
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>
                   <StatusChip status={gs.is_active ? 'active' : 'inactive'} />
-                  <Tooltip title="Edit schedule & slots">
+                  <Tooltip title="Edit pricing & limits">
+                    <IconButton size="small" color="primary"
+                      onClick={() => handleOpenPricing(gs)}>
+                      <PaymentsIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Edit weekly schedule">
                     <IconButton size="small" color="primary"
                       onClick={() => handleOpenSportEdit(gs)}>
                       <ScheduleIcon fontSize="small" />
@@ -500,14 +596,24 @@ export default function GroundDetail() {
           onClose={() => setDeleteSportTarget(null)}
           onConfirm={() => removeSportMutation.mutate(deleteSportTarget?.id)}
           title="Remove Sport"
-          message={`Remove "${deleteSportTarget?.name}" from this ground? Associated slots will be affected.`}
+          message={
+          `Remove "${deleteSportTarget?.name}" from this ground? ` +
+          'Its weekly schedule and every generated slot are deleted with it, ' +
+          'and the sport becomes unbookable until you set the schedule up again. ' +
+          'To change the price, use Edit pricing instead.'
+        }
           confirmLabel="Remove"
           loading={removeSportMutation.isPending}
         />
       </TabPanel>
 
-      {/* ── Tab 2: Amenities ─────────────────────────────────────────────── */}
+      {/* ── Tab 2: Slots ─────────────────────────────────────────────────── */}
       <TabPanel value={tab} index={2}>
+        <SlotManager groundId={id} />
+      </TabPanel>
+
+      {/* ── Tab 3: Amenities ─────────────────────────────────────────────── */}
+      <TabPanel value={tab} index={3}>
         <Box display="flex" justifyContent="flex-end" mb={2}>
           <Button variant="contained" startIcon={<AddIcon />}
             onClick={() => { setSelectedAmenityId(''); setAddAmenityOpen(true) }}>
@@ -590,7 +696,7 @@ export default function GroundDetail() {
       </TabPanel>
 
       {/* ── Tab 3: Images ───────────────────────────────────────────────── */}
-      <TabPanel value={tab} index={3}>
+      <TabPanel value={tab} index={4}>
         <Box display="flex" justifyContent="flex-end" mb={2} gap={2}>
           <Button
             variant="contained" startIcon={<AddIcon />}
@@ -688,8 +794,8 @@ export default function GroundDetail() {
           <FormControlLabel
             control={
               <Switch
-                checked={editForm.open_for_booking}
-                onChange={(e) => setEditForm((p) => ({ ...p, open_for_booking: e.target.checked }))}
+                checked={editForm.is_active}
+                onChange={(e) => setEditForm((p) => ({ ...p, is_active: e.target.checked }))}
               />
             }
             label="Open for Booking"
@@ -715,6 +821,83 @@ export default function GroundDetail() {
       </DrawerForm>
 
       {/* ── Edit Sport Schedule Drawer ─────────────────────────────────────── */}
+      {/* Edit pricing in place — the alternative used to be removing the sport
+          and re-adding it, which cascade-deletes its schedule and slots. */}
+      <DrawerForm
+        open={Boolean(pricingTarget)}
+        onClose={() => { setPricingTarget(null); setPricingErrors({}) }}
+        title={`Pricing — ${pricingTarget?.name ?? ''}`}
+        onSubmit={handlePricingSubmit}
+        loading={updateSportMutation.isPending}
+        submitLabel="Save pricing"
+        width={460}
+      >
+        <Stack spacing={2}>
+          <TextField
+            label="Price per 30 min (PKR)"
+            type="number"
+            size="small"
+            fullWidth
+            required
+            value={pricingForm.price_per_half_hour}
+            error={Boolean(pricingErrors.price_per_half_hour)}
+            helperText={pricingErrors.price_per_half_hour
+              || 'Customers are charged this for every 30-minute slot they book.'}
+            onChange={(e) => setPricingForm((p) => ({ ...p, price_per_half_hour: e.target.value }))}
+          />
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Min slots per booking"
+              type="number"
+              size="small"
+              fullWidth
+              value={pricingForm.min_slots}
+              error={Boolean(pricingErrors.min_slots)}
+              helperText={pricingErrors.min_slots}
+              onChange={(e) => setPricingForm((p) => ({ ...p, min_slots: e.target.value }))}
+            />
+            <TextField
+              label="Max slots per booking"
+              type="number"
+              size="small"
+              fullWidth
+              value={pricingForm.max_slots}
+              error={Boolean(pricingErrors.max_slots)}
+              helperText={pricingErrors.max_slots}
+              onChange={(e) => setPricingForm((p) => ({ ...p, max_slots: e.target.value }))}
+            />
+          </Stack>
+          <TextField
+            label="Players (optional)"
+            size="small"
+            fullWidth
+            placeholder="e.g. 10 or 5-a-side"
+            value={pricingForm.player_counts}
+            onChange={(e) => setPricingForm((p) => ({ ...p, player_counts: e.target.value }))}
+          />
+          <TextField
+            label="Cancellation policy (optional)"
+            size="small"
+            fullWidth
+            multiline
+            rows={2}
+            value={pricingForm.cancellation_policy}
+            onChange={(e) => setPricingForm((p) => ({ ...p, cancellation_policy: e.target.value }))}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={pricingForm.is_active}
+                onChange={(e) => setPricingForm((p) => ({ ...p, is_active: e.target.checked }))}
+              />
+            }
+            label={pricingForm.is_active
+              ? 'Bookable — customers can book this sport'
+              : 'Paused — hidden from customers'}
+          />
+        </Stack>
+      </DrawerForm>
+
       <DrawerForm
         open={editSportDrawerOpen}
         onClose={() => setEditSportDrawerOpen(false)}

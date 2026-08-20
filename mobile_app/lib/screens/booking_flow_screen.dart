@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +38,27 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   List<int> get _slotIds =>
       (widget.extra['slotIds'] as List?)?.cast<int>() ?? [];
   int get _totalPrice => widget.extra['totalPrice'] as int? ?? 0;
+
+  /// Share of the total taken online when paying at the ground. Mirrors
+  /// backend-api/src/utils/pricing.js; the server remains the authority and
+  /// recomputes it on create, this only makes the CTA honest before the tap.
+  static const _advanceRate = 0.10;
+  static const _minAdvance = 10;
+
+  bool get _isOnline => _paymentMethod == 'online';
+
+  /// What the gateway charges now.
+  int get _payableNow {
+    if (_isOnline) return _totalPrice;
+    if (_totalPrice <= 0) return 0;
+    final tenth = (_totalPrice * _advanceRate).ceil();
+    return tenth < _minAdvance
+        ? (_minAdvance > _totalPrice ? _totalPrice : _minAdvance)
+        : tenth;
+  }
+
+  /// What is collected at the venue.
+  int get _balanceAtGround => _isOnline ? 0 : _totalPrice - _payableNow;
   String? get _groundName => widget.extra['groundName'] as String?;
 
   /// Fields the confirmation screen needs that the API's booking row does not
@@ -57,6 +80,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
   @override
   void dispose() {
+    _holdTicker?.cancel();
     _razorpay.clear();
     super.dispose();
   }
@@ -67,6 +91,35 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   // that booking rather than create another one for the same slots.
   Map<String, dynamic>? _pendingBookingResult;
   int? _pendingBookingId;
+
+  /// Server-side deadline for the slot hold on a pending online booking.
+  /// Taken from the create response, never computed here: the device clock can
+  /// be minutes off, and the server is the one that will reclaim the slots.
+  DateTime? _holdExpiresAt;
+  Timer? _holdTicker;
+
+  Duration? get _holdRemaining {
+    final deadline = _holdExpiresAt;
+    if (deadline == null) return null;
+    final left = deadline.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  bool get _holdLapsed =>
+      _holdExpiresAt != null && _holdRemaining == Duration.zero;
+
+  void _startHoldTicker(DateTime deadline) {
+    _holdTicker?.cancel();
+    setState(() => _holdExpiresAt = deadline);
+    _holdTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {});
+      if (_holdRemaining == Duration.zero) timer.cancel();
+    });
+  }
 
   /// True once a booking exists server-side for this attempt.
   bool get _hasPendingBooking => _pendingBookingResult != null;
@@ -133,6 +186,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
       // Remember the attempt so a retry resumes it instead of re-booking.
       _pendingBookingResult = result;
+      final holdRaw = result['hold_expires_at']?.toString();
+      final hold =
+          holdRaw == null ? null : DateTime.tryParse(holdRaw)?.toLocal();
+      if (hold != null) _startHoldTicker(hold);
       _pendingBookingId =
           bookingId is int ? bookingId : int.tryParse(bookingId.toString());
 
@@ -243,6 +300,51 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     });
   }
 
+  /// Back from the booking screen.
+  ///
+  /// Back used to be disabled outright whenever `_loading` was set — which is
+  /// most of the payment flow — so it read as "back does nothing". Leaving is
+  /// safe now that an unpaid booking's slots are held on a deadline rather than
+  /// forever, so back always works; it only asks first when a payment is
+  /// genuinely in flight.
+  Future<void> _handleBack() async {
+    if (!_loading) {
+      context.pop();
+      return;
+    }
+
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave payment?'),
+        content: Text(
+          _hasPendingBooking
+              ? 'Your slots stay held for a few more minutes. You can come back '
+                  'and finish paying from My Bookings.'
+              : 'Your booking has not been created yet.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+
+    if (leave == true && mounted) context.pop();
+  }
+
+  static String _formatHold(Duration d) {
+    final m = d.inMinutes.remainder(60).toString();
+    final sec = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$sec';
+  }
+
   String _parseError(Object e) {
     final msg = apiErrorMessage(e);
     final lower = msg.toLowerCase();
@@ -265,7 +367,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: _loading ? null : () => context.pop(),
+          onPressed: _handleBack,
         ),
         title: const Text(
           'Confirm Booking',
@@ -309,7 +411,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             _PaymentOption(
               icon: Icons.account_balance_wallet_rounded,
               label: 'Pay at Ground',
-              subtitle: 'Pay when you arrive',
+              subtitle: 'Pay a 10% advance now, rest at the venue',
               selected: _paymentMethod == 'pay_at_ground',
               onTap: _loading || _hasPendingBooking
                   ? null
@@ -317,6 +419,43 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             ),
 
             const SizedBox(height: 24),
+
+            // What is charged now versus at the venue. Without this the
+            // pay-at-ground CTA quotes a number smaller than the booking and
+            // reads like the price changed.
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colors.border),
+              ),
+              child: Column(
+                children: [
+                  _MoneyRow(
+                    label: 'Booking total',
+                    value: '\u20b9$_totalPrice',
+                    colors: colors,
+                  ),
+                  const SizedBox(height: 8),
+                  _MoneyRow(
+                    label: _isOnline ? 'Paying now' : 'Advance now (10%)',
+                    value: '\u20b9$_payableNow',
+                    colors: colors,
+                    emphasise: true,
+                  ),
+                  if (!_isOnline) ...[
+                    const SizedBox(height: 8),
+                    _MoneyRow(
+                      label: 'Due at the ground',
+                      value: '\u20b9$_balanceAtGround',
+                      colors: colors,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Online payment info
             if (_paymentMethod == 'online')
@@ -373,6 +512,52 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 ],
               ),
             ),
+
+            // The server releases these slots when the hold lapses, so the
+            // countdown has to be visible — otherwise the booking silently
+            // stops working mid-payment.
+            if (_holdRemaining != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: (_holdLapsed ? AppColors.error : AppColors.warning)
+                      .withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (_holdLapsed ? AppColors.error : AppColors.warning)
+                        .withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _holdLapsed
+                          ? Icons.timer_off_rounded
+                          : Icons.timer_outlined,
+                      size: 18,
+                      color: _holdLapsed ? AppColors.error : AppColors.warning,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _holdLapsed
+                            ? 'Your slots were released. Go back and pick them '
+                                'again to continue.'
+                            : 'Slots held for ${_formatHold(_holdRemaining!)} — '
+                                'complete payment before the timer runs out.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              _holdLapsed ? AppColors.error : AppColors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -450,17 +635,61 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       // Bottom bar — the shared widget, not a hand-rolled copy: it already
       // owns the safe-area inset and the double-submit guard.
       bottomNavigationBar: StickyBottomBar(
-        priceLabel: 'TOTAL AMOUNT',
-        price: '\u20b9$_totalPrice',
-        buttonText: _hasPendingBooking
-            // The booking already exists; this attempt only settles payment.
-            ? 'Retry payment'
-            : _paymentMethod == 'online'
-                ? 'Pay \u20b9$_totalPrice'
-                : 'Confirm & Book',
+        priceLabel: _isOnline ? 'TOTAL AMOUNT' : 'PAY NOW (ADVANCE)',
+        price: '\u20b9$_payableNow',
+        buttonText: _holdLapsed
+            ? 'Slots released'
+            : _hasPendingBooking
+                // The booking already exists; this attempt only settles payment.
+                ? 'Retry payment'
+                : 'Pay \u20b9$_payableNow',
         isLoading: _loading,
-        onPressed: _confirmBooking,
+        onPressed: _holdLapsed ? null : _confirmBooking,
       ),
+    );
+  }
+}
+
+class _MoneyRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final AppColors colors;
+  final bool emphasise;
+
+  const _MoneyRow({
+    required this.label,
+    required this.value,
+    required this.colors,
+    this.emphasise = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: emphasise ? colors.textPrimary : colors.textSecondary,
+              fontWeight: emphasise ? FontWeight.w600 : FontWeight.w400,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: emphasise ? 16 : 14,
+            fontWeight: emphasise ? FontWeight.w800 : FontWeight.w600,
+            color: emphasise ? AppColors.primary : colors.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 }
