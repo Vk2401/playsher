@@ -32,6 +32,11 @@ export const groundsApi = {
   // Ground Sports (ground_sports mapping) — sportId here is the ground_sport row id
   addSport: (groundId, data) =>
     apiClient.post(`/ground-owner/grounds/${groundId}/sports`, data),
+  // Edit price / slot limits / availability in place. Without this the only
+  // way to change a price was to remove the sport and re-add it, which
+  // cascade-deletes its weekly schedule and every generated slot.
+  updateSport: (groundId, groundSportId, data) =>
+    apiClient.put(`/ground-owner/grounds/${groundId}/sports/${groundSportId}`, data),
   removeSport: (groundId, groundSportId) =>
     apiClient.delete(`/ground-owner/grounds/${groundId}/sports/${groundSportId}`),
 

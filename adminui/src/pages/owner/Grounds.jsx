@@ -38,7 +38,7 @@ const EMPTY_FORM = {
   latitude: '',
   longitude: '',
   contact_number: '',
-  open_for_booking: true,
+  is_active: true,
 }
 
 export default function OwnerGrounds() {
@@ -118,7 +118,7 @@ export default function OwnerGrounds() {
     }
     const fd = new FormData()
     Object.entries(form).forEach(([k, v]) => {
-      if (k === 'open_for_booking') {
+      if (k === 'is_active') {
         fd.append(k, v ? 'true' : 'false')
       } else if (v !== '') {
         fd.append(k, v)
@@ -361,8 +361,8 @@ export default function OwnerGrounds() {
           <FormControlLabel
             control={
               <Switch
-                checked={form.open_for_booking}
-                onChange={(e) => setForm((prev) => ({ ...prev, open_for_booking: e.target.checked }))}
+                checked={form.is_active}
+                onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
               />
             }
             label="Open for Booking"

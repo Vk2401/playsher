@@ -41,7 +41,7 @@ import { groundOwnersApi } from '../../api/groundOwners.js'
 const EMPTY_FORM = {
   name: '', description: '', about: '', venue_rules: '',
   address: '', latitude: '', longitude: '', contact_number: '',
-  open_for_booking: true, owner_id: '',
+  is_active: true, owner_id: '',
 }
 
 export default function AdminGrounds() {
@@ -147,7 +147,7 @@ export default function AdminGrounds() {
   }
 
   const handleSwitchChange = (e) => {
-    setForm((prev) => ({ ...prev, open_for_booking: e.target.checked }))
+    setForm((prev) => ({ ...prev, is_active: e.target.checked }))
   }
 
   const validate = () => {
@@ -162,7 +162,7 @@ export default function AdminGrounds() {
     if (!validate()) return
     const payload = {
       name: form.name.trim(),
-      open_for_booking: form.open_for_booking,
+      is_active: form.is_active,
     }
     const optionalText = ['description', 'about', 'venue_rules', 'address', 'contact_number']
     optionalText.forEach((key) => {
@@ -482,7 +482,7 @@ export default function AdminGrounds() {
           <FormControlLabel
             control={
               <Switch
-                checked={form.open_for_booking}
+                checked={form.is_active}
                 onChange={handleSwitchChange}
                 color="primary"
               />
