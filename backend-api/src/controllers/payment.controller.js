@@ -73,7 +73,13 @@ exports.create = async (req, res) => {
       transaction_id,
     });
 
-    await booking.update({ payment_id: payment.id, status: 'confirmed' });
+    await booking.update({
+      payment_id: payment.id,
+      status: 'confirmed',
+      // Paid: the slot hold becomes permanent, so the expiry sweep must not
+      // reclaim it.
+      hold_expires_at: null,
+    });
     return success(res, 'Payment recorded.', payment, 201);
   } catch (err) {
     return error(res, err.message, 500);
@@ -159,7 +165,13 @@ exports.verifyRazorpayPayment = async (req, res) => {
     // Mark booking as confirmed
     const booking = await Booking.findByPk(payment.booking_id);
     if (booking) {
-      await booking.update({ payment_id: payment.id, status: 'confirmed' });
+      await booking.update({
+      payment_id: payment.id,
+      status: 'confirmed',
+      // Paid: the slot hold becomes permanent, so the expiry sweep must not
+      // reclaim it.
+      hold_expires_at: null,
+    });
     }
 
     return success(res, 'Payment verified successfully.', { payment, booking });

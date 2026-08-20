@@ -17,6 +17,9 @@ module.exports = (sequelize) => {
       payment_id:           { type: DataTypes.INTEGER.UNSIGNED },
       booking_reference:    { type: DataTypes.STRING(50), unique: true },
       payment_method:       { type: DataTypes.STRING(20), defaultValue: 'pay_at_ground' },
+      // When an unpaid online booking's slot hold lapses. Null once the
+      // booking is settled, or for pay-at-ground bookings, which never hold.
+      hold_expires_at:      { type: DataTypes.DATE, allowNull: true },
       status:               {
         type: DataTypes.ENUM('pending', 'confirmed', 'cancelled', 'completed'),
         defaultValue: 'pending',

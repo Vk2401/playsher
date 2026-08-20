@@ -5,11 +5,12 @@
 const { Op } = require('sequelize');
 const {
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
-  Sport, Amenity, Slot, Booking, User, Game, GameParticipant, Payment,
+  Sport, Amenity, Slot, Booking, BookedSlot, User, Game, GameParticipant, Payment,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
+const { releaseExpiredHolds } = require('../utils/slotHolds');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
@@ -268,6 +269,10 @@ exports.listSlots = async (req, res) => {
     // close an individual slot ahead of time.
     if (req.query.date) {
       for (const gsId of gsIds) {
+        await releaseExpiredHolds(
+          { Booking, BookedSlot, Slot },
+          { groundSportId: gsId, slotDate: req.query.date },
+        );
         await ensureSlotsForDate(gsId, req.query.date);
       }
     }
