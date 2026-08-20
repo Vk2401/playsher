@@ -2,14 +2,20 @@ const { Op } = require('sequelize');
 const { appToday, isPastSlotEnd } = require('./appTime');
 
 /**
- * Mark played, fully-paid bookings as `completed`.
+ * Mark played bookings as `completed`.
  *
  * A booking is finished when its last slot has ended, but nothing was moving it
  * off `confirmed`, so a game from last month still read as upcoming and the
  * review gate (`review.controller.create` requires `completed`) could never
- * open. Only fully-paid bookings are settled here — a pay-at-ground booking
- * still carries `balance_due`, and money owed at the venue is not something
- * this sweep can decide has been collected.
+ * open.
+ *
+ * Outstanding balance is deliberately NOT a condition. Nothing in the API ever
+ * zeroes `balance_due` — the venue takes that cash in person — so gating on it
+ * does not mean "we cannot tell yet", it means "we can never tell", and every
+ * pay-at-ground booking would stay upcoming forever. Whether the game was
+ * played and whether the money was collected are separate facts; uncollected
+ * cash is a report over `completed AND balance_due > 0`, not a reason to
+ * pretend the match has not happened.
  *
  * Runs opportunistically on booking reads, the same way `releaseExpiredHolds`
  * does, so no cron is needed. The candidate set drains itself: once a row is
@@ -26,8 +32,6 @@ async function completeFinishedBookings({ Booking }, scope = {}, transaction) {
   const where = {
     status     : 'confirmed',
     is_canceled: false,
-    // Paid in full. Pay-at-ground bookings keep a balance and stay confirmed.
-    balance_due: { [Op.lte]: 0 },
     // Coarse filter in SQL; the exact end time is judged below, in the app
     // timezone, which the database column knows nothing about.
     slot_date  : { [Op.lte]: appToday() },
