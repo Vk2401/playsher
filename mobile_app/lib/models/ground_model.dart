@@ -21,7 +21,23 @@ class GroundModel {
   final int id;
   final String name;
   final String? address;
+
+  /// The locality — Adambakkam, Mylapore. What players actually name when they
+  /// say where they want to play.
+  final String? area;
   final String? city;
+
+  /// Covered or open-air. Decides a monsoon booking.
+  final bool hasRoof;
+
+  /// Kilometres from the player, computed by the API when it knows where they
+  /// are. Null when location is unknown or the ground has no coordinates.
+  final double? distanceKm;
+
+  /// What is left to book today, and out of how many. Both null when the day's
+  /// slots have not been generated yet — which is not the same as "none left".
+  final int? slotsAvailableToday;
+  final int? slotsTotalToday;
   final String? description;
   final String? about;
   final String? venueRules;
@@ -40,7 +56,12 @@ class GroundModel {
     required this.id,
     required this.name,
     this.address,
+    this.area,
     this.city,
+    this.hasRoof = false,
+    this.distanceKm,
+    this.slotsAvailableToday,
+    this.slotsTotalToday,
     this.description,
     this.about,
     this.venueRules,
@@ -95,7 +116,12 @@ class GroundModel {
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       address: json['address'] as String?,
+      area: json['area'] as String?,
       city: json['city'] as String?,
+      hasRoof: json['has_roof'] == true || json['has_roof'] == 1,
+      distanceKm: double.tryParse(json['distance_km']?.toString() ?? ''),
+      slotsAvailableToday: json['slots_available_today'] as int?,
+      slotsTotalToday: json['slots_total_today'] as int?,
       description: json['description'] as String?,
       about: json['about'] as String?,
       venueRules: json['venue_rules'] as String?,
@@ -121,6 +147,37 @@ class GroundModel {
     if (images.isEmpty) return null;
     final primary = images.where((i) => i.isPrimary).toList();
     return primary.isNotEmpty ? primary.first.image : images.first.image;
+  }
+
+  /// "Adambakkam · Chennai", falling back to whichever half exists, then to
+  /// the free-text address. Never a bare dash.
+  String? get locality {
+    final parts = [area, city]
+        .map((p) => p?.trim())
+        .where((p) => p != null && p.isNotEmpty)
+        .toList();
+    if (parts.isNotEmpty) return parts.join(' \u00b7 ');
+    final addr = address?.trim();
+    return (addr == null || addr.isEmpty) ? null : addr;
+  }
+
+  /// "4 of 14 slots left today", or null when the day is not generated.
+  String? get slotsLeftLabel {
+    final left = slotsAvailableToday;
+    final total = slotsTotalToday;
+    if (left == null || total == null || total == 0) return null;
+    return '$left of $total slots left today';
+  }
+
+  bool get isFullyBookedToday =>
+      slotsAvailableToday != null && slotsAvailableToday == 0;
+
+  /// "5.2 km" — one decimal under 10km, whole numbers beyond, because nobody
+  /// needs 12.3 km to a tenth.
+  String? get formattedDistance {
+    final d = distanceKm;
+    if (d == null) return null;
+    return d < 10 ? '${d.toStringAsFixed(1)} km' : '${d.round()} km';
   }
 
   double get avgRating {

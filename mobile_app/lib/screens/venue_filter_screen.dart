@@ -3,22 +3,52 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../providers/amenities_provider.dart';
+import '../models/venue_filters.dart';
 import '../providers/grounds_provider.dart';
 import '../widgets/sport_glyph.dart';
 
 class VenueFilterScreen extends ConsumerStatefulWidget {
-  const VenueFilterScreen({super.key});
+  /// What is already applied, so reopening the sheet does not silently reset
+  /// every choice the player made a moment ago.
+  final VenueFilters initial;
+
+  const VenueFilterScreen({super.key, this.initial = VenueFilters.none});
 
   @override
   ConsumerState<VenueFilterScreen> createState() => _VenueFilterScreenState();
 }
 
 class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
-  final Set<int> _selectedSportIds = {};
-  RangeValues _priceRange = const RangeValues(0, 5000);
-  int? _distanceKm; // null = Any
-  double? _minRating; // null = none
-  final Set<int> _selectedAmenityIds = {};
+  late Set<int> _selectedSportIds;
+  late RangeValues _priceRange;
+  late int? _distanceKm; // null = Any
+  late double? _minRating; // null = none
+  late Set<int> _selectedAmenityIds;
+  late bool? _hasRoof; // null = either
+
+  @override
+  void initState() {
+    super.initState();
+    final f = widget.initial;
+    _selectedSportIds = {...f.sportIds};
+    _priceRange = RangeValues(f.minPrice, f.maxPrice);
+    _distanceKm = f.maxDistanceKm?.round();
+    _minRating = f.minRating;
+    _selectedAmenityIds = {...f.amenityIds};
+    _hasRoof = f.hasRoof;
+  }
+
+  /// What the screen returns. Built fresh on apply rather than mutated, so a
+  /// dismissed sheet cannot leak half-made changes back to the list.
+  VenueFilters get _filters => VenueFilters(
+        sportIds: _selectedSportIds,
+        minPrice: _priceRange.start,
+        maxPrice: _priceRange.end,
+        maxDistanceKm: _distanceKm?.toDouble(),
+        minRating: _minRating,
+        amenityIds: _selectedAmenityIds,
+        hasRoof: _hasRoof,
+      );
 
   static const _distances = [2, 5, 10, 20];
   static const _ratings = [3.0, 3.5, 4.0, 4.5, 5.0];
@@ -43,23 +73,19 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
     return Icons.check_circle_outline_rounded;
   }
 
-  int get _activeCount {
-    int count = 0;
-    if (_selectedSportIds.isNotEmpty) count++;
-    if (_priceRange.start > 0 || _priceRange.end < 5000) count++;
-    if (_distanceKm != null) count++;
-    if (_minRating != null) count++;
-    if (_selectedAmenityIds.isNotEmpty) count++;
-    return count;
-  }
+  /// Delegated to the value class rather than counted a second time here —
+  /// two copies of this rule would drift the moment a filter is added.
+  int get _activeCount => _filters.activeCount;
 
   void _reset() {
     setState(() {
-      _selectedSportIds.clear();
-      _priceRange = const RangeValues(0, 5000);
+      _selectedSportIds = {};
+      _priceRange = const RangeValues(
+          VenueFilters.priceFloor, VenueFilters.priceCeiling);
       _distanceKm = null;
       _minRating = null;
-      _selectedAmenityIds.clear();
+      _selectedAmenityIds = {};
+      _hasRoof = null;
     });
   }
 
@@ -168,6 +194,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                       return _ChipButton(
                         label: s.name,
                         imageUrl: s.image,
+                        showGlyph: true,
                         selected: sel,
                         onTap: () => setState(() {
                           sel
@@ -256,6 +283,35 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                 ),
                 const SizedBox(height: 28),
 
+                // ── ROOF ─────────────────────────────────────────────────
+                const _SectionLabel(
+                    icon: Icons.roofing_rounded, label: 'COVERED'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _ChipButton(
+                      label: 'Any',
+                      selected: _hasRoof == null,
+                      onTap: () => setState(() => _hasRoof = null),
+                    ),
+                    _ChipButton(
+                      label: 'Covered',
+                      selected: _hasRoof == true,
+                      onTap: () => setState(
+                          () => _hasRoof = _hasRoof == true ? null : true),
+                    ),
+                    _ChipButton(
+                      label: 'Open-air',
+                      selected: _hasRoof == false,
+                      onTap: () => setState(
+                          () => _hasRoof = _hasRoof == false ? null : false),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+
                 // ── MINIMUM RATING ───────────────────────────────────────
                 const _SectionLabel(
                     icon: Icons.star_rounded, label: 'MINIMUM RATING'),
@@ -327,7 +383,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: () => context.pop(),
+                onPressed: () => context.pop(_filters),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
                   foregroundColor: AppColors.onPrimary,
@@ -389,11 +445,17 @@ class _ChipButton extends StatelessWidget {
   /// Sport icon from the API; falls back to a name-matched emoji.
   final String? imageUrl;
 
+  /// Sport chips carry a glyph; distance and rating chips do not. Without this
+  /// the glyph fell back to a trophy for "2 km" and "3+", because no sport is
+  /// named either of those.
+  final bool showGlyph;
+
   const _ChipButton({
     required this.label,
     required this.selected,
     required this.onTap,
     this.imageUrl,
+    this.showGlyph = false,
   });
 
   @override
@@ -403,10 +465,14 @@ class _ChipButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        // Centred and floored at the 44px touch minimum, rather than sized by
+        // whatever the label happened to be.
+        alignment: Alignment.center,
+        constraints: const BoxConstraints(minHeight: 44),
         decoration: BoxDecoration(
           color: selected ? AppColors.accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: selected ? AppColors.accent : colors.border,
             width: 1.5,
@@ -415,8 +481,10 @@ class _ChipButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SportGlyph(name: label, imageUrl: imageUrl, size: 16),
-            const SizedBox(width: 6),
+            if (showGlyph) ...[
+              SportGlyph(name: label, imageUrl: imageUrl, size: 16),
+              const SizedBox(width: 6),
+            ],
             Flexible(
               child: Text(
                 label,

@@ -54,7 +54,8 @@ const EMPTY_PRICING = {
 }
 const EMPTY_GROUND_FORM = {
   name: '', description: '', about: '', venue_rules: '',
-  address: '', latitude: '', longitude: '', contact_number: '', is_active: true,
+  address: '', area: '', city: '', has_roof: false,
+  latitude: '', longitude: '', contact_number: '', is_active: true,
 }
 
 export default function GroundDetail() {
@@ -356,6 +357,9 @@ export default function GroundDetail() {
       about: ground?.about ?? '',
       venue_rules: ground?.venue_rules ?? '',
       address: ground?.address ?? '',
+      area: ground?.area ?? '',
+      city: ground?.city ?? '',
+      has_roof: Boolean(ground?.has_roof),
       latitude: ground?.latitude ?? '',
       longitude: ground?.longitude ?? '',
       contact_number: ground?.contact_number ?? '',
@@ -371,8 +375,12 @@ export default function GroundDetail() {
       return
     }
     const fd = new FormData()
+    // Booleans are named rather than left to the generic branch: an unticked
+    // switch is `false`, which passes `v !== ''` and would be appended by
+    // whatever String(false) happens to produce.
+    const booleanFields = ['is_active', 'has_roof']
     Object.entries(editForm).forEach(([k, v]) => {
-      if (k === 'is_active') {
+      if (booleanFields.includes(k)) {
         fd.append(k, v ? 'true' : 'false')
       } else if (v !== '') {
         fd.append(k, v)
@@ -423,6 +431,12 @@ export default function GroundDetail() {
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <InfoField label="Name" value={ground?.name} />
+                <InfoField label="Area" value={ground?.area} />
+                <InfoField label="City" value={ground?.city} />
+                <InfoField
+                  label="Covered"
+                  value={ground?.has_roof ? 'Yes — has a roof' : 'No — open-air'}
+                />
                 <InfoField label="Address" value={ground?.address} />
                 <InfoField label="Contact Number" value={ground?.contact_number} />
               </Grid>
@@ -494,7 +508,7 @@ export default function GroundDetail() {
                 <Box sx={{ minWidth: 0 }}>
                   <Typography fontWeight={600}>{gs.sport?.name ?? `Sport #${gs.sport_id}`}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    ₨{gs.price_per_half_hour}/30min · min {gs.min_slots} slot · max {gs.max_slots} slots
+                    ₹{gs.price_per_half_hour}/slot · min {gs.min_slots} slot · max {gs.max_slots} slots
                     {gs.player_counts ? ` · ${gs.player_counts} players` : ''}
                   </Typography>
                   {!hasOpenSchedule(gs.id) && (
@@ -554,7 +568,7 @@ export default function GroundDetail() {
                   )}
                 </Select>
               </FormControl>
-              <TextField label="Price per 30 min (PKR)" type="number" size="small" fullWidth
+              <TextField label="Price per slot (INR)" type="number" size="small" fullWidth
                 value={sportForm.price_per_half_hour}
                 onChange={(e) => setSportForm((p) => ({ ...p, price_per_half_hour: e.target.value }))}
               />
@@ -779,6 +793,23 @@ export default function GroundDetail() {
           <TextField label="Venue Rules" value={editForm.venue_rules} size="small" fullWidth multiline rows={3}
             placeholder="Rules for players at this venue…"
             onChange={(e) => setEditForm((p) => ({ ...p, venue_rules: e.target.value }))} />
+          <TextField label="Area / Locality" value={editForm.area} size="small" fullWidth
+            placeholder="Adambakkam"
+            onChange={(e) => setEditForm((p) => ({ ...p, area: e.target.value }))} />
+          <TextField label="City" value={editForm.city} size="small" fullWidth
+            placeholder="Chennai"
+            onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={editForm.has_roof}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, has_roof: e.target.checked }))
+                }
+              />
+            }
+            label="Covered / has a roof"
+          />
           <TextField label="Address" value={editForm.address} size="small" fullWidth
             onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
           <Stack direction="row" spacing={2}>
@@ -834,7 +865,7 @@ export default function GroundDetail() {
       >
         <Stack spacing={2}>
           <TextField
-            label="Price per 30 min (PKR)"
+            label="Price per slot (INR)"
             type="number"
             size="small"
             fullWidth

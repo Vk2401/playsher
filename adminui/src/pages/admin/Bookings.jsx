@@ -103,7 +103,7 @@ function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
           <SectionLabel>Payment</SectionLabel>
           <DetailRow
             label="Amount"
-            value={amount != null ? `₨ ${Number(amount).toLocaleString()}` : '—'}
+            value={amount != null ? `₹ ${Number(amount).toLocaleString()}` : '—'}
           />
           <DetailRow label="Booked On" value={booking.created_at ? dayjs(booking.created_at).format('DD MMM YYYY, hh:mm A') : '—'} />
 
@@ -281,13 +281,13 @@ export default function Bookings() {
     },
     {
       field: 'amount',
-      headerName: 'Amount (PKR)',
+      headerName: 'Amount (INR)',
       width: 130,
       renderCell: ({ row }) => {
         const amt = row.total_amount ?? row.payment?.amount ?? null
         return (
           <Typography variant="body2" fontWeight={600} color="primary.main">
-            {amt != null ? `₨ ${Number(amt).toLocaleString()}` : '—'}
+            {amt != null ? `₹ ${Number(amt).toLocaleString()}` : '—'}
           </Typography>
         )
       },

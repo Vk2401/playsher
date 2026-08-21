@@ -184,11 +184,11 @@ export default function Payments() {
     },
     {
       field: 'amount',
-      headerName: 'Amount (PKR)',
+      headerName: 'Amount (INR)',
       width: 140,
       renderCell: ({ value }) => (
         <Typography variant="body2" fontWeight={700} color="primary.main">
-          {value != null ? `₨ ${Number(value).toLocaleString()}` : '—'}
+          {value != null ? `₹ ${Number(value).toLocaleString()}` : '—'}
         </Typography>
       ),
     },
@@ -286,7 +286,7 @@ export default function Payments() {
                     {label}
                   </Typography>
                   <Typography variant="subtitle2" fontWeight={700} color={color}>
-                    ₨ {summary[key].toLocaleString()}
+                    ₹ {summary[key].toLocaleString()}
                   </Typography>
                 </Box>
               </Stack>
@@ -316,7 +316,7 @@ export default function Payments() {
           </Typography>
         </Stack>
         <Typography variant="h6" fontWeight={700} color="primary.main">
-          ₨ {grandTotal.toLocaleString()}
+          ₹ {grandTotal.toLocaleString()}
         </Typography>
       </Paper>
 

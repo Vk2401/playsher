@@ -9,7 +9,8 @@
  */
 const OWNER_GROUND_FIELDS = [
   'name', 'about', 'description', 'latitude', 'longitude',
-  'address', 'venue_rules', 'contact_number', 'is_active',
+  'address', 'area', 'city', 'has_roof',
+  'venue_rules', 'contact_number', 'is_active',
 ];
 
 /**
@@ -17,6 +18,9 @@ const OWNER_GROUND_FIELDS = [
  * Multipart sends everything as a string, and the string 'false' is truthy in
  * JS — so a naive cast turns "closed for booking" into "open".
  */
+/** Ground columns that are booleans on the model but arrive as form strings. */
+const BOOLEAN_FIELDS = new Set(['is_active', 'has_roof']);
+
 function asBool(value) {
   if (typeof value === 'boolean') return value;
   return !(value === 'false' || value === '0' || value === '');
@@ -27,7 +31,9 @@ function pickGroundFields(body = {}) {
   const patch = {};
   for (const key of OWNER_GROUND_FIELDS) {
     if (body[key] === undefined) continue;
-    patch[key] = key === 'is_active' ? asBool(body[key]) : body[key];
+    // Multipart sends every field as a string, so "false" arrives truthy
+    // unless each boolean is coerced by name.
+    patch[key] = BOOLEAN_FIELDS.has(key) ? asBool(body[key]) : body[key];
   }
   return patch;
 }

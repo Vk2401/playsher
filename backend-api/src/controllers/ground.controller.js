@@ -1,15 +1,101 @@
 const { Op } = require('sequelize');
-const { Ground, GroundOwner, GroundImage, Amenity, GroundAmenity, GroundSport, Sport } = require('../models');
+const { sequelize, Ground, GroundOwner, GroundImage, Amenity, GroundAmenity, GroundSport, Sport, Slot } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta, haversineKm } = require('../utils/helpers');
+const { appNow } = require('../utils/appTime');
+
+// GET /grounds
+/**
+ * How many slots are still bookable today, per ground.
+ *
+ * One grouped query rather than a lookup per card. Slots are generated lazily,
+ * so a ground with no rows for today is reported as unknown (absent from the
+ * map) rather than as zero — "no slots left" and "nobody has opened this day
+ * yet" are different answers and the second must not scare a player off.
+ *
+ * Past slots are excluded on both counts: a day that is three-quarters gone
+ * should read "4 left" against the slots that remain, not against a morning
+ * nobody can book.
+ *
+ * @returns {Promise<Map<number, {available: number, total: number}>>}
+ */
+async function todaysSlotCounts(groundIds) {
+  if (groundIds.length === 0) return new Map();
+
+  const now = appNow();
+  const rows = await Slot.findAll({
+    attributes: [
+      [sequelize.col('groundSport.ground_id'), 'ground_id'],
+      [sequelize.fn('COUNT', sequelize.col('Slot.id')), 'total'],
+      [sequelize.fn('SUM', sequelize.literal('CASE WHEN Slot.is_available = 1 THEN 1 ELSE 0 END')), 'available'],
+    ],
+    include: [{
+      model     : GroundSport,
+      as        : 'groundSport',
+      attributes: [],
+      required  : true,
+      where     : { ground_id: { [Op.in]: groundIds } },
+    }],
+    where: {
+      slot_date      : now.date,
+      slot_start_time: { [Op.gt]: minutesToTime(now.minutes) },
+    },
+    group: [sequelize.col('groundSport.ground_id')],
+    raw  : true,
+  });
+
+  return new Map(rows.map((r) => [
+    Number(r.ground_id),
+    { available: Number(r.available) || 0, total: Number(r.total) || 0 },
+  ]));
+}
+
+/** 930 -> '15:30:00', matching how slot_start_time is stored. */
+function minutesToTime(minutes) {
+  const h = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const m = String(minutes % 60).padStart(2, '0');
+  return `${h}:${m}:00`;
+}
 
 // GET /grounds
 exports.list = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
-    const { sport_id, lat, lng, radius_km } = req.query;
+    const { sport_id, lat, lng, radius_km, search, has_roof } = req.query;
 
     const where = { is_approved: true, is_active: true, deleted_at: null };
+
+    // Players search by whatever they remember: the venue, the locality, the
+    // road it is on, or just the sport. Match all of them rather than making
+    // them guess which field the box wants.
+    const term = (search || '').trim();
+    if (term) {
+      const like = { [Op.like]: `%${term}%` };
+      where[Op.or] = [
+        { name: like },
+        { area: like },
+        { city: like },
+        { address: like },
+        // The sport lives on a joined table, so it is matched with a subquery
+        // rather than a join — a join here would multiply the rows and break
+        // the pagination count.
+        {
+          id: {
+            [Op.in]: sequelize.literal(`(
+              SELECT gs.ground_id FROM ground_sports gs
+              JOIN sports s ON s.id = gs.sport_id
+              WHERE gs.is_active = 1 AND s.name LIKE ${sequelize.escape(`%${term}%`)}
+            )`),
+          },
+        },
+      ];
+    }
+
+    if (has_roof !== undefined) where.has_roof = has_roof === 'true' || has_roof === '1';
+
+    // groundSports was previously included ONLY when sport_id was passed, so
+    // browsing "All sports" returned grounds with no pricing at all and every
+    // card read "Price on request".
     const include = [
       { model: GroundOwner, as: 'owner', attributes: ['id', 'name', 'email', 'mobile'] },
       { model: GroundImage, as: 'images', attributes: ['id', 'image', 'is_primary'] },
@@ -19,28 +105,51 @@ exports.list = async (req, res) => {
         attributes: ['id', 'name', 'icon', 'type'],
         through: { attributes: [] },
       },
+      {
+        model   : GroundSport,
+        as      : 'groundSports',
+        required: Boolean(sport_id),
+        where   : sport_id ? { sport_id, is_active: true } : { is_active: true },
+        include : [{ model: Sport, as: 'sport', attributes: ['id', 'name', 'image'] }],
+      },
     ];
-
-    if (sport_id) {
-      include.push({
-        model: GroundSport,
-        as: 'groundSports',
-        where: { sport_id, is_active: true },
-        required: true,
-        include: [{ model: Sport, as: 'sport', attributes: ['id', 'name'] }],
-      });
-    }
 
     const { count, rows } = await Ground.findAndCountAll({ where, include, limit, offset, distinct: true });
 
-    let data = rows;
-    if (lat && lng && radius_km) {
-      const rKm = parseFloat(radius_km);
-      data = rows.filter((g) => {
-        if (!g.latitude || !g.longitude) return true;
-        return haversineKm(parseFloat(lat), parseFloat(lng), parseFloat(g.latitude), parseFloat(g.longitude)) <= rKm;
-      });
+    let data = rows.map((g) => g.toJSON());
+
+    // Distance: filter when a radius is given, and sort nearest-first whenever
+    // a location is known. Known scale limit — this only orders the current
+    // page (see the note in CLAUDE.md).
+    if (lat && lng) {
+      const from = { lat: parseFloat(lat), lng: parseFloat(lng) };
+      data = data.map((g) => ({
+        ...g,
+        distance_km: (g.latitude && g.longitude)
+          ? Number(haversineKm(from.lat, from.lng, parseFloat(g.latitude), parseFloat(g.longitude)).toFixed(2))
+          : null,
+      }));
+
+      if (radius_km) {
+        const rKm = parseFloat(radius_km);
+        data = data.filter((g) => g.distance_km === null || g.distance_km <= rKm);
+      }
+
+      // Grounds without coordinates sort last rather than to the top.
+      data.sort((a, b) => (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity));
     }
+
+    // What is left to book today, so a card can say "4 of 14 left" instead of
+    // making the player open it to find out.
+    const counts = await todaysSlotCounts(data.map((g) => g.id));
+    data = data.map((g) => {
+      const c = counts.get(g.id);
+      return {
+        ...g,
+        slots_available_today: c ? c.available : null,
+        slots_total_today    : c ? c.total     : null,
+      };
+    });
 
     return success(res, 'Grounds retrieved.', data, 200, paginationMeta(count, page, limit));
   } catch (err) {

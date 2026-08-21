@@ -156,12 +156,30 @@ class ApiClient {
     int? sportId,
     String? city,
     String? search,
+    double? latitude,
+    double? longitude,
+    double? radiusKm,
+    bool? hasRoof,
     int page = 1,
     int limit = 20,
   }) async {
     final res = await instance.get('/grounds', queryParameters: {
       if (sportId != null) 'sport_id': sportId,
-      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      // `city` used to be accepted here and then silently dropped. The API
+      // matches city inside its `search`, so route it there rather than
+      // pretending a parameter exists.
+      if (search != null && search.trim().isNotEmpty)
+        'search': search.trim()
+      else if (city != null && city.trim().isNotEmpty)
+        'search': city.trim(),
+      // Sends the pair only when both halves are real, so the API is never
+      // asked to sort by half a coordinate.
+      if (latitude != null && longitude != null) ...{
+        'lat': latitude,
+        'lng': longitude,
+        if (radiusKm != null) 'radius_km': radiusKm,
+      },
+      if (hasRoof != null) 'has_roof': hasRoof,
       'page': page,
       'limit': limit,
     });
