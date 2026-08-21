@@ -138,11 +138,10 @@ exports.create = async (req, res) => {
     };
 
     if (VENUE_TYPES.includes(review_type)) {
-      if (!ground_id) return error(res, 'ground_id is required for this review type.');
-
       // Same two checks as `eligibility`, in the same order, so the form the app
-      // is offered and the POST that accepts it can never disagree. Both run off
-      // the shared helpers rather than a second copy of the query.
+      // is offered and the POST that accepts it can never disagree. `ground_id`
+      // is already required here by the createReview validator, so there is no
+      // guard for it — a venue review never reaches this line without one.
       const duplicate = await findExistingVenueReview(req.user.id, ground_id);
       if (duplicate) return error(res, 'You have already reviewed this ground.', 409);
 
@@ -152,7 +151,11 @@ exports.create = async (req, res) => {
       // and is never taken from the body.
       const booking = await findQualifyingBooking(req.user.id, ground_id);
       if (!booking) {
-        return error(res, 'Only players who have booked and played here can leave a review.', 403);
+        return error(
+          res,
+          'Only players who have booked and played here can leave a review.',
+          403,
+        );
       }
 
       // The booking's own sport is the trustworthy answer. A client-supplied

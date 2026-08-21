@@ -4,10 +4,27 @@ const { getPagination, paginationMeta } = require('../utils/helpers');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+// ── Razorpay client ───────────────────────────────────────────────────────────
+// Built on first use, never at require time. `new Razorpay({})` throws when
+// key_id is missing, and a throw here takes down module loading for the whole
+// app — every route, not just payments. The live keys are still pending, so a
+// host without them must keep serving grounds, bookings and auth; only the two
+// payment endpoints below are allowed to fail, and they fail with a readable
+// message instead of a dead server.
+let razorpayClient = null;
+
+function getRazorpay() {
+  if (razorpayClient) return razorpayClient;
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return null;
+
+  razorpayClient = new Razorpay({
+    key_id    : process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+  return razorpayClient;
+}
+
+const GATEWAY_UNAVAILABLE = 'Online payment is not available right now. Please try again later.';
 
 exports.list = async (req, res) => {
   try {
@@ -92,6 +109,12 @@ exports.createRazorpayOrder = async (req, res) => {
 
     if (!booking_id) return error(res, 'booking_id is required.');
 
+    const razorpay = getRazorpay();
+    if (!razorpay) {
+      console.error('[payment] RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are not configured.');
+      return error(res, GATEWAY_UNAVAILABLE, 503);
+    }
+
     const booking = await Booking.findByPk(booking_id);
     if (!booking) return error(res, 'Booking not found.', 404);
     if (booking.user_id !== req.user.id) return error(res, 'Forbidden.', 403);
@@ -143,6 +166,13 @@ exports.verifyRazorpayPayment = async (req, res) => {
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return error(res, 'razorpay_order_id, razorpay_payment_id, and razorpay_signature are required.');
+    }
+
+    // Without the secret there is nothing to verify against, and createHmac
+    // would throw on an undefined key. Never fall through to "verified".
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      console.error('[payment] RAZORPAY_KEY_SECRET is not configured.');
+      return error(res, GATEWAY_UNAVAILABLE, 503);
     }
 
     // Verify signature using HMAC SHA256

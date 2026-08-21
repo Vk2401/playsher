@@ -4743,7 +4743,8 @@
                 "type": "object",
                 "properties": {
                   "price_per_half_hour": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Price per slot"
                   },
                   "min_slots": {
                     "type": "integer"
