@@ -545,6 +545,7 @@ const ADMIN_OWNER_FIELDS  = ['name', 'email', 'mobile', 'profile_picture', 'is_a
 const ADMIN_USER_FIELDS   = ['name', 'email', 'mobile', 'profile_picture', 'is_active'];
 const ADMIN_GROUND_FIELDS = [
   'name', 'about', 'description', 'latitude', 'longitude', 'address',
+  'area', 'city', 'has_roof',
   'venue_rules', 'contact_number', 'is_active', 'is_approved', 'owner_id',
 ];
 

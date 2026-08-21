@@ -53,7 +53,7 @@ const recentColumns = [
     width: 110,
     renderCell: ({ row }) => {
       const amt = row.payment?.amount ?? row.amount
-      return amt != null ? `₨ ${Number(amt).toLocaleString()}` : '—'
+      return amt != null ? `₹ ${Number(amt).toLocaleString()}` : '—'
     },
   },
   {
@@ -167,7 +167,7 @@ export default function OwnerDashboard() {
     },
     {
       title: 'Total Revenue',
-      value: bLoad ? undefined : `₨ ${totalRevenue.toLocaleString()}`,
+      value: bLoad ? undefined : `₹ ${totalRevenue.toLocaleString()}`,
       icon: AttachMoneyIcon,
       loading: bLoad,
     },
@@ -233,7 +233,7 @@ export default function OwnerDashboard() {
         <Grid item xs={12} md={5}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" fontWeight={600} mb={2}>
-              Revenue per Ground (PKR)
+              Revenue per Ground (INR)
             </Typography>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={revenuePerGround} layout="vertical">
@@ -249,12 +249,12 @@ export default function OwnerDashboard() {
                   tick={{ fontSize: 11 }}
                   width={100}
                 />
-                <Tooltip formatter={(v) => [`₨ ${Number(v).toLocaleString()}`, 'Revenue']} />
+                <Tooltip formatter={(v) => [`₹ ${Number(v).toLocaleString()}`, 'Revenue']} />
                 <Bar
                   dataKey="revenue"
                   fill={primary}
                   radius={[0, 6, 6, 0]}
-                  name="Revenue (PKR)"
+                  name="Revenue (INR)"
                 />
               </BarChart>
             </ResponsiveContainer>

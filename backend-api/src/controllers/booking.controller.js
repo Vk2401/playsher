@@ -6,7 +6,6 @@ const { releaseExpiredHolds, holdDeadline } = require('../utils/slotHolds');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { splitPayment } = require('../utils/pricing');
 const { isPastSlot } = require('../utils/appTime');
-const { completePastBookings } = require('../utils/bookingLifecycle');
 
 
 /**

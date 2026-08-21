@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/app_version_model.dart';
 import '../providers/app_version_provider.dart';
@@ -37,14 +38,32 @@ class _AppUpdateGateState extends ConsumerState<AppUpdateGate>
   /// genuinely reopening the app still prompts.
   static const _reprompCooldown = Duration(seconds: 20);
 
+  GoRouter? _router;
+
+  void _onRouteChanged() {
+    if (!mounted || _showing) return;
+    final check = ref.read(appVersionCheckProvider).valueOrNull;
+    if (check != null && check.shouldPrompt) _maybePrompt(check);
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Landing on home is the cue to prompt, for a check that resolved while
+    // splash was still on screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final router = ref.read(routerProvider);
+      router.routerDelegate.addListener(_onRouteChanged);
+      _router = router;
+    });
   }
 
   @override
   void dispose() {
+    _router?.routerDelegate.removeListener(_onRouteChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -64,8 +83,33 @@ class _AppUpdateGateState extends ConsumerState<AppUpdateGate>
     ref.invalidate(appVersionCheckProvider);
   }
 
+  /// Routes that are on their way somewhere else. A dialog raised over any of
+  /// these is torn down with the route a moment later — which is exactly what
+  /// made the prompt flash during splash and disappear.
+  static const _transientRoutes = {
+    '/splash',
+    '/onboarding',
+    '/location',
+  };
+
+  bool get _onASettledScreen {
+    final path = ref
+        .read(routerProvider)
+        .routerDelegate
+        .currentConfiguration
+        .uri
+        .path;
+    return !_transientRoutes.contains(path);
+  }
+
   Future<void> _maybePrompt(AppVersionCheck check) async {
     if (_showing || !check.shouldPrompt) return;
+
+    // Splash resolves the check before it navigates away, so without this the
+    // dialog opens over splash and dies with it. The router listener below
+    // brings us back the moment the app lands on a real screen.
+    if (!_onASettledScreen) return;
+
     _showing = true;
 
     // Wait for the first frame so the router's navigator exists.

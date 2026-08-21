@@ -103,17 +103,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _greeting(auth.user?.name),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: colors.textSecondary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    _greeting(auth.user?.name),
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                      color: colors.textPrimary,
+                                      height: 1.15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const _Wave(),
+                              ],
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 3),
                             _LocationChip(
                               label: city ?? auth.user?.city ?? 'Set your city',
                               resolving: me.resolving,
@@ -357,7 +366,7 @@ String _greeting(String? name) {
           ? 'Good afternoon'
           : 'Good evening';
   final first = (name ?? '').trim().split(' ').first;
-  return first.isEmpty ? '$part \u{1F44B}' : '$part, $first';
+  return first.isEmpty ? part : '$part, $first';
 }
 
 // ── Header pieces ───────────────────────────────────────────────────────────
@@ -805,6 +814,68 @@ class _CategoriesRow extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// A hand that waves once when the header appears.
+///
+/// The wave used to be appended to the greeting string, but only when the user
+/// had no name — so the people it was meant to greet never saw it.
+///
+/// Motion is a single 900ms gesture on mount rather than a loop: an emoji
+/// waving forever in the corner of every screen is noise, and looping motion
+/// is what makes an interface feel restless.
+class _Wave extends StatefulWidget {
+  const _Wave();
+
+  @override
+  State<_Wave> createState() => _WaveState();
+}
+
+class _WaveState extends State<_Wave> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _turns;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    // Two waves out and back, easing to rest rather than snapping.
+    _turns = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.06), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.06, end: -0.04), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -0.04, end: 0.05), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.05, end: 0.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+
+    // Respect a viewer who has asked the system for less motion: the hand is
+    // still there, it simply does not move.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return;
+      _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: RotationTransition(
+        turns: _turns,
+        // Rotate about the wrist, not the middle of the glyph.
+        alignment: Alignment.bottomLeft,
+        child: const Text('\u{1F44B}', style: TextStyle(fontSize: 17)),
       ),
     );
   }

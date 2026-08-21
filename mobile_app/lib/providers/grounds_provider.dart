@@ -20,9 +20,26 @@ class GroundFilter {
   final int? sportId;
   final String? city;
   final String? search;
+
+  /// Where the player is. Sent so the API can order nearest-first and report a
+  /// distance per ground.
+  final double? latitude;
+  final double? longitude;
+  final double? radiusKm;
+
+  final bool? hasRoof;
   final int page;
 
-  const GroundFilter({this.sportId, this.city, this.search, this.page = 1});
+  const GroundFilter({
+    this.sportId,
+    this.city,
+    this.search,
+    this.latitude,
+    this.longitude,
+    this.radiusKm,
+    this.hasRoof,
+    this.page = 1,
+  });
 
   @override
   bool operator ==(Object other) =>
@@ -30,10 +47,15 @@ class GroundFilter {
       other.sportId == sportId &&
       other.city == city &&
       other.search == search &&
+      other.latitude == latitude &&
+      other.longitude == longitude &&
+      other.radiusKm == radiusKm &&
+      other.hasRoof == hasRoof &&
       other.page == page;
 
   @override
-  int get hashCode => Object.hash(sportId, city, search, page);
+  int get hashCode => Object.hash(sportId, city, search, latitude, longitude,
+      radiusKm, hasRoof, page);
 }
 
 final groundsProvider =
@@ -42,6 +64,10 @@ final groundsProvider =
     sportId: filter.sportId,
     city: filter.city,
     search: filter.search,
+    latitude: filter.latitude,
+    longitude: filter.longitude,
+    radiusKm: filter.radiusKm,
+    hasRoof: filter.hasRoof,
     page: filter.page,
   );
   final list = res['data'] as List<dynamic>? ?? [];

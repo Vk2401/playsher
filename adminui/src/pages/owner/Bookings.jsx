@@ -89,7 +89,7 @@ function BookingDetailModal({ booking, onClose }) {
           <SectionLabel>Payment</SectionLabel>
           <DetailRow
             label="Amount"
-            value={amount != null ? `₨ ${Number(amount).toLocaleString()}` : '—'}
+            value={amount != null ? `₹ ${Number(amount).toLocaleString()}` : '—'}
           />
           <DetailRow
             label="Booked On"
@@ -216,11 +216,11 @@ export default function OwnerBookings() {
     },
     {
       field: 'amount',
-      headerName: 'Amount (PKR)',
+      headerName: 'Amount (INR)',
       width: 130,
       renderCell: ({ row }) => {
         const amt = row.payment?.amount ?? row.amount
-        return amt != null ? `₨ ${Number(amt).toLocaleString()}` : '—'
+        return amt != null ? `₹ ${Number(amt).toLocaleString()}` : '—'
       },
     },
     {
