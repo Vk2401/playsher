@@ -41,7 +41,8 @@ import { groundOwnersApi } from '../../api/groundOwners.js'
 
 const EMPTY_FORM = {
   name: '', description: '', about: '', venue_rules: '',
-  address: '', latitude: '', longitude: '', contact_number: '',
+  address: '', area: '', city: '', has_roof: false,
+  latitude: '', longitude: '', contact_number: '',
   is_active: true, owner_id: '',
 }
 
@@ -162,6 +163,9 @@ export default function AdminGrounds() {
       about: row.about ?? '',
       venue_rules: row.venue_rules ?? '',
       address: row.address ?? '',
+      area: row.area ?? '',
+      city: row.city ?? '',
+      has_roof: Boolean(row.has_roof),
       latitude: row.latitude != null ? String(row.latitude) : '',
       longitude: row.longitude != null ? String(row.longitude) : '',
       contact_number: row.contact_number ?? '',
@@ -202,8 +206,11 @@ export default function AdminGrounds() {
     const payload = {
       name: form.name.trim(),
       is_active: form.is_active,
+      // Always sent, so unticking it actually clears the flag rather than
+      // being read as "field omitted, leave as-is".
+      has_roof: form.has_roof,
     }
-    const optionalText = ['description', 'about', 'venue_rules', 'address', 'contact_number']
+    const optionalText = ['description', 'about', 'venue_rules', 'address', 'area', 'city', 'contact_number']
     optionalText.forEach((key) => {
       if (form[key].trim() !== '') payload[key] = form[key].trim()
     })
@@ -272,6 +279,14 @@ export default function AdminGrounds() {
         ) : (
           <Chip label="Pending" color="warning" size="small" sx={{ fontWeight: 600, fontSize: '0.72rem' }} />
         ),
+    },
+    {
+      field: 'has_roof',
+      headerName: 'Covered',
+      width: 110,
+      renderCell: ({ value }) => (
+        <StatusChip status={value ? 'covered' : 'open-air'} />
+      ),
     },
     {
       field: 'created_at',
@@ -470,6 +485,38 @@ export default function AdminGrounds() {
             rows={3}
             fullWidth
             placeholder="Rules and regulations for the venue…"
+          />
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="Area / Locality"
+              name="area"
+              value={form.area}
+              onChange={handleFieldChange}
+              fullWidth
+              placeholder="Adambakkam"
+              helperText="What players search by"
+            />
+            <TextField
+              label="City"
+              name="city"
+              value={form.city}
+              onChange={handleFieldChange}
+              fullWidth
+              placeholder="Chennai"
+            />
+          </Stack>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.has_roof}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, has_roof: e.target.checked }))
+                }
+              />
+            }
+            label="Covered / has a roof"
           />
 
           <TextField

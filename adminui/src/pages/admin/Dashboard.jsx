@@ -141,8 +141,8 @@ export default function AdminDashboard() {
       loading: bLoad,
     },
     {
-      title: 'Revenue (PKR)',
-      value: !pLoad ? `₨${totalRevenue.toLocaleString()}` : '—',
+      title: 'Revenue (INR)',
+      value: !pLoad ? `₹${totalRevenue.toLocaleString()}` : '—',
       icon: AttachMoneyIcon,
       loading: pLoad,
     },

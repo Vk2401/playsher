@@ -173,10 +173,10 @@ export default function AdminCoaches() {
     },
     {
       field: 'hourly_rate',
-      headerName: 'Rate (PKR)',
+      headerName: 'Rate (INR)',
       width: 110,
       renderCell: ({ value }) =>
-        value != null ? `₨ ${Number(value).toLocaleString()}` : '—',
+        value != null ? `₹ ${Number(value).toLocaleString()}` : '—',
     },
     {
       field: 'is_approved',
@@ -339,7 +339,7 @@ export default function AdminCoaches() {
             inputProps={{ min: 0 }}
           />
           <TextField
-            label="Hourly Rate (PKR)"
+            label="Rate per Hour (INR)"
             type="number"
             value={form.hourly_rate}
             onChange={handleFormChange('hourly_rate')}

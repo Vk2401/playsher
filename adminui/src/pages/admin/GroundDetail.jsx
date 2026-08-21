@@ -370,7 +370,7 @@ export default function AdminGroundDetail() {
                   label="Price / Hour"
                   value={
                     ground?.price_per_hour
-                      ? `₨ ${Number(ground.price_per_hour).toLocaleString()}`
+                      ? `₹ ${Number(ground.price_per_hour).toLocaleString()}`
                       : undefined
                   }
                 />
@@ -479,7 +479,7 @@ export default function AdminGroundDetail() {
                       <TableCell>#</TableCell>
                       <TableCell>Sport Name</TableCell>
                       <TableCell>Icon</TableCell>
-                      <TableCell>Price / Half Hour</TableCell>
+                      <TableCell>Price / Slot</TableCell>
                       <TableCell>Min Slots</TableCell>
                       <TableCell>Max Slots</TableCell>
                       <TableCell align="center">Actions</TableCell>
@@ -504,7 +504,7 @@ export default function AdminGroundDetail() {
                           </TableCell>
                           <TableCell>
                             {gs.price_per_half_hour != null
-                              ? `₨ ${Number(gs.price_per_half_hour).toLocaleString()}`
+                              ? `₹ ${Number(gs.price_per_half_hour).toLocaleString()}`
                               : '—'}
                           </TableCell>
                           <TableCell>{gs.min_slots ?? '—'}</TableCell>
@@ -635,7 +635,7 @@ export default function AdminGroundDetail() {
                 {allSports.length === 0 && <MenuItem disabled>Loading…</MenuItem>}
               </Select>
             </FormControl>
-            <TextField label="Price per Half Hour (PKR)" type="number" size="small" fullWidth
+            <TextField label="Price per Slot (INR)" type="number" size="small" fullWidth
               value={sportForm.price_per_half_hour}
               onChange={(e) => setSportForm((p) => ({ ...p, price_per_half_hour: e.target.value }))}
             />

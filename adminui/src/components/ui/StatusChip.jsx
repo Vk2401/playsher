@@ -21,6 +21,10 @@ const STATUS_CONFIG = {
   closed:    { label: 'Closed',    color: 'default' },
   full:      { label: 'Full',      color: 'warning' },
 
+  // Venue
+  'covered':  { label: 'Covered',  color: 'info' },
+  'open-air': { label: 'Open-air', color: 'default' },
+
   // Settlement / Payout
   transferred:       { label: 'Transferred',     color: 'success' },
   'pending manual':  { label: 'Pending Manual',  color: 'warning' },
