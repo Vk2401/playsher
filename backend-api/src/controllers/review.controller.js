@@ -139,30 +139,6 @@ exports.create = async (req, res) => {
 
     if (VENUE_TYPES.includes(review_type)) {
       const duplicate = await findExistingVenueReview(req.user.id, ground_id);
-    // Whitelist. Spreading req.body let a client set is_active — publishing or
-    // hiding a review at will — and any other column the model happens to have.
-    const patch = {
-      review_type,
-      rating,
-      comment            : comment ?? null,
-      reviewed_by_user_id: req.user.id,
-    };
-
-    if (['ground', 'sport'].includes(review_type)) {
-      if (!ground_id) return error(res, 'ground_id is required for this review type.');
-
-      // The original check ran only `if (req.body.booking_id)`, so simply
-      // omitting that field skipped it entirely and anyone could review any
-      // ground. The qualifying booking is looked up from the ground instead,
-      // and is never taken from the body.
-      const booking = await findQualifyingBooking(req.user.id, ground_id);
-      if (!booking) {
-        return error(res, 'Only players who have booked and played here can leave a review.', 403);
-      }
-
-      const duplicate = await Review.findOne({
-        where: { reviewed_by_user_id: req.user.id, ground_id, review_type },
-      });
       if (duplicate) return error(res, 'You have already reviewed this ground.', 409);
 
       const booking = await findQualifyingBooking(req.user.id, ground_id);
