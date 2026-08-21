@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/animations.dart';
 import '../core/app_colors.dart';
 import '../models/ground_model.dart';
+import '../models/weather_model.dart';
 import 'sport_glyph.dart';
 
 /// A venue in the explore list.
@@ -16,7 +17,11 @@ import 'sport_glyph.dart';
 class VenueCard extends StatelessWidget {
   final GroundModel ground;
 
-  const VenueCard({super.key, required this.ground});
+  /// Conditions at this venue right now, when they are known. Null hides the
+  /// chip entirely — weather is a nicety and never worth an error state.
+  final Weather? weather;
+
+  const VenueCard({super.key, required this.ground, this.weather});
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +102,14 @@ class VenueCard extends StatelessWidget {
                         if (sports.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           _SportRow(sports: sports),
+                        ],
+
+                        if (weather != null) ...[
+                          const SizedBox(height: 8),
+                          _WeatherChip(
+                            weather: weather!,
+                            hasRoof: ground.hasRoof,
+                          ),
                         ],
                       ],
                     ),
@@ -357,5 +370,59 @@ class _SlotsLeft extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Conditions at the venue.
+///
+/// Rain matters far more at an uncovered ground than a covered one, so the
+/// chip escalates only there — under a roof it stays a plain temperature.
+class _WeatherChip extends StatelessWidget {
+  final Weather weather;
+  final bool hasRoof;
+
+  const _WeatherChip({required this.weather, required this.hasRoof});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final warn = weather.isWet && !hasRoof;
+
+    final tone = warn ? AppColors.warning : colors.textSecondary;
+    final label = warn
+        ? '${weather.description} — uncovered'
+        : '${weather.temperatureLabel}  ·  ${weather.description}';
+
+    return Row(
+      children: [
+        Icon(
+          warn ? Icons.umbrella_rounded : _icon(weather.code),
+          size: 13,
+          color: tone,
+        ),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: warn ? FontWeight.w700 : FontWeight.w400,
+              color: tone,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static IconData _icon(int code) {
+    if (code == 0) return Icons.wb_sunny_rounded;
+    if (code <= 3) return Icons.cloud_rounded;
+    if (code == 45 || code == 48) return Icons.foggy;
+    if (code >= 95 && code <= 99) return Icons.thunderstorm_rounded;
+    if (code >= 71 && code <= 86) return Icons.ac_unit_rounded;
+    return Icons.water_drop_rounded;
   }
 }

@@ -8,6 +8,7 @@ import '../core/app_colors.dart';
 import '../models/venue_filters.dart';
 import '../providers/grounds_provider.dart';
 import '../providers/location_provider.dart';
+import '../providers/weather_provider.dart';
 import '../widgets/venue_card.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/error_view.dart';
@@ -291,6 +292,18 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   // so they are applied here over the page that came back.
                   final list = _filters.apply(all);
 
+                  // One batched weather request for what is on screen, rather
+                  // than a call per card. Published after the frame so it does
+                  // not mutate a provider mid-build.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) publishWeatherPoints(ref, list);
+                  });
+                  final weather = ref
+                          .watch(groundWeatherProvider(
+                              list.map((g) => g.id).toList()))
+                          .valueOrNull ??
+                      const {};
+
                   if (list.isEmpty) {
                     // Distinguish "your filters hid everything" from "there is
                     // nothing here" — only the first has an obvious fix.
@@ -317,7 +330,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: list.length,
-                      itemBuilder: (_, i) => VenueCard(ground: list[i]),
+                      itemBuilder: (_, i) => VenueCard(
+                        ground: list[i],
+                        weather: weather[list[i].id],
+                      ),
                     ),
                   );
                 },
