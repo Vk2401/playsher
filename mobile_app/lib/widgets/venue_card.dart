@@ -293,7 +293,7 @@ class _Price extends StatelessWidget {
     // "Price on request" is what the card showed for every ground while the
     // API was omitting sports. It is now the honest answer only when the owner
     // genuinely has not priced the venue.
-    if (price.isEmpty) {
+    if (price == null) {
       return Text(
         'Price on request',
         style: TextStyle(fontSize: 12.5, color: colors.textSecondary),

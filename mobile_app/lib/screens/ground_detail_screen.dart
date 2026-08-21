@@ -44,9 +44,12 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
     super.dispose();
   }
 
-  int get _totalPrice {
-    if (_selectedGroundSport == null || _selectedSlots.isEmpty) return 0;
-    return (_selectedGroundSport!.pricePerSlot * _selectedSlots.length).round();
+  /// Price is the venue's, so it no longer depends on which sport is selected.
+  /// The server recomputes it on create and stays the authority; this only makes
+  /// the bottom bar honest before the tap.
+  int _totalPriceFor(GroundModel ground) {
+    if (_selectedSlots.isEmpty) return 0;
+    return (ground.pricePerSlot * _selectedSlots.length).round();
   }
 
   @override
@@ -592,7 +595,7 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
           ? null
           : StickyBottomBar(
               priceLabel: 'TOTAL PRICE',
-              price: '\u20b9$_totalPrice',
+              price: '\u20b9${_totalPriceFor(ground)}',
               buttonText:
                   'Book Now (${_selectedSlots.length} slot${_selectedSlots.length > 1 ? 's' : ''})',
               onPressed: () => context.push(
@@ -601,7 +604,11 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                   'groundSport': _selectedGroundSport,
                   'date': _selectedDay.toIso8601String().split('T').first,
                   'slotIds': _selectedSlots.toList(),
-                  'totalPrice': _totalPrice,
+                  'totalPrice': _totalPriceFor(ground),
+                  // The per-slot figure the total was built from, so the
+                  // checkout sheet quotes the venue's price rather than
+                  // recomputing one from the sport.
+                  'pricePerSlot': ground.pricePerSlot,
                   // POST /bookings answers with the bare Booking row, which
                   // carries no ground or sport name — carry them ourselves.
                   'groundName': ground.name,

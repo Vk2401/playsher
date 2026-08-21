@@ -126,8 +126,14 @@ class _WideCard extends StatelessWidget {
                       top: 10,
                       left: 10,
                       child: _OverlayPill(
+                        // Every sport the venue offers. Showing only the first
+                        // hid the reason most people pick a ground.
                         child: Text(
-                          ground.sportNames.first.toUpperCase(),
+                          ground.sportNames
+                              .map((n) => n.toUpperCase())
+                              .join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: AppColors.onImage,
                             fontSize: 9,
@@ -214,7 +220,11 @@ class _WideCard extends StatelessWidget {
                 children: [
                   _PriceLabel(ground: ground),
                   const Spacer(),
-                  if (ground.amenities.isNotEmpty)
+                  // What is left today matters more than the amenity icons when
+                  // the day is nearly gone, so it takes the slot when present.
+                  if (ground.slotsLeftLabel != null)
+                    Flexible(child: _SlotsLeftLabel(ground: ground))
+                  else if (ground.amenities.isNotEmpty)
                     Flexible(
                       child: _AmenityStrip(ground: ground),
                     ),
@@ -315,7 +325,9 @@ class _HorizontalCard extends StatelessWidget {
                   Row(
                     children: [
                       if (ground.sportNames.isNotEmpty)
-                        Flexible(child: _SportChip(name: ground.sportNames.first)),
+                        Flexible(
+                          child: _SportChip(name: ground.sportNames.join(' · ')),
+                        ),
                       if (ground.avgRating > 0) ...[
                         const SizedBox(width: 6),
                         _RatingChip(rating: ground.avgRating),
@@ -353,7 +365,14 @@ class _HorizontalCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  _PriceLabel(ground: ground),
+                  Row(
+                    children: [
+                      _PriceLabel(ground: ground),
+                      const Spacer(),
+                      if (ground.slotsLeftLabel != null)
+                        Flexible(child: _SlotsLeftLabel(ground: ground)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -384,7 +403,8 @@ class _PriceLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    if (ground.startingPrice <= 0) {
+    final price = ground.formattedStartingPrice;
+    if (price == null) {
       return Text(
         'Price on request',
         style: TextStyle(fontSize: 12, color: colors.textSecondary),
@@ -398,7 +418,7 @@ class _PriceLabel extends StatelessWidget {
       children: [
         Flexible(
           child: Text(
-            ground.formattedStartingPrice,
+            price,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
@@ -420,6 +440,36 @@ class _PriceLabel extends StatelessWidget {
 
 /// The sport label on a list card. A tinted chip rather than grey micro-caps —
 /// the old treatment was the least readable thing on the card.
+/// "4 of 14 left today", or "Full today" when nothing is bookable.
+///
+/// Same wording as the venues list, so a ground reads identically wherever it
+/// is shown. Colour is paired with the words, never used on its own.
+class _SlotsLeftLabel extends StatelessWidget {
+  final GroundModel ground;
+  const _SlotsLeftLabel({required this.ground});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final full = ground.isFullyBookedToday;
+    final label = full
+        ? 'Full today'
+        : (ground.slotsLeftLabel ?? '').replaceAll(' slots left', ' left');
+
+    return Text(
+      label,
+      textAlign: TextAlign.right,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+        color: full ? colors.textSecondary : AppColors.primary,
+      ),
+    );
+  }
+}
+
 class _SportChip extends StatelessWidget {
   final String name;
   const _SportChip({required this.name});

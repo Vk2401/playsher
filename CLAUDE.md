@@ -208,7 +208,37 @@ Two things to keep in mind:
 - `schema_sync_jobs` is created by the engine itself before the first run, so progress survives
   the API running as several processes.
 
-## 7. Skills
+## 7. Slot pricing lives on the ground
+
+**A venue has one price, for one 30-minute slot: `grounds.price_per_slot`.** It is not per
+sport. Cricket and badminton at the same ground cost the same — that is the deliberate
+trade-off, and the reason is that per-sport pricing put ₹0 on every card: `startingPrice` took
+the *lowest* of the sports, so one unpriced sport was enough to advertise the whole venue as
+free while the detail screen quoted the real figure.
+
+- **The server is the only thing that computes money.** `booking.controller.create` reads
+  `price_per_slot` through the `GroundSport → ground` include, inside the transaction, and
+  multiplies by the slot count. Never take an amount from a client.
+- **A venue priced at 0 cannot be booked** — the create endpoint answers 409. That is the
+  honest state for a ground whose owner has not set a price, and it is why the app shows
+  "Price on request" rather than "₹0", which reads as free.
+- `ground_sports.price_per_half_hour` still exists but **nothing reads it**. It is kept for one
+  release as a record of the old per-sport figures. Don't wire it back up; remove it in a later
+  change.
+
+### Who may set it
+
+| Role | May change `price_per_slot` |
+| --- | --- |
+| `ground_owner` | on **their own** grounds only — whitelisted in `utils/groundFields.js`, and the controller still proves `ground.owner_id === req.user.id` |
+| `admin` | on **any** ground — whitelisted in `ADMIN_GROUND_FIELDS` in `adminPanel.controller.js` |
+| `user` | never; it is not in any customer-facing write path |
+
+The two whitelists are the enforcement. An owner's list deliberately excludes the moderation
+flags (`is_approved`, `owner_id`); adding a field to one does not add it to the other, so a new
+pricing field has to be granted to each role on purpose.
+
+## 8. Skills
 
 Load the matching skill before non-trivial work — each carries the concrete file-level patterns:
 

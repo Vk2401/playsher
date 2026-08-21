@@ -18,6 +18,10 @@ module.exports = (sequelize) => {
       // What the venue *is*, not something it provides — hence a column here
       // rather than an amenity row.
       has_roof:    { type: DataTypes.BOOLEAN, defaultValue: false },
+      // What one 30-minute slot costs, for the whole venue. Pricing used to sit
+      // on ground_sports, per sport, which meant a venue with one unpriced
+      // sport advertised itself at zero however the others were priced.
+      price_per_slot: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
       venue_rules: { type: DataTypes.TEXT },
       is_approved: { type: DataTypes.BOOLEAN, defaultValue: false },
       is_active:   { type: DataTypes.BOOLEAN, defaultValue: true },

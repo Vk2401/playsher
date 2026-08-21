@@ -9,7 +9,7 @@
  */
 const OWNER_GROUND_FIELDS = [
   'name', 'about', 'description', 'latitude', 'longitude',
-  'address', 'area', 'city', 'has_roof',
+  'address', 'area', 'city', 'has_roof', 'price_per_slot',
   'venue_rules', 'contact_number', 'is_active',
 ];
 

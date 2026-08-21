@@ -30,6 +30,12 @@ class GroundModel {
   /// Covered or open-air. Decides a monsoon booking.
   final bool hasRoof;
 
+  /// What one 30-minute slot costs at this venue.
+  ///
+  /// Pricing is the ground's, not the sport's — a venue with one unpriced sport
+  /// used to advertise itself at zero however the rest were priced.
+  final double pricePerSlot;
+
   /// Kilometres from the player, computed by the API when it knows where they
   /// are. Null when location is unknown or the ground has no coordinates.
   final double? distanceKm;
@@ -59,6 +65,7 @@ class GroundModel {
     this.area,
     this.city,
     this.hasRoof = false,
+    this.pricePerSlot = 0,
     this.distanceKm,
     this.slotsAvailableToday,
     this.slotsTotalToday,
@@ -119,6 +126,8 @@ class GroundModel {
       area: json['area'] as String?,
       city: json['city'] as String?,
       hasRoof: json['has_roof'] == true || json['has_roof'] == 1,
+      pricePerSlot:
+          double.tryParse(json['price_per_slot']?.toString() ?? '') ?? 0,
       distanceKm: double.tryParse(json['distance_km']?.toString() ?? ''),
       slotsAvailableToday: json['slots_available_today'] as int?,
       slotsTotalToday: json['slots_total_today'] as int?,
@@ -186,15 +195,27 @@ class GroundModel {
     return sum / reviews.length;
   }
 
+  /// The price to show on a card.
+  ///
+  /// The venue's own figure when it has one. The fallback reads the per-sport
+  /// prices this replaced, and takes the **highest** rather than the lowest:
+  /// picking the lowest is what put ₹0 on every card, because one unpriced sport
+  /// was enough to win. Only reached against an API that has not been updated.
   double get startingPrice {
-    if (groundSports.isEmpty) return 0;
-    final prices = groundSports.map((gs) => gs.pricePerSlot).toList()..sort();
-    return prices.first;
+    if (pricePerSlot > 0) return pricePerSlot;
+    final legacy = groundSports
+        .map((gs) => gs.pricePerSlot)
+        .where((p) => p > 0);
+    if (legacy.isEmpty) return 0;
+    return legacy.reduce((a, b) => a > b ? a : b);
   }
 
-  String get formattedStartingPrice {
-    if (groundSports.isEmpty) return '';
-    return '\u20b9${startingPrice.toStringAsFixed(0)}';
+  /// Null rather than "₹0" when there is no price: a venue whose owner has not
+  /// set one yet cannot be booked, and quoting zero reads as free.
+  String? get formattedStartingPrice {
+    final price = startingPrice;
+    if (price <= 0) return null;
+    return '\u20b9${price.toStringAsFixed(0)}';
   }
 
   List<String> get sportNames => groundSports

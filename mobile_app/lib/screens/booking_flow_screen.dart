@@ -41,6 +41,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       (widget.extra['slotIds'] as List?)?.cast<int>() ?? [];
   int get _totalPrice => widget.extra['totalPrice'] as int? ?? 0;
 
+  /// The venue's per-slot price, carried through from the detail screen.
+  double get _pricePerSlot =>
+      (widget.extra['pricePerSlot'] as num?)?.toDouble() ?? 0;
+
   /// Share of the total taken online when paying at the ground. Mirrors
   /// backend-api/src/utils/pricing.js; the server remains the authority and
   /// recomputes it on create, this only makes the CTA honest before the tap.
@@ -483,6 +487,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               date: _formattedDate,
               slotCount: _slotIds.length,
               totalPrice: _totalPrice,
+              pricePerSlot: _pricePerSlot,
               timeRange: _selectedTimeRange,
               duration: _selectedDuration,
               groundName: _groundName,
@@ -800,6 +805,9 @@ class _SummaryCard extends StatelessWidget {
   final String date;
   final int slotCount;
   final int totalPrice;
+  /// The venue's per-slot price. Passed in rather than read off groundSport,
+  /// which no longer carries the price it used to.
+  final double pricePerSlot;
   final String? timeRange;
   final String? duration;
   final String? groundName;
@@ -809,6 +817,7 @@ class _SummaryCard extends StatelessWidget {
     required this.date,
     required this.slotCount,
     required this.totalPrice,
+    required this.pricePerSlot,
     this.timeRange,
     this.duration,
     this.groundName,
@@ -852,7 +861,7 @@ class _SummaryCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '\u20b9${groundSport?.pricePerSlot.toStringAsFixed(0) ?? 0} / slot',
+                    '\u20b9${pricePerSlot.toStringAsFixed(0)} / slot',
                     style: TextStyle(fontSize: 13, color: colors.textSecondary),
                   ),
                 ],

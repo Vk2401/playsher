@@ -54,7 +54,7 @@ const EMPTY_PRICING = {
 }
 const EMPTY_GROUND_FORM = {
   name: '', description: '', about: '', venue_rules: '',
-  address: '', area: '', city: '', has_roof: false,
+  address: '', area: '', city: '', has_roof: false, price_per_slot: '',
   latitude: '', longitude: '', contact_number: '', is_active: true,
 }
 
@@ -360,6 +360,7 @@ export default function GroundDetail() {
       area: ground?.area ?? '',
       city: ground?.city ?? '',
       has_roof: Boolean(ground?.has_roof),
+      price_per_slot: ground?.price_per_slot ?? '',
       latitude: ground?.latitude ?? '',
       longitude: ground?.longitude ?? '',
       contact_number: ground?.contact_number ?? '',
@@ -436,6 +437,12 @@ export default function GroundDetail() {
                 <InfoField
                   label="Covered"
                   value={ground?.has_roof ? 'Yes — has a roof' : 'No — open-air'}
+                />
+                <InfoField
+                  label="Price per slot"
+                  value={Number(ground?.price_per_slot) > 0
+                    ? `₹${Number(ground.price_per_slot).toFixed(0)} per 30 min`
+                    : 'Not set — players cannot book yet'}
                 />
                 <InfoField label="Address" value={ground?.address} />
                 <InfoField label="Contact Number" value={ground?.contact_number} />
@@ -809,6 +816,18 @@ export default function GroundDetail() {
               />
             }
             label="Covered / has a roof"
+          />
+          <TextField
+            label="Price per slot (₹)"
+            type="number"
+            value={editForm.price_per_slot}
+            size="small"
+            fullWidth
+            inputProps={{ min: 0, step: 10 }}
+            helperText="Charged for each 30-minute slot, for the whole venue. A venue at 0 cannot be booked."
+            onChange={(e) =>
+              setEditForm((p) => ({ ...p, price_per_slot: e.target.value }))
+            }
           />
           <TextField label="Address" value={editForm.address} size="small" fullWidth
             onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />

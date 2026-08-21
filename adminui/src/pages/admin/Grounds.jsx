@@ -41,7 +41,7 @@ import { groundOwnersApi } from '../../api/groundOwners.js'
 
 const EMPTY_FORM = {
   name: '', description: '', about: '', venue_rules: '',
-  address: '', area: '', city: '', has_roof: false,
+  address: '', area: '', city: '', has_roof: false, price_per_slot: '',
   latitude: '', longitude: '', contact_number: '',
   is_active: true, owner_id: '',
 }
@@ -166,6 +166,7 @@ export default function AdminGrounds() {
       area: row.area ?? '',
       city: row.city ?? '',
       has_roof: Boolean(row.has_roof),
+      price_per_slot: row.price_per_slot ?? '',
       latitude: row.latitude != null ? String(row.latitude) : '',
       longitude: row.longitude != null ? String(row.longitude) : '',
       contact_number: row.contact_number ?? '',
@@ -197,6 +198,9 @@ export default function AdminGrounds() {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Name is required'
     if (!form.address.trim()) errs.address = 'Address is required'
+    if (form.price_per_slot !== '' && Number(form.price_per_slot) < 0) {
+      errs.price_per_slot = 'Price cannot be negative'
+    }
     setFormErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -209,6 +213,12 @@ export default function AdminGrounds() {
       // Always sent, so unticking it actually clears the flag rather than
       // being read as "field omitted, leave as-is".
       has_roof: form.has_roof,
+    }
+    // Always sent, including 0, so clearing a price actually clears it. A
+    // venue priced at 0 cannot be booked, which is the honest state for one
+    // whose owner has not decided yet.
+    if (form.price_per_slot !== '') {
+      payload.price_per_slot = Number(form.price_per_slot)
     }
     const optionalText = ['description', 'about', 'venue_rules', 'address', 'area', 'city', 'contact_number']
     optionalText.forEach((key) => {
@@ -287,6 +297,17 @@ export default function AdminGrounds() {
       renderCell: ({ value }) => (
         <StatusChip status={value ? 'covered' : 'open-air'} />
       ),
+    },
+    {
+      field: 'price_per_slot',
+      headerName: 'Price / slot',
+      width: 120,
+      renderCell: ({ value }) =>
+        Number(value) > 0
+          ? `₹${Number(value).toFixed(0)}`
+          // Not a dash: an unpriced venue cannot be booked, and that is worth
+          // reading as a problem rather than as missing data.
+          : <Typography variant="caption" color="warning.main">Not set</Typography>,
     },
     {
       field: 'created_at',
@@ -517,6 +538,22 @@ export default function AdminGrounds() {
               />
             }
             label="Covered / has a roof"
+          />
+
+          <TextField
+            label="Price per slot (₹)"
+            name="price_per_slot"
+            type="number"
+            value={form.price_per_slot}
+            onChange={handleFieldChange}
+            fullWidth
+            error={Boolean(formErrors.price_per_slot)}
+            inputProps={{ min: 0, step: 10 }}
+            helperText={
+              formErrors.price_per_slot
+              || 'Charged for each 30-minute slot, for the whole venue. '
+                 + 'A venue at 0 cannot be booked.'
+            }
           />
 
           <TextField

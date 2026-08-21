@@ -120,8 +120,21 @@ exports.create = async (req, res) => {
   try {
     const { ground_sport_id, slot_date, slot_ids, is_game, payment_method } = req.body;
 
-    const gs = await GroundSport.findOne({ where: { id: ground_sport_id, is_active: true }, transaction: t });
+    const gs = await GroundSport.findOne({
+      where: { id: ground_sport_id, is_active: true },
+      include: [{ model: Ground, as: 'ground', attributes: ['id', 'price_per_slot'] }],
+      transaction: t,
+    });
     if (!gs) { await t.rollback(); return error(res, 'Ground sport not found or inactive.', 404); }
+
+    // Price is the venue's, not the sport's. Read inside the transaction with
+    // everything else, so a booking is costed against the figure that was in
+    // effect when it was taken rather than one the owner changed mid-checkout.
+    const pricePerSlot = parseFloat(gs.ground?.price_per_slot ?? 0);
+    if (!(pricePerSlot > 0)) {
+      await t.rollback();
+      return error(res, 'This venue has no price set yet, so it cannot be booked.', 409);
+    }
 
     // Validate slot count constraints
     if (slot_ids.length < gs.min_slots || slot_ids.length > gs.max_slots) {
@@ -163,7 +176,7 @@ exports.create = async (req, res) => {
       return error(res, 'That time has already passed. Please pick a later slot.');
     }
 
-    const total_amount = parseFloat(gs.price_per_half_hour) * slots.length;
+    const total_amount = pricePerSlot * slots.length;
     const slot_time_from = slots[0].slot_start_time;
     const slot_time_to = slots[slots.length - 1].slot_end_time;
 

@@ -8,6 +8,10 @@ const createGround = [
   body('latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude.'),
   body('longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude.'),
   body('venue_rules').optional().trim(),
+  // The venue's price for one 30-minute slot. Multipart sends numbers as
+  // strings, so isFloat rather than isNumeric, and it may not be negative.
+  body('price_per_slot').optional().isFloat({ min: 0 })
+    .withMessage('price_per_slot must be a number >= 0.'),
 ];
 
 const updateGround = [
@@ -15,6 +19,10 @@ const updateGround = [
   body('name').optional().trim().notEmpty().withMessage('Name cannot be empty.'),
   body('latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude.'),
   body('longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude.'),
+  // The venue's price for one 30-minute slot. Multipart sends numbers as
+  // strings, so isFloat rather than isNumeric, and it may not be negative.
+  body('price_per_slot').optional().isFloat({ min: 0 })
+    .withMessage('price_per_slot must be a number >= 0.'),
 ];
 
 const addAmenities = [

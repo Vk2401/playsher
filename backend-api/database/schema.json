@@ -1349,6 +1349,13 @@
           "nullable": false,
           "default": 0
         },
+        "price_per_slot": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false,
+          "default": 0
+        },
         "venue_rules": {
           "type": "text",
           "nullable": true
