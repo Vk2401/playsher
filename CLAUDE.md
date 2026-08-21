@@ -157,6 +157,15 @@ file is loaded, because an unsized type is how a `VARCHAR(255)` silently becomes
 database but not in the JSON is reported as an *extra* and left alone; removing something is a
 deliberate manual act, never a side effect of editing the file.
 
+The single exception is **duplicate indexes**, and it lives in its own file
+(`src/utils/schemaIndexCleanup.js`), behind its own endpoint and its own button — never carried
+along by an apply. An index covering the same columns, in the same order, with the same
+uniqueness as another one enforces and accelerates nothing the other does not, so dropping it
+cannot change a result, weaken a constraint or lose a row. One index per shape is always kept,
+preferring whichever the JSON declares, so a foreign key can never be left without one. This
+exists because `sync()` left `users.email` backed by eight identical unique indexes, and MySQL
+caps a table at 64.
+
 Every change is classified, and the classification is what the admin confirms:
 
 | Risk | Meaning | Runs |

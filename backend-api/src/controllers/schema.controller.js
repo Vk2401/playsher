@@ -1,6 +1,6 @@
 const { success, error } = require('../utils/response');
 const {
-  loadSchema, buildPlan, createJob, getJob, runOperations,
+  loadSchema, buildPlan, buildIndexCleanupPlan, createJob, getJob, runOperations,
 } = require('../utils/schemaSync');
 
 /**
@@ -107,6 +107,50 @@ exports.apply = async (req, res) => {
       job_id: jobId,
       total_steps: operations.length,
       summary: summarise(plan),
+    }, 202);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+// GET /admin/schema/index-cleanup
+// The duplicate indexes sequelize.sync() left behind, and which copies would go.
+exports.getIndexCleanupPlan = async (req, res) => {
+  try {
+    const plan = await buildIndexCleanupPlan();
+    return success(res, 'Index cleanup plan generated.', {
+      summary: {
+        groups: plan.groups.length,
+        droppable: plan.operations.length,
+        in_sync: plan.operations.length === 0,
+      },
+      groups: plan.groups,
+      operations: plan.operations.map(presentOperation),
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+// POST /admin/schema/index-cleanup
+// The only endpoint in the app that drops anything, which is why it is separate
+// from apply: it can never be triggered by someone applying a column change.
+exports.cleanupIndexes = async (req, res) => {
+  try {
+    const plan = await buildIndexCleanupPlan();
+    if (!plan.operations.length) {
+      return success(res, 'No redundant indexes to remove.', {
+        job_id: null,
+        summary: { groups: 0, droppable: 0, in_sync: true },
+      });
+    }
+
+    const jobId = await createJob(plan.operations, req.user?.id);
+    runOperations(jobId, plan.operations).catch(() => { /* recorded on the job row */ });
+
+    return success(res, 'Index cleanup started.', {
+      job_id: jobId,
+      total_steps: plan.operations.length,
     }, 202);
   } catch (err) {
     return error(res, err.message, 500);

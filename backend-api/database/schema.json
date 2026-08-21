@@ -71,67 +71,7 @@
           ],
           "unique": true
         },
-        "email_2": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_3": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_4": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_5": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_6": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
         "mobile": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_2": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_3": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_4": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_5": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_6": {
           "columns": [
             "mobile"
           ],
@@ -248,12 +188,6 @@
         "id"
       ],
       "indexes": {
-        "platform": {
-          "columns": [
-            "platform"
-          ],
-          "unique": true
-        },
         "uq_app_versions_platform": {
           "columns": [
             "platform"
@@ -529,13 +463,7 @@
         "id"
       ],
       "indexes": {
-        "booking_reference": {
-          "columns": [
-            "booking_reference"
-          ],
-          "unique": true
-        },
-        "booking_reference_2": {
+        "uq_booking_ref": {
           "columns": [
             "booking_reference"
           ],
@@ -559,12 +487,6 @@
             "payment_id"
           ],
           "unique": false
-        },
-        "uq_booking_ref": {
-          "columns": [
-            "booking_reference"
-          ],
-          "unique": true
         },
         "user_id": {
           "columns": [
@@ -1249,61 +1171,7 @@
           ],
           "unique": true
         },
-        "email_2": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_3": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_4": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_5": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_6": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
         "mobile": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_2": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_3": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_4": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_5": {
           "columns": [
             "mobile"
           ],
@@ -1599,7 +1467,7 @@
         "id"
       ],
       "indexes": {
-        "mobile": {
+        "otps_mobile_unique": {
           "columns": [
             "mobile"
           ],
@@ -1610,12 +1478,6 @@
             "expires_at"
           ],
           "unique": false
-        },
-        "otps_mobile_unique": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
         }
       },
       "foreignKeys": {}
@@ -1859,12 +1721,6 @@
       ],
       "indexes": {
         "token": {
-          "columns": [
-            "token"
-          ],
-          "unique": true
-        },
-        "token_2": {
           "columns": [
             "token"
           ],
@@ -2503,67 +2359,7 @@
           ],
           "unique": true
         },
-        "email_2": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_3": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_4": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_5": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
-        "email_6": {
-          "columns": [
-            "email"
-          ],
-          "unique": true
-        },
         "mobile": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_2": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_3": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_4": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_5": {
-          "columns": [
-            "mobile"
-          ],
-          "unique": true
-        },
-        "mobile_6": {
           "columns": [
             "mobile"
           ],

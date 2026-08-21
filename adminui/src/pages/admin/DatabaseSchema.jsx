@@ -16,9 +16,12 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import BlockIcon from '@mui/icons-material/Block'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 
 import PageHeader from '../../components/ui/PageHeader.jsx'
 import EmptyState from '../../components/ui/EmptyState.jsx'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx'
 import { schemaApi } from '../../api/schema.js'
 import { useNotify } from '../../hooks/useNotify.js'
 
@@ -48,6 +51,7 @@ export default function DatabaseSchema() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [includeRisky, setIncludeRisky] = useState(false)
   const [jobId, setJobId] = useState(null)
+  const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false)
 
   const definition = useQuery({
     queryKey: ['admin', 'schema', 'definition'],
@@ -76,6 +80,13 @@ export default function DatabaseSchema() {
     },
   })
 
+  const cleanup = useQuery({
+    queryKey: ['admin', 'schema', 'index-cleanup'],
+    queryFn: () => schemaApi.getIndexCleanupPlan(),
+    select: (res) => res.data?.data ?? null,
+    staleTime: 0,
+  })
+
   const jobData = job.data
   const isRunning = jobData?.status === 'running'
 
@@ -96,6 +107,23 @@ export default function DatabaseSchema() {
       notify.error(err?.response?.data?.message || 'Failed to start the schema sync'),
   })
 
+  const cleanupMutation = useMutation({
+    mutationFn: () => schemaApi.cleanupIndexes(),
+    onSuccess: (res) => {
+      const data = res.data?.data
+      setCleanupConfirmOpen(false)
+      if (!data?.job_id) {
+        notify.info('No redundant indexes to remove')
+        cleanup.refetch()
+        return
+      }
+      setJobId(data.job_id)
+      notify.success(`Removing ${data.total_steps} redundant index(es)`)
+    },
+    onError: (err) =>
+      notify.error(err?.response?.data?.message || 'Failed to start the index cleanup'),
+  })
+
   // When a run finishes, refresh the plan so the page reflects the new reality.
   // Keyed on the job id so a still-polling render cannot fire it twice.
   const settledJobRef = useRef(null)
@@ -106,6 +134,7 @@ export default function DatabaseSchema() {
 
     queryClient.invalidateQueries({ queryKey: ['admin', 'schema', 'plan'] })
     queryClient.invalidateQueries({ queryKey: ['admin', 'schema', 'definition'] })
+    queryClient.invalidateQueries({ queryKey: ['admin', 'schema', 'index-cleanup'] })
     if (jobData.status === 'failed') notify.error(jobData.error_message || 'Schema sync failed')
     else notify.success('Schema sync completed')
   }, [jobData, queryClient, notify])
@@ -362,6 +391,88 @@ export default function DatabaseSchema() {
         </Accordion>
       )}
 
+      {/* ── Redundant indexes ──────────────────────────────────────────────── */}
+      {cleanup.data?.summary?.droppable > 0 && (
+        <Accordion defaultExpanded sx={{ mb: 1.5 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+              <ContentCopyIcon color="warning" fontSize="small" />
+              <Typography fontWeight={600}>
+                {cleanup.data.summary.droppable} duplicate index
+                {cleanup.data.summary.droppable === 1 ? '' : 'es'} can be removed
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                — across {cleanup.data.summary.groups} column
+                {cleanup.data.summary.groups === 1 ? '' : 's'}
+              </Typography>
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <AlertTitle>Left over from the old startup sync</AlertTitle>
+              Each of these covers exactly the same columns, in the same order, with the same
+              uniqueness as an index that is kept — so removing it changes no query result and
+              weakens no constraint. One index per column always stays. MySQL allows only 64
+              indexes per table, so clearing these is what keeps the busiest tables workable.
+            </Alert>
+
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Table</TableCell>
+                    <TableCell>Columns</TableCell>
+                    <TableCell align="right">Copies</TableCell>
+                    <TableCell>Keeping</TableCell>
+                    <TableCell>Removing</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(cleanup.data.groups ?? []).map((g, i) => (
+                    <TableRow key={i}>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Typography variant="body2" fontWeight={600}>{g.table}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {g.columns.join(', ')}
+                          {g.unique && (
+                            <Chip size="small" label="unique" variant="outlined" sx={{ ml: 1 }} />
+                          )}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">{g.total}</TableCell>
+                      <TableCell>
+                        <Chip size="small" color="success" variant="outlined"
+                          label={g.keep.join(', ')} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary">
+                          {g.drop.join(', ')}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+
+            <Box mt={2}>
+              <Button
+                variant="contained"
+                color="warning"
+                startIcon={<DeleteSweepIcon />}
+                onClick={() => setCleanupConfirmOpen(true)}
+                disabled={isRunning || cleanupMutation.isPending}
+              >
+                Remove {cleanup.data.summary.droppable} duplicate index
+                {cleanup.data.summary.droppable === 1 ? '' : 'es'}
+              </Button>
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      )}
+
       {/* ── Extras ─────────────────────────────────────────────────────────── */}
       {extras.length > 0 && (
         <Accordion sx={{ mb: 1.5 }}>
@@ -429,6 +540,23 @@ export default function DatabaseSchema() {
           )}
         </AccordionDetails>
       </Accordion>
+
+      {/* ── Cleanup confirmation ───────────────────────────────────────────── */}
+      <ConfirmDialog
+        open={cleanupConfirmOpen}
+        onClose={() => setCleanupConfirmOpen(false)}
+        onConfirm={() => cleanupMutation.mutate()}
+        loading={cleanupMutation.isPending}
+        title="Remove duplicate indexes?"
+        confirmLabel={`Remove ${cleanup.data?.summary?.droppable ?? 0}`}
+        confirmColor="warning"
+        message={
+          `${cleanup.data?.summary?.droppable ?? 0} index(es) will be dropped. Every one is an `
+          + 'exact duplicate — same columns, same order, same uniqueness — of an index that '
+          + 'stays, so no constraint is weakened and no row is touched. This is the only '
+          + 'action in the panel that removes anything.'
+        }
+      />
 
       {/* ── Confirmation ───────────────────────────────────────────────────── */}
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth>

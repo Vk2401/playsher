@@ -89,6 +89,38 @@ router.post(
 
 /**
  * @swagger
+ * /admin/schema/index-cleanup:
+ *   get:
+ *     tags: [Schema]
+ *     summary: Preview removal of duplicate indexes
+ *     description: >
+ *       Lists groups of indexes that cover exactly the same columns with the same
+ *       uniqueness, and which copies would be dropped. One index per group is
+ *       always kept, so no constraint is weakened and no foreign key is left
+ *       without an index. Read-only.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: The cleanup plan }
+ *       403: { description: Admin role required }
+ *   post:
+ *     tags: [Schema]
+ *     summary: Drop duplicate indexes
+ *     description: >
+ *       The only endpoint that drops anything, and it only ever drops an index
+ *       proven identical to another one that is kept. Deliberately separate from
+ *       /apply so a column change can never carry a drop along with it. Returns
+ *       a job id to poll.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       202: { description: Cleanup started, job id returned }
+ *       200: { description: Nothing redundant to remove }
+ *       403: { description: Admin role required }
+ */
+router.get ('/index-cleanup', admin, ctrl.getIndexCleanupPlan);
+router.post('/index-cleanup', admin, ctrl.cleanupIndexes);
+
+/**
+ * @swagger
  * /admin/schema/jobs/{id}:
  *   get:
  *     tags: [Schema]

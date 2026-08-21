@@ -16,6 +16,9 @@ const path = require('path');
 const sequelize = require('../config/database');
 const { introspect } = require('./schemaIntrospect');
 const { diff } = require('./schemaDiff');
+const {
+  findRedundantIndexes, buildCleanupOperations,
+} = require('./schemaIndexCleanup');
 
 const SCHEMA_PATH = path.join(__dirname, '..', '..', 'database', 'schema.json');
 
@@ -70,6 +73,19 @@ async function buildPlan() {
   const live = await introspect();
   const result = diff(desired, live);
   return { ...result, schemaVersion: desired.version ?? null };
+}
+
+/**
+ * The duplicate-index cleanup, kept as its own plan rather than folded into
+ * `buildPlan`. It is the only thing here that drops, so it gets its own
+ * endpoint, its own confirmation and its own button — never carried along by
+ * someone applying a column change.
+ */
+async function buildIndexCleanupPlan() {
+  const desired = loadSchema();
+  const live = await introspect();
+  const groups = findRedundantIndexes(desired, live);
+  return { groups, operations: buildCleanupOperations(groups) };
 }
 
 async function ensureJobTable() {
@@ -207,6 +223,7 @@ module.exports = {
   SCHEMA_PATH,
   loadSchema,
   buildPlan,
+  buildIndexCleanupPlan,
   ensureJobTable,
   createJob,
   getJob,

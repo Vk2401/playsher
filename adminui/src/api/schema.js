@@ -11,6 +11,13 @@ export const schemaApi = {
   apply: (includeRisky = false) =>
     apiClient.post('/admin/schema/apply', { include_risky: includeRisky }),
 
+  // Admin: the duplicate indexes sequelize.sync() left behind. Read-only.
+  getIndexCleanupPlan: () => apiClient.get('/admin/schema/index-cleanup'),
+
+  // Admin: drop them. The only call in the app that removes anything, which is
+  // why it is its own endpoint rather than a flag on apply().
+  cleanupIndexes: () => apiClient.post('/admin/schema/index-cleanup'),
+
   // Admin: poll a running sync for progress
   getJob: (id) => apiClient.get(`/admin/schema/jobs/${id}`),
 }
