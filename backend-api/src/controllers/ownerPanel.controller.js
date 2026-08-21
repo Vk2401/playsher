@@ -173,7 +173,7 @@ exports.removeAmenity = async (req, res) => {
 
 // ── Ground Sports ─────────────────────────────────────────────────────────────
 
-/** POST /ground-owner/grounds/:id/sports — body: {sport_id, price_per_half_hour?, min_slots?, max_slots?} */
+/** POST /ground-owner/grounds/:id/sports — body: {sport_id, min_slots?, max_slots?} */
 exports.addSport = async (req, res) => {
   try {
     const ground = await Ground.findOne({ where: { id: req.params.id, owner_id: req.user.id, deleted_at: null } });
@@ -181,7 +181,6 @@ exports.addSport = async (req, res) => {
 
     const {
       sport_id,
-      price_per_half_hour = 0,
       min_slots = 1,
       max_slots = 8,
       player_counts = '2',
@@ -195,7 +194,6 @@ exports.addSport = async (req, res) => {
     const gs = await GroundSport.create({
       ground_id: ground.id,
       sport_id,
-      price_per_half_hour,
       min_slots,
       max_slots,
       player_counts,
@@ -218,9 +216,12 @@ exports.updateSport = async (req, res) => {
     // Whitelist: sport_id and ground_id are identity, not settings. Changing
     // sport_id here would silently reassign every slot and booking already
     // attached to this row.
-    const { price_per_half_hour, min_slots, max_slots, player_counts, cancellation_policy, is_active } = req.body;
+    // price_per_half_hour is deliberately absent. A slot costs what the
+    // venue charges (grounds.price_per_slot); the old per-sport column is
+    // kept for one release as a record and is read by nothing, so writing
+    // to it would only create a figure that misleads whoever reads the row.
+    const { min_slots, max_slots, player_counts, cancellation_policy, is_active } = req.body;
     const patch = {};
-    if (price_per_half_hour !== undefined) patch.price_per_half_hour = price_per_half_hour;
     if (min_slots           !== undefined) patch.min_slots           = min_slots;
     if (max_slots           !== undefined) patch.max_slots           = max_slots;
     if (player_counts       !== undefined) patch.player_counts       = player_counts;

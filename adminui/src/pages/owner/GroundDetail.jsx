@@ -16,7 +16,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditIcon from '@mui/icons-material/Edit'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ScheduleIcon from '@mui/icons-material/Schedule'
-import PaymentsIcon from '@mui/icons-material/Payments'
+import TuneIcon from '@mui/icons-material/Tune'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
 import PageHeader from '../../components/ui/PageHeader.jsx'
@@ -47,9 +47,11 @@ function InfoField({ label, value }) {
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 const DEFAULT_DAY_SCHEDULE = { start_time: '06:00', end_time: '22:00', is_closed: false }
-const EMPTY_SPORT = { sport_id: '', price_per_half_hour: '', min_slots: 1, max_slots: 8 }
+// Adding a sport says the venue offers it; what a slot costs is set once on the
+// ground itself, so there is no price here.
+const EMPTY_SPORT = { sport_id: '', min_slots: 1, max_slots: 8 }
 const EMPTY_PRICING = {
-  price_per_half_hour: '', min_slots: 1, max_slots: 8,
+  min_slots: 1, max_slots: 8,
   player_counts: '', cancellation_policy: '', is_active: true,
 }
 const EMPTY_GROUND_FORM = {
@@ -162,7 +164,7 @@ export default function GroundDetail() {
       groundsApi.updateSport(id, groundSportId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner', 'ground', id] })
-      notify.success('Pricing updated')
+      notify.success('Booking limits updated')
       setPricingTarget(null)
     },
     onError: (e) => notify.error(e?.response?.data?.message || 'Failed to update pricing'),
@@ -251,7 +253,6 @@ export default function GroundDetail() {
 
   const handleOpenPricing = (gs) => {
     setPricingForm({
-      price_per_half_hour: gs.price_per_half_hour ?? '',
       min_slots: gs.min_slots ?? 1,
       max_slots: gs.max_slots ?? 8,
       player_counts: gs.player_counts ?? '',
@@ -264,13 +265,9 @@ export default function GroundDetail() {
 
   const handlePricingSubmit = () => {
     const errors = {}
-    const price = Number(pricingForm.price_per_half_hour)
     const min = Number(pricingForm.min_slots)
     const max = Number(pricingForm.max_slots)
 
-    if (pricingForm.price_per_half_hour === '' || Number.isNaN(price) || price < 0) {
-      errors.price_per_half_hour = 'Enter a price of 0 or more'
-    }
     if (!Number.isInteger(min) || min < 1) errors.min_slots = 'Must be at least 1'
     if (!Number.isInteger(max) || max < 1) errors.max_slots = 'Must be at least 1'
     if (!errors.min_slots && !errors.max_slots && min > max) {
@@ -283,7 +280,6 @@ export default function GroundDetail() {
     updateSportMutation.mutate({
       groundSportId: pricingTarget.id,
       data: {
-        price_per_half_hour: price,
         min_slots: min,
         max_slots: max,
         player_counts: pricingForm.player_counts.trim(),
@@ -515,7 +511,7 @@ export default function GroundDetail() {
                 <Box sx={{ minWidth: 0 }}>
                   <Typography fontWeight={600}>{gs.sport?.name ?? `Sport #${gs.sport_id}`}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    ₹{gs.price_per_half_hour}/slot · min {gs.min_slots} slot · max {gs.max_slots} slots
+                    min {gs.min_slots} slot · max {gs.max_slots} slots
                     {gs.player_counts ? ` · ${gs.player_counts} players` : ''}
                   </Typography>
                   {!hasOpenSchedule(gs.id) && (
@@ -531,10 +527,10 @@ export default function GroundDetail() {
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>
                   <StatusChip status={gs.is_active ? 'active' : 'inactive'} />
-                  <Tooltip title="Edit pricing & limits">
+                  <Tooltip title="Edit booking limits">
                     <IconButton size="small" color="primary"
                       onClick={() => handleOpenPricing(gs)}>
-                      <PaymentsIcon fontSize="small" />
+                      <TuneIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Edit weekly schedule">
@@ -575,10 +571,6 @@ export default function GroundDetail() {
                   )}
                 </Select>
               </FormControl>
-              <TextField label="Price per slot (INR)" type="number" size="small" fullWidth
-                value={sportForm.price_per_half_hour}
-                onChange={(e) => setSportForm((p) => ({ ...p, price_per_half_hour: e.target.value }))}
-              />
               <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <TextField label="Min Slots" type="number" size="small" fullWidth
@@ -601,8 +593,7 @@ export default function GroundDetail() {
               disabled={!sportForm.sport_id || addSportMutation.isPending}
               onClick={() => addSportMutation.mutate({
                 sport_id: Number(sportForm.sport_id),
-                price_per_half_hour: Number(sportForm.price_per_half_hour) || 0,
-                min_slots: Number(sportForm.min_slots) || 1,
+                  min_slots: Number(sportForm.min_slots) || 1,
                 max_slots: Number(sportForm.max_slots) || 8,
               })}
               startIcon={addSportMutation.isPending ? <CircularProgress size={16} color="inherit" /> : null}
@@ -876,25 +867,13 @@ export default function GroundDetail() {
       <DrawerForm
         open={Boolean(pricingTarget)}
         onClose={() => { setPricingTarget(null); setPricingErrors({}) }}
-        title={`Pricing — ${pricingTarget?.name ?? ''}`}
+        title={`Booking limits — ${pricingTarget?.name ?? ''}`}
         onSubmit={handlePricingSubmit}
         loading={updateSportMutation.isPending}
-        submitLabel="Save pricing"
+        submitLabel="Save limits"
         width={460}
       >
         <Stack spacing={2}>
-          <TextField
-            label="Price per slot (INR)"
-            type="number"
-            size="small"
-            fullWidth
-            required
-            value={pricingForm.price_per_half_hour}
-            error={Boolean(pricingErrors.price_per_half_hour)}
-            helperText={pricingErrors.price_per_half_hour
-              || 'Customers are charged this for every 30-minute slot they book.'}
-            onChange={(e) => setPricingForm((p) => ({ ...p, price_per_half_hour: e.target.value }))}
-          />
           <Stack direction="row" spacing={2}>
             <TextField
               label="Min slots per booking"

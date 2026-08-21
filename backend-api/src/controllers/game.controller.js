@@ -17,9 +17,16 @@ const BOOKING_INCLUDE = {
   include: [{
     model: GroundSport,
     as: 'groundSport',
-    attributes: ['id', 'price_per_half_hour'],
+    attributes: ['id'],
     include: [
-      { model: Ground, as: 'ground', attributes: ['id', 'name', 'address'] },
+      {
+        model: Ground,
+        as: 'ground',
+        // price_per_slot rather than the sport's old column, which nothing
+        // reads. The per-player share below still divides the booking's stored
+        // total, so it is unaffected either way.
+        attributes: ['id', 'name', 'address', 'price_per_slot'],
+      },
       { model: Sport, as: 'sport', attributes: ['id', 'name'] },
     ],
   }],

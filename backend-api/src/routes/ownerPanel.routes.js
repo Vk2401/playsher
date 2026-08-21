@@ -269,7 +269,6 @@ router.post  ('/grounds/:id/sports',              ...owner, op.addSport);
  *             properties:
  *               # The column name is historical; a slot is 30 minutes and
  *               # every human-facing surface calls this the price per slot.
- *               price_per_half_hour: { type: number, description: Price per slot }
  *               min_slots:           { type: integer }
  *               max_slots:           { type: integer }
  *               player_counts:       { type: string }

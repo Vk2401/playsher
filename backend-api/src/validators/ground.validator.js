@@ -36,7 +36,6 @@ const addAmenities = [
 const createGroundSport = [
   param('groundId').isInt({ min: 1 }).withMessage('Invalid ground ID.'),
   body('sport_id').isInt({ min: 1 }).withMessage('sport_id is required.'),
-  body('price_per_half_hour').isFloat({ min: 0 }).withMessage('price_per_half_hour must be >= 0.'),
   body('min_slots').optional().isInt({ min: 1 }).withMessage('min_slots must be >= 1.'),
   body('max_slots').optional().isInt({ min: 1 }).withMessage('max_slots must be >= 1.'),
 ];
@@ -44,7 +43,6 @@ const createGroundSport = [
 const updateGroundSport = [
   param('groundId').isInt({ min: 1 }).withMessage('Invalid ground ID.'),
   param('id').isInt({ min: 1 }).withMessage('Invalid ground-sport ID.'),
-  body('price_per_half_hour').optional().isFloat({ min: 0 }),
   body('min_slots').optional().isInt({ min: 1 }),
   body('max_slots').optional().isInt({ min: 1 }),
 ];
@@ -54,8 +52,6 @@ const updateGroundSport = [
 const updateOwnerGroundSport = [
   param('id').isInt({ min: 1 }).withMessage('Invalid ground ID.'),
   param('sportId').isInt({ min: 1 }).withMessage('Invalid ground-sport ID.'),
-  body('price_per_half_hour').optional().isFloat({ min: 0 })
-    .withMessage('price_per_half_hour must be >= 0.'),
   body('min_slots').optional().isInt({ min: 1 }).withMessage('min_slots must be >= 1.'),
   body('max_slots').optional().isInt({ min: 1 }).withMessage('max_slots must be >= 1.'),
   body('player_counts').optional().isString(),

@@ -120,7 +120,9 @@ function SkeletonDetail() {
   )
 }
 
-const EMPTY_SPORT_FORM = { sport_id: '', price_per_half_hour: '', min_slots: 1, max_slots: 4 }
+// No price here: a slot costs what the venue charges (grounds.price_per_slot),
+// not what the sport charges. Adding a sport only says the venue offers it.
+const EMPTY_SPORT_FORM = { sport_id: '', min_slots: 1, max_slots: 4 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
@@ -479,7 +481,6 @@ export default function AdminGroundDetail() {
                       <TableCell>#</TableCell>
                       <TableCell>Sport Name</TableCell>
                       <TableCell>Icon</TableCell>
-                      <TableCell>Price / Slot</TableCell>
                       <TableCell>Min Slots</TableCell>
                       <TableCell>Max Slots</TableCell>
                       <TableCell align="center">Actions</TableCell>
@@ -501,11 +502,6 @@ export default function AdminGroundDetail() {
                             ) : (
                               <Typography variant="body2" color="text.disabled">—</Typography>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            {gs.price_per_half_hour != null
-                              ? `₹ ${Number(gs.price_per_half_hour).toLocaleString()}`
-                              : '—'}
                           </TableCell>
                           <TableCell>{gs.min_slots ?? '—'}</TableCell>
                           <TableCell>{gs.max_slots ?? '—'}</TableCell>
@@ -635,10 +631,6 @@ export default function AdminGroundDetail() {
                 {allSports.length === 0 && <MenuItem disabled>Loading…</MenuItem>}
               </Select>
             </FormControl>
-            <TextField label="Price per Slot (INR)" type="number" size="small" fullWidth
-              value={sportForm.price_per_half_hour}
-              onChange={(e) => setSportForm((p) => ({ ...p, price_per_half_hour: e.target.value }))}
-            />
             <Grid container spacing={2}>
               <Grid item xs={6}>
                 <TextField label="Min Slots" type="number" size="small" fullWidth
@@ -661,7 +653,6 @@ export default function AdminGroundDetail() {
             disabled={!sportForm.sport_id || addSportMutation.isPending}
             onClick={() => addSportMutation.mutate({
               sport_id: Number(sportForm.sport_id),
-              price_per_half_hour: Number(sportForm.price_per_half_hour) || 0,
               min_slots: Number(sportForm.min_slots) || 1,
               max_slots: Number(sportForm.max_slots) || 4,
             })}

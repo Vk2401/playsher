@@ -59,10 +59,13 @@ exports.update = async (req, res) => {
 
     // Whitelist: ground_id and sport_id are identity. Letting them through
     // would reassign every slot and booking already hanging off this row.
-    const { price_per_half_hour, min_slots, max_slots, player_counts,
+    // price_per_half_hour is deliberately absent. A slot costs what the
+    // venue charges (grounds.price_per_slot); the old per-sport column is
+    // kept for one release as a record and is read by nothing, so writing
+    // to it would only create a figure that misleads whoever reads the row.
+    const { min_slots, max_slots, player_counts,
             cancellation_policy, is_active } = req.body;
     const patch = {};
-    if (price_per_half_hour !== undefined) patch.price_per_half_hour = price_per_half_hour;
     if (min_slots           !== undefined) patch.min_slots           = min_slots;
     if (max_slots           !== undefined) patch.max_slots           = max_slots;
     if (player_counts       !== undefined) patch.player_counts       = player_counts;

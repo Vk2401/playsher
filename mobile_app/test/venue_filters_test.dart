@@ -22,11 +22,13 @@ GroundModel ground({
       'city': city,
       'address': address,
       'has_roof': hasRoof,
+      // Pricing is the venue's; the filter reads it from here.
+      'price_per_slot': '$price',
       'distance_km': distanceKm,
       'slots_available_today': left,
       'slots_total_today': total,
       'groundSports': [
-        {'id': id, 'price_per_half_hour': '$price', 'sport': {'id': 1, 'name': 'Cricket'}}
+        {'id': id, 'sport': {'id': 1, 'name': 'Cricket'}}
       ],
       'amenities': [
         for (final a in amenityIds) {'id': a, 'name': 'A$a'}
@@ -110,7 +112,8 @@ void main() {
     });
 
     test('a ground with no price is kept rather than silently dropped', () {
-      final unpriced = GroundModel.fromJson({'id': 9, 'name': 'New', 'groundSports': []});
+      final unpriced = GroundModel.fromJson(
+          {'id': 9, 'name': 'New', 'price_per_slot': '0', 'groundSports': []});
       const f = VenueFilters(minPrice: 100, maxPrice: 200);
       expect(f.apply([unpriced]).map((g) => g.id), [9]);
     });

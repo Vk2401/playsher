@@ -16,6 +16,8 @@ import 'package:playsher_app/screens/ground_detail_screen.dart';
 GroundModel seededGround() => GroundModel.fromJson({
       'id': 1,
       'name': 'Green Valley Cricket Ground',
+      // Without a venue price the booking bar correctly reads "not available".
+      'price_per_slot': '250.00',
       'address': 'Block C, Gulberg III, Lahore',
       'city': 'Lahore',
       'description':

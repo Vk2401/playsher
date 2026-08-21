@@ -1,7 +1,13 @@
-// Pricing moved from the sport to the venue. The bug this pins: a card showed
-// ₹0 because startingPrice took the *lowest* per-sport price, and one unpriced
-// sport was enough to win — while the detail screen showed the real price for
-// the sport actually selected.
+// Pricing moved from the sport to the venue. Two bugs are pinned here.
+//
+// First: a card showed ₹0 because startingPrice took the *lowest* per-sport
+// price, so one unpriced sport spoke for the whole venue while the detail
+// screen quoted the real figure for the selected sport.
+//
+// Then, fixing that, a fallback to the per-sport prices was left in for cards
+// only — so a card said ₹200 while the detail and checkout screens, reading the
+// venue price directly, said ₹0. There is now exactly one price, and it is the
+// one the server charges from.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:playsher_app/models/ground_model.dart';
@@ -24,7 +30,7 @@ void main() {
       expect(ground.formattedStartingPrice, '₹250');
     });
 
-    test('the venue price wins over any per-sport leftovers', () {
+    test('the venue price is the only price, per-sport rows are inert', () {
       final ground = g({
         'price_per_slot': '250.00',
         'groundSports': [
@@ -44,39 +50,38 @@ void main() {
     });
   });
 
-  group('legacy fallback, for an API that has not been updated', () {
-    test('takes the highest per-sport price, not the lowest', () {
-      // The reported bug exactly: Badminton at 0 dragged the card to ₹0 even
-      // though Cricket was 100 and Tennis 200.
+  group('no fallback to the old per-sport prices', () {
+    // The app quotes what the server will charge, and the server charges from
+    // grounds.price_per_slot alone — refusing with 409 when it is 0. Reading the
+    // sport prices here would put a bookable-looking figure on a card that
+    // checkout then rejects, and it made a card say ₹200 while the detail screen
+    // said ₹0.
+    test('per-sport prices are ignored entirely', () {
       final ground = g({
+        'price_per_slot': '0.00',
         'groundSports': [
-          {'id': 1, 'ground_id': 1, 'price_per_half_hour': '0',
-            'sport': {'id': 4, 'name': 'Badminton'}},
-          {'id': 2, 'ground_id': 1, 'price_per_half_hour': '100',
+          {'id': 1, 'ground_id': 1, 'price_per_half_hour': '100',
             'sport': {'id': 1, 'name': 'Cricket'}},
-          {'id': 3, 'ground_id': 1, 'price_per_half_hour': '200',
+          {'id': 2, 'ground_id': 1, 'price_per_half_hour': '200',
             'sport': {'id': 2, 'name': 'Tennis'}},
         ],
       });
-      expect(ground.startingPrice, 200);
-      expect(ground.formattedStartingPrice, '₹200');
+      expect(ground.startingPrice, 0);
+      expect(ground.formattedStartingPrice, isNull);
+      expect(ground.isBookable, isFalse,
+          reason: 'the server would refuse this booking, so the app must not '
+              'offer it');
     });
 
-    test('all sports unpriced still reads as no price', () {
-      final ground = g({
-        'groundSports': [
-          {'id': 1, 'ground_id': 1, 'price_per_half_hour': '0',
-            'sport': {'id': 1, 'name': 'Football'}},
-          {'id': 2, 'ground_id': 1, 'price_per_half_hour': '0',
-            'sport': {'id': 2, 'name': 'Basketball'}},
-        ],
-      });
-      expect(ground.formattedStartingPrice, isNull);
+    test('a venue with a price is bookable', () {
+      final ground = g({'price_per_slot': '250.00'});
+      expect(ground.isBookable, isTrue);
     });
 
     test('a ground with no sports at all does not crash', () {
       expect(g({}).startingPrice, 0);
       expect(g({}).formattedStartingPrice, isNull);
+      expect(g({}).isBookable, isFalse);
     });
   });
 

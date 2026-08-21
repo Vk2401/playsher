@@ -591,9 +591,18 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
       // ── Booking bar ────────────────────────────────────────────────────────
       // The shared widget rather than a hand-rolled copy: it already owns the
       // bottom safe-area inset and the disabled/loading state.
+      // A venue with no price cannot be booked — the server refuses with 409 —
+      // so say so here rather than quoting ₹0 and failing at the payment step.
       bottomNavigationBar: !hasSelection
           ? null
-          : StickyBottomBar(
+          : !ground.isBookable
+              ? const StickyBottomBar(
+                  priceLabel: 'PRICE',
+                  price: 'Not set',
+                  buttonText: 'Not available for booking',
+                  onPressed: null,
+                )
+              : StickyBottomBar(
               priceLabel: 'TOTAL PRICE',
               price: '\u20b9${_totalPriceFor(ground)}',
               buttonText:

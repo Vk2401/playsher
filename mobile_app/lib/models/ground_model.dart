@@ -195,20 +195,18 @@ class GroundModel {
     return sum / reviews.length;
   }
 
-  /// The price to show on a card.
+  /// The one price the whole app quotes: cards, detail, checkout.
   ///
-  /// The venue's own figure when it has one. The fallback reads the per-sport
-  /// prices this replaced, and takes the **highest** rather than the lowest:
-  /// picking the lowest is what put ₹0 on every card, because one unpriced sport
-  /// was enough to win. Only reached against an API that has not been updated.
-  double get startingPrice {
-    if (pricePerSlot > 0) return pricePerSlot;
-    final legacy = groundSports
-        .map((gs) => gs.pricePerSlot)
-        .where((p) => p > 0);
-    if (legacy.isEmpty) return 0;
-    return legacy.reduce((a, b) => a > b ? a : b);
-  }
+  /// Deliberately *not* falling back to the old per-sport prices. The server
+  /// costs a booking from `grounds.price_per_slot` alone and refuses with 409
+  /// when it is 0, so a fallback here would show a figure that cannot be
+  /// booked — and it read as a bug when a card said ₹200 and the detail screen
+  /// said ₹0. One source, agreeing with the server, everywhere.
+  double get startingPrice => pricePerSlot;
+
+  /// Whether this venue can be booked at all. The owner has to set a price
+  /// first; until then the server will not take a booking.
+  bool get isBookable => pricePerSlot > 0;
 
   /// Null rather than "₹0" when there is no price: a venue whose owner has not
   /// set one yet cannot be booked, and quoting zero reads as free.
