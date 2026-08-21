@@ -76,6 +76,18 @@ function isWidening(desired, live) {
 }
 
 /**
+ * Identifies a foreign key by what it actually constrains rather than by its
+ * name, so an auto-generated `_ibfk_N` that has renumbered still matches.
+ */
+function foreignKeyShape(fk) {
+  return [
+    fk.columns.join(','),
+    fk.references.table,
+    fk.references.columns.join(','),
+  ].join(' -> ');
+}
+
+/**
  * Compares two normalised columns for the fields that affect DDL.
  *
  * Integer display width is excluded on purpose. `INT(10)` and `INT` are the same
@@ -358,9 +370,20 @@ function diff(desired, live) {
   // ── Foreign keys last, once every table and column exists ───────────────────
   for (const [tableName, table] of Object.entries(desired.tables)) {
     const liveTable = live.tables[tableName];
+    const liveForeignKeyShapes = new Set(
+      Object.values((liveTable || {}).foreignKeys || {}).map(foreignKeyShape)
+    );
+
     for (const [fkName, fk] of Object.entries(table.foreignKeys || {})) {
       // Includes brand-new tables: CREATE TABLE omits foreign keys so that this
       // pass, which runs once every table exists, can add them in any order.
+      //
+      // Matched by shape, not by name. `bookings_ibfk_4` is a name MariaDB
+      // invented, and it renumbers whenever a constraint is recreated — the
+      // same key has been ibfk_1, ibfk_4 and ibfk_7 on this database. Comparing
+      // names would report every foreign key as missing after any renumbering
+      // and then fail to add it, because the constraint really is already there.
+      if (liveForeignKeyShapes.has(foreignKeyShape(fk))) continue;
       if (liveTable && liveTable.foreignKeys[fkName]) continue;
       push({
         kind: 'addForeignKey',
