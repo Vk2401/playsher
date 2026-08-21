@@ -1109,4 +1109,9 @@ router.get   ('/app-versions',               ...admin, appVersionCtrl.list);
  */
 router.put   ('/app-versions/:platform',     ...admin, upsertVersion, validate, appVersionCtrl.upsert);
 
+// ── Database schema ───────────────────────────────────────────────────────────
+// Own router: it owns four routes plus their own admin guard, and the DDL it
+// runs deserves to be read in one file rather than mixed in among CRUD.
+router.use('/schema', require('./schema.routes'));
+
 module.exports = router;

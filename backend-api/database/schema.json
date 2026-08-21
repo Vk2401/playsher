@@ -1,0 +1,2567 @@
+{
+  "$comment": "Generated from a live database by database/generate-schema-json.js. Edit this file to change the schema, then apply it from the admin panel (Database \u2192 Schema).",
+  "version": 1,
+  "tables": {
+    "admins": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": false
+        },
+        "email": {
+          "type": "varchar",
+          "length": 191,
+          "nullable": false
+        },
+        "mobile": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false
+        },
+        "password_hash": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": false
+        },
+        "profile_picture": {
+          "type": "longtext",
+          "nullable": true
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "email": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_2": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_3": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_4": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_5": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_6": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "mobile": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_2": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_3": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_4": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_5": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_6": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "amenities": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": false
+        },
+        "icon": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "type": {
+          "type": "enum",
+          "values": [
+            "venue",
+            "sport"
+          ],
+          "nullable": true,
+          "default": "venue"
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {},
+      "foreignKeys": {}
+    },
+    "app_versions": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "platform": {
+          "type": "enum",
+          "values": [
+            "android",
+            "ios"
+          ],
+          "nullable": false
+        },
+        "latest_version": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false
+        },
+        "min_supported_version": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false
+        },
+        "update_url": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "release_notes": {
+          "type": "text",
+          "nullable": true
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "platform": {
+          "columns": [
+            "platform"
+          ],
+          "unique": true
+        },
+        "uq_app_versions_platform": {
+          "columns": [
+            "platform"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "bank_details": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "user_type": {
+          "type": "enum",
+          "values": [
+            "ground_owner",
+            "user"
+          ],
+          "nullable": true,
+          "default": "ground_owner"
+        },
+        "account_holder_name": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": false
+        },
+        "account_number": {
+          "type": "varchar",
+          "length": 50,
+          "nullable": false
+        },
+        "ifsc_code": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false
+        },
+        "bank_name": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "upi_id": {
+          "type": "varchar",
+          "length": 100,
+          "nullable": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "bank_details_user_idx": {
+          "columns": [
+            "user_id",
+            "user_type"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {}
+    },
+    "booked_slots": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "booking_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "slot_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "slot_id": {
+          "columns": [
+            "slot_id"
+          ],
+          "unique": false
+        },
+        "uq_booked_slot": {
+          "columns": [
+            "booking_id",
+            "slot_id"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "booked_slots_ibfk_3": {
+          "columns": [
+            "booking_id"
+          ],
+          "references": {
+            "table": "bookings",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "booked_slots_ibfk_4": {
+          "columns": [
+            "slot_id"
+          ],
+          "references": {
+            "table": "slots",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "bookings": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "booking_reference": {
+          "type": "varchar",
+          "length": 50,
+          "nullable": true
+        },
+        "user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "ground_sport_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "slot_date": {
+          "type": "date",
+          "nullable": false
+        },
+        "slot_time_from": {
+          "type": "time",
+          "nullable": false
+        },
+        "slot_time_to": {
+          "type": "time",
+          "nullable": false
+        },
+        "total_amount": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": true,
+          "default": 0
+        },
+        "advance_amount": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false,
+          "default": 0
+        },
+        "balance_due": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false,
+          "default": 0
+        },
+        "is_game": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "is_canceled": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "cancellation_reason": {
+          "type": "text",
+          "nullable": true
+        },
+        "payment_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "status": {
+          "type": "enum",
+          "values": [
+            "pending",
+            "confirmed",
+            "cancelled",
+            "completed"
+          ],
+          "nullable": true,
+          "default": "pending"
+        },
+        "hold_expires_at": {
+          "type": "datetime",
+          "nullable": true
+        },
+        "payment_method": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": true,
+          "default": "pay_at_ground"
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "booking_reference": {
+          "columns": [
+            "booking_reference"
+          ],
+          "unique": true
+        },
+        "booking_reference_2": {
+          "columns": [
+            "booking_reference"
+          ],
+          "unique": true
+        },
+        "ground_sport_id": {
+          "columns": [
+            "ground_sport_id"
+          ],
+          "unique": false
+        },
+        "idx_booking_hold": {
+          "columns": [
+            "status",
+            "hold_expires_at"
+          ],
+          "unique": false
+        },
+        "payment_id": {
+          "columns": [
+            "payment_id"
+          ],
+          "unique": false
+        },
+        "uq_booking_ref": {
+          "columns": [
+            "booking_reference"
+          ],
+          "unique": true
+        },
+        "user_id": {
+          "columns": [
+            "user_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "bookings_ibfk_4": {
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "bookings_ibfk_5": {
+          "columns": [
+            "ground_sport_id"
+          ],
+          "references": {
+            "table": "ground_sports",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "bookings_ibfk_6": {
+          "columns": [
+            "payment_id"
+          ],
+          "references": {
+            "table": "payments",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "coaches": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": false
+        },
+        "sport_name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": true
+        },
+        "experience_years": {
+          "type": "int",
+          "length": 11,
+          "nullable": true
+        },
+        "level": {
+          "type": "enum",
+          "values": [
+            "beginner",
+            "intermediate",
+            "advanced",
+            "professional"
+          ],
+          "nullable": true,
+          "default": "beginner"
+        },
+        "mobile": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": true
+        },
+        "email": {
+          "type": "varchar",
+          "length": 191,
+          "nullable": true
+        },
+        "about": {
+          "type": "text",
+          "nullable": true
+        },
+        "experience_details": {
+          "type": "text",
+          "nullable": true
+        },
+        "awards": {
+          "type": "text",
+          "nullable": true
+        },
+        "latitude": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 7,
+          "nullable": true
+        },
+        "longitude": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 7,
+          "nullable": true
+        },
+        "availability": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "qualities": {
+          "type": "text",
+          "nullable": true
+        },
+        "profile_picture": {
+          "type": "text",
+          "nullable": true
+        },
+        "is_approved": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {},
+      "foreignKeys": {}
+    },
+    "favorites": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "ground_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "ground_id": {
+          "columns": [
+            "ground_id"
+          ],
+          "unique": false
+        },
+        "uq_favorite": {
+          "columns": [
+            "user_id",
+            "ground_id"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "favorites_ibfk_1": {
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "favorites_ibfk_2": {
+          "columns": [
+            "ground_id"
+          ],
+          "references": {
+            "table": "grounds",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "game_participants": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "game_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "status": {
+          "type": "enum",
+          "values": [
+            "invited",
+            "accepted",
+            "declined",
+            "joined"
+          ],
+          "nullable": true,
+          "default": "invited"
+        },
+        "joined_at": {
+          "type": "datetime",
+          "nullable": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_game_participant": {
+          "columns": [
+            "game_id",
+            "user_id"
+          ],
+          "unique": true
+        },
+        "user_id": {
+          "columns": [
+            "user_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "game_participants_ibfk_1": {
+          "columns": [
+            "game_id"
+          ],
+          "references": {
+            "table": "games",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "game_participants_ibfk_2": {
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "games": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "game_name": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": false
+        },
+        "hosted_by_user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "hosted_by_ground_owner_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "booking_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "max_participants": {
+          "type": "int",
+          "length": 11,
+          "nullable": true,
+          "default": 10
+        },
+        "game_level": {
+          "type": "enum",
+          "values": [
+            "newbie",
+            "beginner",
+            "intermediate",
+            "advanced",
+            "professional",
+            "ultra_professional"
+          ],
+          "nullable": true,
+          "default": "beginner"
+        },
+        "description": {
+          "type": "text",
+          "nullable": true
+        },
+        "image": {
+          "type": "text",
+          "nullable": true
+        },
+        "visibility": {
+          "type": "enum",
+          "values": [
+            "public",
+            "private"
+          ],
+          "nullable": true,
+          "default": "public"
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "booking_id": {
+          "columns": [
+            "booking_id"
+          ],
+          "unique": false
+        },
+        "hosted_by_ground_owner_id": {
+          "columns": [
+            "hosted_by_ground_owner_id"
+          ],
+          "unique": false
+        },
+        "hosted_by_user_id": {
+          "columns": [
+            "hosted_by_user_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "games_ibfk_1": {
+          "columns": [
+            "hosted_by_user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "games_ibfk_2": {
+          "columns": [
+            "hosted_by_ground_owner_id"
+          ],
+          "references": {
+            "table": "ground_owners",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "games_ibfk_3": {
+          "columns": [
+            "booking_id"
+          ],
+          "references": {
+            "table": "bookings",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "ground_amenities": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "ground_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "amenity_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "amenity_id": {
+          "columns": [
+            "amenity_id"
+          ],
+          "unique": false
+        },
+        "uq_ground_amenity": {
+          "columns": [
+            "ground_id",
+            "amenity_id"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "ground_amenities_ibfk_5": {
+          "columns": [
+            "ground_id"
+          ],
+          "references": {
+            "table": "grounds",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "ground_amenities_ibfk_6": {
+          "columns": [
+            "amenity_id"
+          ],
+          "references": {
+            "table": "amenities",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "ground_images": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "ground_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "image": {
+          "type": "longtext",
+          "nullable": false
+        },
+        "is_primary": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "ground_id": {
+          "columns": [
+            "ground_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "ground_images_ibfk_1": {
+          "columns": [
+            "ground_id"
+          ],
+          "references": {
+            "table": "grounds",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "ground_owners": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": false
+        },
+        "email": {
+          "type": "varchar",
+          "length": 191,
+          "nullable": false
+        },
+        "mobile": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false
+        },
+        "password_hash": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": false
+        },
+        "profile_picture": {
+          "type": "longtext",
+          "nullable": true
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "is_approved": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "email": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_2": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_3": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_4": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_5": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_6": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "mobile": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_2": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_3": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_4": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_5": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "ground_sports": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "ground_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "sport_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "price_per_half_hour": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": true,
+          "default": 0
+        },
+        "min_slots": {
+          "type": "int",
+          "length": 11,
+          "nullable": true,
+          "default": 1
+        },
+        "max_slots": {
+          "type": "int",
+          "length": 11,
+          "nullable": true,
+          "default": 4
+        },
+        "player_counts": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "cancellation_policy": {
+          "type": "text",
+          "nullable": true
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "sport_id": {
+          "columns": [
+            "sport_id"
+          ],
+          "unique": false
+        },
+        "uq_ground_sport": {
+          "columns": [
+            "ground_id",
+            "sport_id"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "ground_sports_ibfk_3": {
+          "columns": [
+            "ground_id"
+          ],
+          "references": {
+            "table": "grounds",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "ground_sports_ibfk_4": {
+          "columns": [
+            "sport_id"
+          ],
+          "references": {
+            "table": "sports",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "grounds": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": false
+        },
+        "about": {
+          "type": "text",
+          "nullable": true
+        },
+        "description": {
+          "type": "text",
+          "nullable": true
+        },
+        "latitude": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 7,
+          "nullable": true
+        },
+        "longitude": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 7,
+          "nullable": true
+        },
+        "address": {
+          "type": "text",
+          "nullable": true
+        },
+        "area": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": true
+        },
+        "city": {
+          "type": "varchar",
+          "length": 100,
+          "nullable": true
+        },
+        "has_roof": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": false,
+          "default": 0
+        },
+        "venue_rules": {
+          "type": "text",
+          "nullable": true
+        },
+        "is_approved": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "owner_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "deleted_at": {
+          "type": "datetime",
+          "nullable": true
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "owner_id": {
+          "columns": [
+            "owner_id"
+          ],
+          "unique": false
+        },
+        "idx_grounds_area": {
+          "columns": [
+            "area"
+          ],
+          "unique": false
+        },
+        "idx_grounds_city": {
+          "columns": [
+            "city"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "grounds_ibfk_1": {
+          "columns": [
+            "owner_id"
+          ],
+          "references": {
+            "table": "ground_owners",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "otps": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "mobile": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false
+        },
+        "otp": {
+          "type": "varchar",
+          "length": 6,
+          "nullable": false
+        },
+        "expires_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "is_verified": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "mobile": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "otps_expires_at_idx": {
+          "columns": [
+            "expires_at"
+          ],
+          "unique": false
+        },
+        "otps_mobile_unique": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "payments": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "booking_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "done_by_user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "payment_done_by_mobile": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": true
+        },
+        "payment_done_by_email": {
+          "type": "varchar",
+          "length": 191,
+          "nullable": true
+        },
+        "payment_done_by_name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": true
+        },
+        "payment_status": {
+          "type": "enum",
+          "values": [
+            "pending",
+            "success",
+            "failed",
+            "refunded"
+          ],
+          "nullable": true,
+          "default": "pending"
+        },
+        "payment_method": {
+          "type": "varchar",
+          "length": 50,
+          "nullable": true
+        },
+        "payment_mode": {
+          "type": "enum",
+          "values": [
+            "online",
+            "offline"
+          ],
+          "nullable": true,
+          "default": "online"
+        },
+        "payment_timestamp": {
+          "type": "datetime",
+          "nullable": true
+        },
+        "amount": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false
+        },
+        "currency": {
+          "type": "varchar",
+          "length": 10,
+          "nullable": true,
+          "default": "INR"
+        },
+        "transaction_id": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "razorpay_order_id": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "razorpay_payment_id": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "razorpay_signature": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "vendor_payout_status": {
+          "type": "enum",
+          "values": [
+            "pending",
+            "transferred",
+            "no_bank_details",
+            "no_vendor"
+          ],
+          "nullable": true,
+          "default": "pending"
+        },
+        "vendor_payout_amount": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": true
+        },
+        "platform_fee": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": true
+        },
+        "transfer_id": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "booking_id": {
+          "columns": [
+            "booking_id"
+          ],
+          "unique": false
+        },
+        "done_by_user_id": {
+          "columns": [
+            "done_by_user_id"
+          ],
+          "unique": false
+        },
+        "payments_razorpay_order_idx": {
+          "columns": [
+            "razorpay_order_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "payments_ibfk_3": {
+          "columns": [
+            "booking_id"
+          ],
+          "references": {
+            "table": "bookings",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "payments_ibfk_4": {
+          "columns": [
+            "done_by_user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "refresh_tokens": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "user_type": {
+          "type": "enum",
+          "values": [
+            "admin",
+            "user",
+            "ground_owner"
+          ],
+          "nullable": false
+        },
+        "token": {
+          "type": "varchar",
+          "length": 512,
+          "nullable": false
+        },
+        "expires_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "is_revoked": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "token": {
+          "columns": [
+            "token"
+          ],
+          "unique": true
+        },
+        "token_2": {
+          "columns": [
+            "token"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {}
+    },
+    "reviews": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "reviewed_by_user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "review_type": {
+          "type": "enum",
+          "values": [
+            "ground",
+            "sport",
+            "coach",
+            "application"
+          ],
+          "nullable": false
+        },
+        "ground_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "ground_sport_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "coach_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "booking_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "rating": {
+          "type": "tinyint",
+          "length": 3,
+          "unsigned": true,
+          "nullable": false
+        },
+        "comment": {
+          "type": "text",
+          "nullable": true
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "booking_id": {
+          "columns": [
+            "booking_id"
+          ],
+          "unique": false
+        },
+        "coach_id": {
+          "columns": [
+            "coach_id"
+          ],
+          "unique": false
+        },
+        "ground_id": {
+          "columns": [
+            "ground_id"
+          ],
+          "unique": false
+        },
+        "ground_sport_id": {
+          "columns": [
+            "ground_sport_id"
+          ],
+          "unique": false
+        },
+        "reviewed_by_user_id": {
+          "columns": [
+            "reviewed_by_user_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "reviews_ibfk_1": {
+          "columns": [
+            "reviewed_by_user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "reviews_ibfk_2": {
+          "columns": [
+            "ground_id"
+          ],
+          "references": {
+            "table": "grounds",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "reviews_ibfk_3": {
+          "columns": [
+            "ground_sport_id"
+          ],
+          "references": {
+            "table": "ground_sports",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "reviews_ibfk_4": {
+          "columns": [
+            "coach_id"
+          ],
+          "references": {
+            "table": "coaches",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "reviews_ibfk_5": {
+          "columns": [
+            "booking_id"
+          ],
+          "references": {
+            "table": "bookings",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "schedule_templates": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "ground_sport_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "day_of_week": {
+          "type": "tinyint",
+          "length": 3,
+          "unsigned": true,
+          "nullable": false
+        },
+        "start_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "end_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "is_closed": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_gs_day": {
+          "columns": [
+            "ground_sport_id",
+            "day_of_week"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "schedule_templates_ibfk_1": {
+          "columns": [
+            "ground_sport_id"
+          ],
+          "references": {
+            "table": "ground_sports",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "schema_sync_jobs": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "status": {
+          "type": "enum",
+          "values": [
+            "running",
+            "completed",
+            "failed"
+          ],
+          "nullable": false,
+          "default": "running"
+        },
+        "total_steps": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "default": 0
+        },
+        "completed_steps": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "default": 0
+        },
+        "current_step": {
+          "type": "varchar",
+          "length": 500,
+          "nullable": true
+        },
+        "steps": {
+          "type": "longtext",
+          "nullable": true
+        },
+        "error_message": {
+          "type": "text",
+          "nullable": true
+        },
+        "started_by": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false,
+          "default": {
+            "expression": "current_timestamp()"
+          }
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false,
+          "default": {
+            "expression": "current_timestamp()"
+          },
+          "onUpdateCurrentTimestamp": true
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {},
+      "foreignKeys": {}
+    },
+    "slots": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "ground_sport_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "slot_date": {
+          "type": "date",
+          "nullable": false
+        },
+        "slot_start_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "slot_end_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "is_available": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_slot_unique": {
+          "columns": [
+            "ground_sport_id",
+            "slot_date",
+            "slot_start_time",
+            "slot_end_time"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "slots_ibfk_1": {
+          "columns": [
+            "ground_sport_id"
+          ],
+          "references": {
+            "table": "ground_sports",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "sports": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": false
+        },
+        "short_description": {
+          "type": "varchar",
+          "length": 500,
+          "nullable": true
+        },
+        "image": {
+          "type": "text",
+          "nullable": true
+        },
+        "place_type": {
+          "type": "enum",
+          "values": [
+            "ground",
+            "court"
+          ],
+          "nullable": true,
+          "default": "ground"
+        },
+        "sports_type": {
+          "type": "enum",
+          "values": [
+            "indoor",
+            "outdoor"
+          ],
+          "nullable": true,
+          "default": "outdoor"
+        },
+        "is_approved": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {},
+      "foreignKeys": {}
+    },
+    "user_sport_preferences": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "sport_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "sport_id": {
+          "columns": [
+            "sport_id"
+          ],
+          "unique": false
+        },
+        "uq_user_sport": {
+          "columns": [
+            "user_id",
+            "sport_id"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "user_sport_preferences_ibfk_1": {
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "user_sport_preferences_ibfk_2": {
+          "columns": [
+            "sport_id"
+          ],
+          "references": {
+            "table": "sports",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "users": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 150,
+          "nullable": false
+        },
+        "mobile": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false
+        },
+        "email": {
+          "type": "varchar",
+          "length": 191,
+          "nullable": true
+        },
+        "password_hash": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "profile_picture": {
+          "type": "longtext",
+          "nullable": true
+        },
+        "current_latitude": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 7,
+          "nullable": true
+        },
+        "current_longitude": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 7,
+          "nullable": true
+        },
+        "is_active": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 1
+        },
+        "is_verified": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": true,
+          "default": 0
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "deleted_at": {
+          "type": "datetime",
+          "nullable": true
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "email": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_2": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_3": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_4": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_5": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "email_6": {
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        "mobile": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_2": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_3": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_4": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_5": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        },
+        "mobile_6": {
+          "columns": [
+            "mobile"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {}
+    }
+  }
+}

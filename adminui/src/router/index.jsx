@@ -16,6 +16,7 @@ import AdminGroundDetail from '../pages/admin/GroundDetail.jsx'
 import AdminSports from '../pages/admin/Sports.jsx'
 import AdminAmenities from '../pages/admin/Amenities.jsx'
 import AdminAppVersions from '../pages/admin/AppVersions.jsx'
+import AdminDatabaseSchema from '../pages/admin/DatabaseSchema.jsx'
 import AdminBookings from '../pages/admin/Bookings.jsx'
 import AdminPayments from '../pages/admin/Payments.jsx'
 import AdminGames from '../pages/admin/Games.jsx'
@@ -80,6 +81,7 @@ export default function AppRouter() {
           <Route path="sports" element={<AdminSports />} />
           <Route path="amenities" element={<AdminAmenities />} />
           <Route path="app-versions" element={<AdminAppVersions />} />
+          <Route path="database-schema" element={<AdminDatabaseSchema />} />
           <Route path="bookings" element={<AdminBookings />} />
           <Route path="payments" element={<AdminPayments />} />
           <Route path="settlements" element={<AdminSettlements />} />
