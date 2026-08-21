@@ -196,6 +196,60 @@
             "description": "Ground deleted"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Update any ground, including its owner and approval state",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  },
+                  "is_approved": {
+                    "type": "boolean"
+                  },
+                  "owner_id": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
       }
     },
     "/admin/grounds/{id}/approve": {
@@ -377,6 +431,60 @@
             "description": "Deleted"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Update a ground owner's profile and moderation flags",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  },
+                  "is_approved": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
       }
     },
     "/admin/ground-owners/{id}/approve": {
@@ -555,6 +663,57 @@
         "responses": {
           "200": {
             "description": "Deleted"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Update a customer's profile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation failed"
           }
         }
       }
@@ -1617,6 +1776,141 @@
         }
       }
     },
+    "/admin/ground-owners/{id}/password": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Reset a ground owner's password and sign them out everywhere",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/admin/app-versions": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "List the version thresholds for every platform",
+        "description": "Always returns a row for both android and ios, filled with nulls and is_active false for a platform never configured, so the panel can offer it for editing.\n",
+        "responses": {
+          "200": {
+            "description": "App versions retrieved"
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/admin/app-versions/{platform}": {
+      "put": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Set the update thresholds for one platform",
+        "description": "Admin only — these values decide whether every installed app prompts or is blocked, so nothing below the admin role may write them. Raising min_supported_version retires every older build on the next launch.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "android",
+                "ios"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "latest_version",
+                  "min_supported_version"
+                ],
+                "properties": {
+                  "latest_version": {
+                    "type": "string",
+                    "example": "1.4.0"
+                  },
+                  "min_supported_version": {
+                    "type": "string",
+                    "example": "1.2.0"
+                  },
+                  "update_url": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "release_notes": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "is_active": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "App version updated"
+          },
+          "400": {
+            "description": "Minimum newer than latest"
+          },
+          "403": {
+            "description": "Admin role required"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
     "/amenities": {
       "get": {
         "tags": [
@@ -1782,6 +2076,103 @@
           },
           "404": {
             "description": "Not found"
+          }
+        }
+      }
+    },
+    "/app-version": {
+      "get": {
+        "tags": [
+          "AppVersion"
+        ],
+        "summary": "Check whether the installed app build needs updating",
+        "description": "Public. Compares the caller's installed version against the thresholds an admin has set for that platform. `update_available` means a newer build exists and the prompt may be dismissed; `update_required` means the build is below the minimum supported version and must be blocked. Both are false when no thresholds are configured or the check is disabled.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "android",
+                "ios"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "description": "Installed version, e.g. 1.2.3 (a +build suffix is ignored)",
+            "schema": {
+              "type": "string",
+              "example": "1.2.3"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Version checked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "App version checked."
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "platform": {
+                          "type": "string",
+                          "example": "android"
+                        },
+                        "installed_version": {
+                          "type": "string",
+                          "example": "1.2.3"
+                        },
+                        "latest_version": {
+                          "type": "string",
+                          "example": "1.4.0",
+                          "nullable": true
+                        },
+                        "min_supported_version": {
+                          "type": "string",
+                          "example": "1.2.0",
+                          "nullable": true
+                        },
+                        "update_available": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "update_required": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "update_url": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "release_notes": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Missing or malformed platform/version"
           }
         }
       }
@@ -2389,6 +2780,59 @@
           },
           "422": {
             "description": "latitude and longitude are required"
+          }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "patch": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change your own password",
+        "description": "For roles that sign in with a password — admin and ground_owner. Customers authenticate by OTP and have nothing to change, so they get a 400 saying so. Requires the current password: an access token alone must not be enough to take over an account permanently. On success every other session for the account is signed out.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "current_password",
+                  "new_password"
+                ],
+                "properties": {
+                  "current_password": {
+                    "type": "string"
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed and other sessions revoked"
+          },
+          "400": {
+            "description": "OTP-only account",
+            "or the new password matches the old one": null
+          },
+          "401": {
+            "description": "Not signed in",
+            "or the current password is wrong": null
+          },
+          "422": {
+            "description": "Validation failed"
           }
         }
       }
@@ -4267,6 +4711,72 @@
       }
     },
     "/ground-owner/grounds/{id}/sports/{sportId}": {
+      "put": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Update a ground's sport settings (price, slot limits, availability)",
+        "description": "sportId is the ground_sport row id, not the sport id. The sport itself cannot be changed here — remove the row and add the other sport instead. Note that removing a row cascades away its schedule and slots.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sportId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "price_per_half_hour": {
+                    "type": "number"
+                  },
+                  "min_slots": {
+                    "type": "integer"
+                  },
+                  "max_slots": {
+                    "type": "integer"
+                  },
+                  "player_counts": {
+                    "type": "string"
+                  },
+                  "cancellation_policy": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sport updated"
+          },
+          "404": {
+            "description": "Ground or ground sport not found"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
       "delete": {
         "tags": [
           "OwnerPanel"
@@ -5052,7 +5562,8 @@
         "tags": [
           "Reviews"
         ],
-        "summary": "Create a review (user — requires completed booking for ground/sport)",
+        "summary": "Create a review (user — a venue review requires having played there)",
+        "description": "A `ground` or `sport` review may only be left by a customer with a booking at that ground that has finished and been marked `completed`, and only once per ground. The qualifying booking is resolved on the server from `ground_id`; `booking_id` is not accepted, because trusting a client-supplied one is what allowed the check to be skipped. `ground_id` is required for a ground/sport review and `coach_id` for a coach review. `ground_sport_id` is optional and must belong to `ground_id`; it otherwise defaults to the booking's own sport.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -5084,11 +5595,10 @@
                   "ground_id": {
                     "type": "integer"
                   },
-                  "ground_sport_id:{ type": "integer }",
-                  "coach_id": {
+                  "ground_sport_id": {
                     "type": "integer"
                   },
-                  "booking_id": {
+                  "coach_id": {
                     "type": "integer"
                   }
                 }
@@ -5099,6 +5609,50 @@
         "responses": {
           "201": {
             "description": "Review created"
+          },
+          "403": {
+            "description": "No completed booking at this ground"
+          },
+          "409": {
+            "description": "This ground has already been reviewed by this user"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/reviews/eligibility": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "May the signed-in customer review this ground?",
+        "description": "Reviewing a venue requires having booked and played there. This lets the app decide whether to offer the form, instead of letting someone write a review and only then be told it cannot be posted. `reason` is one of `no_completed_booking` or `already_reviewed`.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ground_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eligibility checked"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "422": {
+            "description": "ground_id missing or invalid"
           }
         }
       }
@@ -5718,6 +6272,10 @@
     {
       "name": "Amenities",
       "description": "Amenity management"
+    },
+    {
+      "name": "AppVersion",
+      "description": "Mobile app version gating — public check, admin-managed thresholds"
     },
     {
       "name": "Auth",

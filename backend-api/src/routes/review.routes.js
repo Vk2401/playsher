@@ -84,7 +84,16 @@ router.get('/:id', ctrl.show);
  * /reviews:
  *   post:
  *     tags: [Reviews]
- *     summary: Create a review (user — requires completed booking for ground/sport)
+ *     summary: Create a review (user — a venue review requires having played there)
+ *     description: >
+ *       A `ground` or `sport` review may only be left by a customer with a
+ *       booking at that ground that has finished and been marked `completed`,
+ *       and only once per ground. The qualifying booking is resolved on the
+ *       server from `ground_id`; `booking_id` is not accepted, because trusting
+ *       a client-supplied one is what allowed the check to be skipped.
+ *       `ground_id` is required for a ground/sport review and `coach_id` for a
+ *       coach review. `ground_sport_id` is optional and must belong to
+ *       `ground_id`; it otherwise defaults to the booking's own sport.
  *     requestBody:
  *       required: true
  *       content:
@@ -93,15 +102,17 @@ router.get('/:id', ctrl.show);
  *             type: object
  *             required: [review_type, rating]
  *             properties:
- *               review_type:    { type: string, enum: [ground, sport, coach, application] }
- *               rating:         { type: integer, minimum: 1, maximum: 5 }
- *               comment:        { type: string }
- *               ground_id:      { type: integer }
- *               ground_sport_id:{ type: integer }
- *               coach_id:       { type: integer }
- *               booking_id:     { type: integer }
+ *               review_type:     { type: string, enum: [ground, sport, coach, application] }
+ *               rating:          { type: integer, minimum: 1, maximum: 5 }
+ *               comment:         { type: string }
+ *               ground_id:       { type: integer }
+ *               ground_sport_id: { type: integer }
+ *               coach_id:        { type: integer }
  *     responses:
  *       201: { description: Review created }
+ *       403: { description: No completed booking at this ground }
+ *       409: { description: This ground has already been reviewed by this user }
+ *       422: { description: Validation failed }
  */
 router.post('/', verifyToken, requireRole('user'), createReview, validate, ctrl.create);
 
