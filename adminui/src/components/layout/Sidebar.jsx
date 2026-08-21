@@ -5,7 +5,9 @@ import {
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import { adminsApi } from '../../api/admins.js'
 
 // Icons
 import DashboardIcon from '@mui/icons-material/Dashboard'
@@ -45,7 +47,7 @@ const ADMIN_NAV = [
   { label: 'Coaches',        icon: DirectionsRunIcon,  path: '/admin/coaches' },
   { label: 'Reviews',        icon: StarIcon,           path: '/admin/reviews' },
   { label: 'App Versions',   icon: SystemUpdateIcon,   path: '/admin/app-versions' },
-  { label: 'Admins',          icon: ShieldIcon,       path: '/admin/admins' },
+  { label: 'Admins',          icon: ShieldIcon,       path: '/admin/admins', superAdminOnly: true },
   { label: 'Database Schema', icon: StorageIcon,      path: '/admin/database-schema' },
   { label: 'Profile',        icon: PersonIcon,         path: '/admin/profile' },
 ]
@@ -64,7 +66,20 @@ function SidebarContent({ open, onToggle, onItemClick }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
-  const nav = isAdmin ? ADMIN_NAV : OWNER_NAV
+
+  // Which admin am I? Only the super-admin tier gets the Admins entry, so the
+  // sidebar never offers a link that answers 403. Same query key as the Admins
+  // page, so the two share one cache entry rather than fetching twice.
+  const me = useQuery({
+    queryKey: ['admin', 'admins', 'me'],
+    queryFn: () => adminsApi.me(),
+    select: (res) => res.data?.data ?? null,
+    enabled: isAdmin,
+  })
+  const isSuperAdmin = me.data?.is_super_admin === true
+
+  const nav = (isAdmin ? ADMIN_NAV : OWNER_NAV)
+    .filter((item) => !item.superAdminOnly || isSuperAdmin)
 
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
