@@ -33,6 +33,15 @@
           "length": 255,
           "nullable": false
         },
+        "role": {
+          "type": "enum",
+          "values": [
+            "super_admin",
+            "admin"
+          ],
+          "nullable": false,
+          "default": "admin"
+        },
         "profile_picture": {
           "type": "longtext",
           "nullable": true

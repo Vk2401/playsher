@@ -24,6 +24,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import PersonIcon from '@mui/icons-material/Person'
 import SystemUpdateIcon from '@mui/icons-material/SystemUpdate'
 import StorageIcon from '@mui/icons-material/Storage'
+import ShieldIcon from '@mui/icons-material/Shield'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 
@@ -44,6 +45,7 @@ const ADMIN_NAV = [
   { label: 'Coaches',        icon: DirectionsRunIcon,  path: '/admin/coaches' },
   { label: 'Reviews',        icon: StarIcon,           path: '/admin/reviews' },
   { label: 'App Versions',   icon: SystemUpdateIcon,   path: '/admin/app-versions' },
+  { label: 'Admins',          icon: ShieldIcon,       path: '/admin/admins' },
   { label: 'Database Schema', icon: StorageIcon,      path: '/admin/database-schema' },
   { label: 'Profile',        icon: PersonIcon,         path: '/admin/profile' },
 ]

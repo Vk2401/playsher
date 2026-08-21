@@ -25,6 +25,12 @@ Three codebases in this directory, one product:
 Three user roles exist end-to-end and the token payload role string is the contract:
 `user` (customer, OTP login) · `ground_owner` (email+password) · `admin` (email+password).
 
+`admins.role` (`super_admin` | `admin`) is a **tier inside** the admin role, not a fourth role —
+every admin still authenticates as `admin` in the JWT. It gates only `/admin/admins*`, is read
+from the row on each request rather than from the token (so a demotion takes effect at once),
+and while no `super_admin` exists the oldest active admin inherits the tier so the panel is
+never shipped locked. See `src/middleware/superAdmin.js`.
+
 Full product context: `Playsher Technical Specification.docx` in this directory.
 It is the **spec**, not the source of truth — when it disagrees with the code, the code wins;
 say so rather than "fixing" working code to match the doc.

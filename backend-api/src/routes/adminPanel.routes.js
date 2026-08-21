@@ -1109,6 +1109,11 @@ router.get   ('/app-versions',               ...admin, appVersionCtrl.list);
  */
 router.put   ('/app-versions/:platform',     ...admin, upsertVersion, validate, appVersionCtrl.upsert);
 
+// ── Admin accounts ────────────────────────────────────────────────────────────
+// Own router: every route past /me needs the super-admin tier on top of the
+// admin role, and the self-action guards read better in one file.
+router.use('/admins', require('./admin.routes'));
+
 // ── Database schema ───────────────────────────────────────────────────────────
 // Own router: it owns four routes plus their own admin guard, and the DDL it
 // runs deserves to be read in one file rather than mixed in among CRUD.
