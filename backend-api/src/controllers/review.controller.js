@@ -1,4 +1,5 @@
-const { Review, User, Ground, Coach, Booking, GroundSport } = require('../models');
+const { Op } = require('sequelize');
+const { Review, User, Coach, Booking, GroundSport } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
@@ -36,6 +37,9 @@ exports.show = async (req, res) => {
   }
 };
 
+// A venue review is either type: both are earned by playing at the ground.
+const VENUE_TYPES = ['ground', 'sport'];
+
 /**
  * Has this user actually played at this ground?
  *
@@ -53,7 +57,7 @@ async function findQualifyingBooking(userId, groundId) {
   await completeFinishedBookings({ Booking }, { userId });
 
   return Booking.findOne({
-    where  : { user_id: userId, status: 'completed' },
+    where  : { user_id: userId, status: 'completed', is_canceled: false },
     include: [{
       model   : GroundSport,
       as      : 'groundSport',
@@ -64,6 +68,25 @@ async function findQualifyingBooking(userId, groundId) {
   });
 }
 
+/**
+ * The review this user has already left for this ground, if any.
+ *
+ * One venue review per customer per ground. Shared by `eligibility` and
+ * `create` so the two can never disagree — the app must not be offered a form
+ * that the POST then rejects.
+ *
+ * @returns {Promise<object|null>}
+ */
+function findExistingVenueReview(userId, groundId) {
+  return Review.findOne({
+    where: {
+      reviewed_by_user_id: userId,
+      ground_id          : groundId,
+      review_type        : { [Op.in]: VENUE_TYPES },
+    },
+  });
+}
+
 // GET /reviews/eligibility?ground_id=
 // Lets the app decide whether to offer the review form at all, rather than
 // letting someone write one and only then be told they cannot post it.
@@ -71,9 +94,7 @@ exports.eligibility = async (req, res) => {
   try {
     const groundId = Number(req.query.ground_id);
 
-    const existing = await Review.findOne({
-      where: { reviewed_by_user_id: req.user.id, ground_id: groundId, review_type: 'ground' },
-    });
+    const existing = await findExistingVenueReview(req.user.id, groundId);
     if (existing) {
       return success(res, 'Eligibility checked.', {
         can_review: false,
@@ -101,10 +122,23 @@ exports.eligibility = async (req, res) => {
   }
 };
 
+// POST /reviews
+// A venue review is earned, not asked for. The qualifying booking is resolved
+// server-side from the ground; it is never read off the request, because a
+// client-supplied booking_id is exactly what let the gate be skipped.
 exports.create = async (req, res) => {
   try {
     const { review_type, rating, comment, ground_id, ground_sport_id, coach_id } = req.body;
 
+    const patch = {
+      reviewed_by_user_id: req.user.id,
+      review_type,
+      rating,
+      comment            : comment || null,
+    };
+
+    if (VENUE_TYPES.includes(review_type)) {
+      const duplicate = await findExistingVenueReview(req.user.id, ground_id);
     // Whitelist. Spreading req.body let a client set is_active — publishing or
     // hiding a review at will — and any other column the model happens to have.
     const patch = {
@@ -131,11 +165,34 @@ exports.create = async (req, res) => {
       });
       if (duplicate) return error(res, 'You have already reviewed this ground.', 409);
 
+      const booking = await findQualifyingBooking(req.user.id, ground_id);
+      if (!booking) {
+        return error(
+          res,
+          'Only players who have booked and played here can leave a review.',
+          403,
+        );
+      }
+
+      // The booking's own sport is the trustworthy answer. A client-supplied
+      // ground_sport_id is honoured only when it belongs to this ground, so a
+      // review cannot be filed against another venue's sport.
+      let sportId = booking.ground_sport_id;
+      if (ground_sport_id && ground_sport_id !== sportId) {
+        const sport = await GroundSport.findOne({
+          where: { id: ground_sport_id, ground_id },
+        });
+        if (!sport) return error(res, 'That sport does not belong to this ground.');
+        sportId = sport.id;
+      }
+
       patch.ground_id       = ground_id;
-      patch.ground_sport_id = ground_sport_id ?? booking.ground_sport_id;
+      patch.ground_sport_id = sportId;
       patch.booking_id      = booking.id;
     } else if (review_type === 'coach') {
       if (!coach_id) return error(res, 'coach_id is required for a coach review.');
+      const coach = await Coach.findByPk(coach_id);
+      if (!coach) return error(res, 'Coach not found.', 404);
       patch.coach_id = coach_id;
     }
 
