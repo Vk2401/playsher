@@ -386,7 +386,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                 onPressed: () => context.pop(_filters),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.onPrimary,
+                  foregroundColor: AppColors.onAccent,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                   textStyle: const TextStyle(

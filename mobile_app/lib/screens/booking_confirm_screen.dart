@@ -202,7 +202,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                           ),
                           child: const Icon(
                             Icons.check_rounded,
-                            color: AppColors.onPrimary,
+                            color: AppColors.onAccent,
                             size: 40,
                             semanticLabel: 'Booking confirmed',
                           ),

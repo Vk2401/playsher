@@ -74,27 +74,27 @@ class _MainShellState extends State<MainShell> {
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_rounded),
-              label: 'HOME',
+              label: 'Home',
             ),
             NavigationDestination(
               icon: Icon(Icons.location_on_outlined),
               selectedIcon: Icon(Icons.location_on_rounded),
-              label: 'VENUES',
+              label: 'Venues',
             ),
             NavigationDestination(
               icon: Icon(Icons.emoji_events_outlined),
               selectedIcon: Icon(Icons.emoji_events_rounded),
-              label: 'GAMES',
+              label: 'Games',
             ),
             NavigationDestination(
               icon: Icon(Icons.school_outlined),
               selectedIcon: Icon(Icons.school_rounded),
-              label: 'COACHING',
+              label: 'Coaching',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
-              label: 'PROFILE',
+              label: 'Profile',
             ),
           ],
         ),

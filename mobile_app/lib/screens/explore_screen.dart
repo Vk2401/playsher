@@ -8,6 +8,7 @@ import '../core/app_colors.dart';
 import '../models/venue_filters.dart';
 import '../providers/grounds_provider.dart';
 import '../providers/location_provider.dart';
+import '../providers/venues_intent_provider.dart';
 import '../providers/weather_provider.dart';
 import '../widgets/venue_card.dart';
 import '../widgets/shimmer_loader.dart';
@@ -15,6 +16,7 @@ import '../widgets/error_view.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   final String? initialSearch;
+
   const ExploreScreen({super.key, this.initialSearch});
 
   @override
@@ -37,6 +39,21 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     // The field's focus drives the container's outline, so the highlight is
     // drawn once, in the right place.
     _searchFocus = FocusNode()..addListener(() => setState(() {}));
+  }
+
+  /// Carry out whatever the caller asked for on the way in, and clear it so a
+  /// later tab switch does not replay it.
+  void _consumeIntent(VenuesIntent intent) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(venuesIntentProvider.notifier).state = null;
+      switch (intent) {
+        case VenuesIntent.focusSearch:
+          _searchFocus.requestFocus();
+        case VenuesIntent.openFilters:
+          _openFilters();
+      }
+    });
   }
 
   /// Opens the filter sheet and applies whatever comes back.
@@ -80,6 +97,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+
+    // Watched here rather than listened for: whoever set it did so *before*
+    // navigating, so the value is already in place by this first build and a
+    // listener would never fire.
+    final intent = ref.watch(venuesIntentProvider);
+    if (intent != null) _consumeIntent(intent);
+
     // Where the player is, so the API can order nearest-first. Sent only when
     // there is a real fix — half a coordinate is worse than none.
     final location = ref.watch(userLocationProvider);

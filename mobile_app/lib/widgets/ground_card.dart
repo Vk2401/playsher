@@ -21,12 +21,18 @@ class GroundCard extends ConsumerWidget {
   final VoidCallback? onFavoriteToggle;
   final bool isFavorite;
 
+  /// Shows a "Book Now" button on the list card. Off by default so a dense
+  /// list stays dense; the home screen turns it on for the handful of venues
+  /// it puts under "Nearest to you", where the tap is the point.
+  final bool showBookAction;
+
   const GroundCard({
     super.key,
     required this.ground,
     this.wide = false,
     this.onFavoriteToggle,
     this.isFavorite = false,
+    this.showBookAction = false,
   });
 
   @override
@@ -51,6 +57,7 @@ class GroundCard extends ConsumerWidget {
             distanceKm: distanceKm,
             isFavorite: isFavorite,
             onFavoriteToggle: onFavoriteToggle,
+            showBookAction: showBookAction,
           );
   }
 }
@@ -83,6 +90,7 @@ class _WideCard extends StatelessWidget {
           color: colors.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: colors.border),
+          boxShadow: _cardShadow,
         ),
         // The image is the flexible part, so a taller carousel slot grows the
         // photo instead of leaving a dead band under the text.
@@ -123,30 +131,23 @@ class _WideCard extends StatelessWidget {
 
                   if (ground.sportNames.isNotEmpty)
                     Positioned(
-                      top: 10,
-                      left: 10,
-                      child: _OverlayPill(
-                        // Every sport the venue offers. Showing only the first
-                        // hid the reason most people pick a ground.
-                        child: Text(
-                          ground.sportNames
-                              .map((n) => n.toUpperCase())
-                              .join(' · '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.onImage,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
+                      top: 12,
+                      left: 12,
+                      // Only reserved when there is something in the top-right
+                      // corner to run into; without it the badge was clipping
+                      // "BASKETBALL" for no reason.
+                      right: (onFavoriteToggle != null ? 50 : 0) +
+                          (ground.avgRating > 0 ? 56 : 0) +
+                          12,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _SportPill(sports: ground.sportNames),
                       ),
                     ),
 
                   Positioned(
-                    top: 10,
-                    right: 10,
+                    top: 6,
+                    right: 6,
                     child: Row(
                       children: [
                         if (ground.avgRating > 0)
@@ -176,7 +177,7 @@ class _WideCard extends StatelessWidget {
                         Text(
                           ground.name,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 17,
                             fontWeight: FontWeight.w800,
                             color: AppColors.onImage,
                           ),
@@ -188,7 +189,7 @@ class _WideCard extends StatelessWidget {
                           Row(
                             children: [
                               const Icon(Icons.location_on_rounded,
-                                  size: 12, color: AppColors.onImage),
+                                  size: 13, color: AppColors.onImage),
                               const SizedBox(width: 3),
                               Expanded(
                                 child: Text(
@@ -214,8 +215,11 @@ class _WideCard extends StatelessWidget {
 
             // Footer: fixed single row, so the card height stays predictable
             // inside the carousel whatever the ground has filled in.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: colors.border)),
+              ),
               child: Row(
                 children: [
                   _PriceLabel(ground: ground),
@@ -223,7 +227,8 @@ class _WideCard extends StatelessWidget {
                   // What is left today matters more than the amenity icons when
                   // the day is nearly gone, so it takes the slot when present.
                   if (ground.slotsLeftLabel != null)
-                    Flexible(child: _SlotsLeftLabel(ground: ground))
+                    Flexible(
+                        child: _SlotsLeftLabel(ground: ground, compact: true))
                   else if (ground.amenities.isNotEmpty)
                     Flexible(
                       child: _AmenityStrip(ground: ground),
@@ -245,12 +250,14 @@ class _HorizontalCard extends StatelessWidget {
   final double? distanceKm;
   final bool isFavorite;
   final VoidCallback? onFavoriteToggle;
+  final bool showBookAction;
 
   const _HorizontalCard({
     required this.ground,
     this.distanceKm,
     this.isFavorite = false,
     this.onFavoriteToggle,
+    this.showBookAction = false,
   });
 
   @override
@@ -267,6 +274,7 @@ class _HorizontalCard extends StatelessWidget {
           color: colors.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: colors.border),
+          boxShadow: _cardShadow,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +283,7 @@ class _HorizontalCard extends StatelessWidget {
             // player scans a list for.
             SizedBox(
               width: 104,
-              height: 104,
+              height: 112,
               // clipBehavior: the favourite's 44px hit box deliberately hangs
               // outside the thumbnail; hard-clipping it would swallow taps.
               child: Stack(
@@ -287,15 +295,15 @@ class _HorizontalCard extends StatelessWidget {
                         ? CachedNetworkImage(
                             imageUrl: imageUrl,
                             width: 104,
-                            height: 104,
+                            height: 112,
                             fit: BoxFit.cover,
                             placeholder: (_, __) => _ImagePlaceholder(
-                                width: 104, height: 104, colors: colors),
+                                width: 104, height: 112, colors: colors),
                             errorWidget: (_, __, ___) => _ImagePlaceholder(
-                                width: 104, height: 104, colors: colors),
+                                width: 104, height: 112, colors: colors),
                           )
                         : _ImagePlaceholder(
-                            width: 104, height: 104, colors: colors),
+                            width: 104, height: 112, colors: colors),
                   ),
                   if (distanceKm != null)
                     Positioned(
@@ -322,55 +330,72 @@ class _HorizontalCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      if (ground.sportNames.isNotEmpty)
-                        Flexible(
-                          child: _SportChip(name: ground.sportNames.join(' · ')),
-                        ),
-                      if (ground.avgRating > 0) ...[
-                        const SizedBox(width: 6),
-                        _RatingChip(rating: ground.avgRating),
-                      ],
-                    ],
-                  ),
+                  if (ground.sportNames.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _SportChip(name: ground.sportNames.join(' · ')),
+                    ),
                   const SizedBox(height: 6),
                   Text(
                     ground.name,
                     style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
                       color: colors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if ((ground.city ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_rounded,
-                            size: 12, color: colors.textSecondary),
-                        const SizedBox(width: 3),
+                  const SizedBox(height: 5),
+                  // Rating and what is left today share a line: the two numbers
+                  // a player weighs against each other before tapping.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (ground.avgRating > 0)
                         Flexible(
-                          child: Text(
-                            ground.city!,
-                            style: TextStyle(
-                                fontSize: 12, color: colors.textSecondary),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: _RatingRow(
+                            rating: ground.avgRating,
+                            reviewCount: ground.reviewCount,
+                          ),
+                        )
+                      else if ((ground.city ?? '').isNotEmpty)
+                        Flexible(
+                          child: Row(
+                            children: [
+                              Icon(Icons.location_on_rounded,
+                                  size: 12, color: colors.textSecondary),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  ground.city!,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: colors.textSecondary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                      if (ground.slotsLeftLabel != null) ...[
+                        const SizedBox(width: 8),
+                        Flexible(child: _SlotsLeftLabel(ground: ground)),
                       ],
-                    ),
-                  ],
-                  const SizedBox(height: 8),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      _PriceLabel(ground: ground),
-                      const Spacer(),
-                      if (ground.slotsLeftLabel != null)
-                        Flexible(child: _SlotsLeftLabel(ground: ground)),
+                      // Expanded, not Flexible: the price keeps the left edge
+                      // and hands the rest of the row to the button, so every
+                      // card's Book Now lands on the same right margin.
+                      Expanded(child: _PriceLabel(ground: ground)),
+                      if (showBookAction) ...[
+                        const SizedBox(width: 8),
+                        _BookButton(ground: ground),
+                      ],
                     ],
                   ),
                 ],
@@ -384,6 +409,17 @@ class _HorizontalCard extends StatelessWidget {
 }
 
 // ── Shared pieces ────────────────────────────────────────────────────────────
+
+/// The lift under every venue card. Invisible on the dark theme, where
+/// [AppColors.dark.border] is what separates a card from the background — which
+/// is why both are set, not one or the other.
+final List<BoxShadow> _cardShadow = [
+  BoxShadow(
+    color: Colors.black.withValues(alpha: 0.06),
+    blurRadius: 12,
+    offset: const Offset(0, 3),
+  ),
+];
 
 /// "Chennai · 3.2 km" — whichever halves we actually have.
 String? _placeLabel(GroundModel ground, double? distanceKm) {
@@ -438,23 +474,135 @@ class _PriceLabel extends StatelessWidget {
   }
 }
 
-/// The sport label on a list card. A tinted chip rather than grey micro-caps —
-/// the old treatment was the least readable thing on the card.
+/// Every sport the venue offers, on the photo, filled with the first one's
+/// colour. A venue is scanned for its sport before its name, and a solid pill
+/// is legible over a bright photo where a translucent one is not.
+class _SportPill extends StatelessWidget {
+  final List<String> sports;
+  const _SportPill({required this.sports});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.sportTint(sports.first),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        sports.map((n) => n.toUpperCase()).join(' \u00b7 '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        // Small and tight on purpose: a venue offering two sports has to fit
+        // both names beside the favourite button on a 390pt phone.
+        style: const TextStyle(
+          color: AppColors.onImage,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+/// "4.6 (128 reviews)" — the star is amber so the rating reads on a white
+/// card, and the count is what tells the user whether to trust the number.
+class _RatingRow extends StatelessWidget {
+  final double rating;
+  final int reviewCount;
+
+  const _RatingRow({required this.rating, required this.reviewCount});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Semantics(
+      label: reviewCount > 0
+          ? 'Rated ${rating.toStringAsFixed(1)} out of 5 from $reviewCount reviews'
+          : 'Rated ${rating.toStringAsFixed(1)} out of 5',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 15, color: AppColors.rating),
+          const SizedBox(width: 3),
+          Text(
+            rating.toStringAsFixed(1),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: colors.textPrimary,
+            ),
+          ),
+          if (reviewCount > 0) ...[
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                reviewCount == 1 ? '(1 review)' : '($reviewCount reviews)',
+                style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The list card's call to action. It lands on the venue, which is where slots
+/// and the date live — the button is a shortcut into booking, not a booking.
+class _BookButton extends StatelessWidget {
+  final GroundModel ground;
+  const _BookButton({required this.ground});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: TextButton(
+        onPressed: () => context.push('/grounds/${ground.id}'),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(104, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: const Text(
+          'Book Now',
+          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
 /// "4 of 14 left today", or "Full today" when nothing is bookable.
 ///
 /// Same wording as the venues list, so a ground reads identically wherever it
 /// is shown. Colour is paired with the words, never used on its own.
 class _SlotsLeftLabel extends StatelessWidget {
   final GroundModel ground;
-  const _SlotsLeftLabel({required this.ground});
+
+  /// Drops "today" — the featured card's footer is half a screen wide and the
+  /// full sentence was ellipsing to "18 of 18 le…", which says nothing.
+  final bool compact;
+
+  const _SlotsLeftLabel({required this.ground, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final full = ground.isFullyBookedToday;
     final label = full
-        ? 'Full today'
-        : (ground.slotsLeftLabel ?? '').replaceAll(' slots left', ' left');
+        ? (compact ? 'Full' : 'Full today')
+        : (ground.slotsLeftLabel ?? '')
+            .replaceAll(' slots left today', compact ? ' left' : ' left today');
 
     return Text(
       label,
@@ -464,7 +612,7 @@ class _SlotsLeftLabel extends StatelessWidget {
       style: TextStyle(
         fontSize: 11.5,
         fontWeight: FontWeight.w700,
-        color: full ? colors.textSecondary : AppColors.primary,
+        color: full ? colors.textSecondary : colors.successText,
       ),
     );
   }
@@ -478,54 +626,21 @@ class _SportChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(6),
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         name.toUpperCase(),
         style: TextStyle(
-          fontSize: 9,
+          fontSize: 9.5,
           color: colors.brandText,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.7,
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
-/// Rating on a card surface: amber star + the number, never colour alone.
-class _RatingChip extends StatelessWidget {
-  final double rating;
-  const _RatingChip({required this.rating});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: colors.input,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star_rounded, size: 11, color: AppColors.rating),
-          const SizedBox(width: 2),
-          Text(
-            rating.toStringAsFixed(1),
-            style: TextStyle(
-              fontSize: 10,
-              color: colors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -647,7 +762,7 @@ class _AmenityStrip extends StatelessWidget {
 /// Favourite toggle with a 44x44 hit area and a small visual circle, as the
 /// touch-target rule requires. Shared by both card layouts.
 class _FavoriteButton extends StatelessWidget {
-  static const double _visualSize = 30;
+  static const double _visualSize = 26;
 
   final bool isFavorite;
   final VoidCallback onTap;
@@ -665,18 +780,23 @@ class _FavoriteButton extends StatelessWidget {
         child: SizedBox(
           width: 44,
           height: 44,
+          // A drop shadow rather than a scrim disc: the disc read as a button
+          // the user could not name, and the heart is legible over a bright
+          // photo as long as it carries its own shadow.
           child: Center(
-            child: Container(
+            child: SizedBox(
               width: _visualSize,
               height: _visualSize,
-              decoration: const BoxDecoration(
-                color: AppColors.imageScrim,
-                shape: BoxShape.circle,
-              ),
               child: Icon(
                 isFavorite ? Icons.favorite : Icons.favorite_border,
-                size: 16,
+                size: _visualSize,
                 color: isFavorite ? AppColors.error : AppColors.onImage,
+                shadows: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 6,
+                  ),
+                ],
               ),
             ),
           ),

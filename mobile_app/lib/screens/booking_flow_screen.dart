@@ -330,7 +330,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
           'name': user?.name ?? '',
         },
         'theme': {
-          'color': '#00D261',
+          'color': AppColors.primaryHex,
         },
         'modal': {
           'confirm_close': true,

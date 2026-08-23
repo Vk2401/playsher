@@ -75,7 +75,7 @@ class CoachDetailScreen extends ConsumerWidget {
                               ),
                               child: const Text('PRO COACH',
                                   style: TextStyle(
-                                      color: AppColors.onPrimary,
+                                      color: AppColors.onAccent,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 1)),

@@ -48,7 +48,7 @@ void main() {
     await tester.pumpWidget(shellApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('GAMES'));
+    await tester.tap(find.text('Games'));
     await tester.pumpAndSettle();
     expect(find.text('tab:games'), findsOneWidget);
 
@@ -72,7 +72,7 @@ void main() {
     await tester.pumpWidget(shellApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('PROFILE'));
+    await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     await systemBack(tester);
 

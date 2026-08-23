@@ -9,15 +9,18 @@ import '../models/ground_model.dart';
 import '../models/sport_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/city_provider.dart';
+import '../providers/favorites_provider.dart';
 import '../providers/grounds_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../widgets/animated_list_item.dart';
 import '../widgets/ground_card.dart';
+import '../widgets/home_header.dart';
 import '../widgets/section_header.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/sport_glyph.dart';
 import '../widgets/error_view.dart';
+import '../widgets/why_book_strip.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -29,7 +32,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   // A peeking viewport: the sliver of the next card is what tells the user the
   // row scrolls at all.
-  final _pageCtrl = PageController(viewportFraction: 0.87);
+  final _pageCtrl = PageController(viewportFraction: 0.62);
   int? _selectedSportId;
 
   @override
@@ -74,6 +77,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final grounds = ref.watch(groundsProvider(_filter));
     final unread = ref.watch(unreadNotificationCountProvider);
     final me = ref.watch(userLocationProvider);
+    // Watched, not read: the heart on a featured card has to repaint when the
+    // toggle lands. The notifier below is what answers "is this one saved".
+    ref.watch(favoritesProvider);
+    final favorites = ref.read(favoritesProvider.notifier);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -90,103 +97,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         },
         child: CustomScrollView(
           slivers: [
-            // ── Header ──────────────────────────────────────────────────────
+            // ── Hero header ─────────────────────────────────────────────────
+            // The backdrop is the first venue's own photo. Before the list
+            // resolves the header is the gradient alone, which is why nothing
+            // here waits on `grounds`.
             SliverToBoxAdapter(
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    _greeting(auth.user?.name),
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w700,
-                                      color: colors.textPrimary,
-                                      height: 1.15,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const _Wave(),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            _LocationChip(
-                              label: city ?? auth.user?.city ?? 'Set your city',
-                              resolving: me.resolving,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _NotificationBell(unread: unread),
-                      const SizedBox(width: 4),
-                      _ProfileAvatar(initials: auth.user?.initials ?? '?'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Search Bar ───────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Semantics(
-                  label: 'Search grounds and sports',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: () => context.go('/venues'),
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      height: 50,
-                      padding: const EdgeInsets.fromLTRB(16, 0, 6, 0),
-                      decoration: BoxDecoration(
-                        color: colors.input,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: colors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search_rounded,
-                              color: colors.textSecondary, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Search grounds, sports…',
-                              style: TextStyle(
-                                  fontSize: 14, color: colors.textSecondary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(Icons.tune_rounded,
-                                size: 18, color: colors.brandText),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+              child: HomeHeader(
+                greeting: _greeting(auth.user?.name),
+                city: city ?? auth.user?.city ?? 'Set your city',
+                resolvingCity: me.resolving,
+                unreadCount: unread,
+                initials: auth.user?.initials ?? '?',
+                backdropUrl: grounds.valueOrNull
+                    ?.map((g) => g.primaryImageUrl)
+                    .firstWhere((url) => url != null, orElse: () => null),
               ),
             ),
 
@@ -216,6 +140,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
+            // The offer strip (widgets/promo_banner.dart) belongs here, and is
+            // deliberately not mounted: the coupons endpoint is still a stub,
+            // so the only thing it could advertise is hard-coded copy. Put it
+            // back when there is a real coupon to name.
+
             // ── Featured carousel ────────────────────────────────────────────
             SliverToBoxAdapter(
               child: grounds.when(
@@ -224,7 +153,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     const Padding(
                       padding: EdgeInsets.fromLTRB(0, 24, 0, 14),
-                      child: SectionHeader(title: 'Featured'),
+                      child: SectionHeader(
+                        title: 'Featured Venues',
+                        leading: Text('\u{1F525}', style: TextStyle(fontSize: 18)),
+                      ),
                     ),
                     SizedBox(
                       height: _carouselHeight(context),
@@ -234,7 +166,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         children: [
                           SizedBox(width: 20),
                           Expanded(child: FeaturedCardShimmer()),
-                          SizedBox(width: 56),
+                          SizedBox(width: 10),
+                          Expanded(child: FeaturedCardShimmer()),
+                          SizedBox(width: 40),
                         ],
                       ),
                     ),
@@ -249,9 +183,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(0, 24, 0, 14),
-                        child: SectionHeader(title: 'Featured'),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 24, 0, 14),
+                        child: SectionHeader(
+                          title: 'Featured Venues',
+                          leading: const Text('\u{1F525}',
+                              style: TextStyle(fontSize: 18)),
+                          actionText: 'See all',
+                          onAction: () => context.go('/venues'),
+                        ),
                       ),
                       SizedBox(
                         // Sized off the current text scale so the card's
@@ -263,8 +203,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           padEnds: false,
                           itemCount: featured.length,
                           itemBuilder: (_, i) => Padding(
-                            padding: EdgeInsets.fromLTRB(i == 0 ? 20 : 0, 0, 10, 0),
-                            child: GroundCard(ground: featured[i], wide: true),
+                            padding:
+                                EdgeInsets.fromLTRB(i == 0 ? 20 : 0, 0, 10, 0),
+                            child: GroundCard(
+                              ground: featured[i],
+                              wide: true,
+                              isFavorite: favorites.isFavorite(featured[i].id),
+                              onFavoriteToggle: () =>
+                                  favorites.toggle(featured[i].id),
+                            ),
                           ),
                         ),
                       ),
@@ -288,12 +235,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-            // ── Recommended ─────────────────────────────────────────────────
+            // ── Nearest to you ──────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 28, 0, 14),
+                padding: const EdgeInsets.fromLTRB(0, 26, 0, 14),
                 child: SectionHeader(
                   title: me.hasFix ? 'Nearest to you' : 'Recommended for you',
+                  leading: Icon(
+                    me.hasFix ? Icons.my_location_rounded : Icons.explore_outlined,
+                    size: 19,
+                    color: colors.textPrimary,
+                  ),
                   actionText: 'See all',
                   onAction: () => context.go('/venues'),
                 ),
@@ -323,7 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 }
                 final ordered = _byDistance(list, me);
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       // The stagger sits on the list that mounts with the
@@ -334,13 +286,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         delay: const Duration(milliseconds: 40),
                         duration: const Duration(milliseconds: 220),
                         slideOffset: 16,
-                        child: GroundCard(ground: ordered[i]),
+                        child: GroundCard(
+                          ground: ordered[i],
+                          showBookAction: true,
+                        ),
                       ),
                       childCount: ordered.length,
                     ),
                   ),
                 );
               },
+            ),
+
+            // ── Why book with us ────────────────────────────────────────────
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
+                child: WhyBookStrip(),
+              ),
             ),
           ],
         ),
@@ -354,7 +317,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   double _carouselHeight(BuildContext context) {
     final scale =
         MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.4).scale(1);
-    return 236 * scale;
+    return 202 * scale;
   }
 }
 
@@ -367,174 +330,6 @@ String _greeting(String? name) {
           : 'Good evening';
   final first = (name ?? '').trim().split(' ').first;
   return first.isEmpty ? part : '$part, $first';
-}
-
-// ── Header pieces ───────────────────────────────────────────────────────────
-
-/// The city, as a control rather than a label — tapping it goes to the
-/// location screen, which is the only way to change it.
-class _LocationChip extends StatelessWidget {
-  final String label;
-  final bool resolving;
-
-  const _LocationChip({required this.label, required this.resolving});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Semantics(
-      label: 'Your location, $label. Change it.',
-      button: true,
-      excludeSemantics: true,
-      child: GestureDetector(
-        onTap: () => context.push('/location'),
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              const Icon(Icons.location_on_rounded,
-                  size: 16, color: AppColors.primary),
-              const SizedBox(width: 3),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: colors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 2),
-              if (resolving)
-                SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 1.6, color: colors.textSecondary),
-                )
-              else
-                Icon(Icons.keyboard_arrow_down_rounded,
-                    size: 18, color: colors.textSecondary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationBell extends StatelessWidget {
-  final int unread;
-  const _NotificationBell({required this.unread});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Semantics(
-      label: unread > 0 ? 'Notifications, $unread unread' : 'Notifications',
-      button: true,
-      child: GestureDetector(
-        onTap: () => context.push('/notifications'),
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            const SizedBox(width: 44, height: 44),
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: colors.input,
-                shape: BoxShape.circle,
-                border: Border.all(color: colors.border),
-              ),
-              child: Icon(
-                Icons.notifications_outlined,
-                size: 20,
-                color: colors.textSecondary,
-              ),
-            ),
-            if (unread > 0)
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  constraints:
-                      const BoxConstraints(minWidth: 16, minHeight: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.error,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.background, width: 1.5),
-                  ),
-                  child: Center(
-                    child: Text(
-                      unread > 9 ? '9+' : '$unread',
-                      style: const TextStyle(
-                        color: AppColors.onImage,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  final String initials;
-  const _ProfileAvatar({required this.initials});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Your profile',
-      button: true,
-      child: GestureDetector(
-        onTap: () => context.go('/profile'),
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.4),
-                  width: 1.5,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: context.colors.brandText,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // ── Location nudge ──────────────────────────────────────────────────────────
@@ -695,7 +490,7 @@ class _NoGrounds extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(40, 24, 40, 40),
+      padding: const EdgeInsets.fromLTRB(40, 24, 40, 24),
       child: Column(
         children: [
           Icon(Icons.search_off_rounded, size: 48, color: colors.textSecondary),
@@ -725,7 +520,7 @@ class _NoGrounds extends StatelessWidget {
   }
 }
 
-// ── Categories row ──────────────────────────────────────────────────────────────
+// ── Categories row ──────────────────────────────────────────────────────────
 
 class _CategoriesRow extends StatelessWidget {
   final List<SportModel> sports;
@@ -769,39 +564,63 @@ class _CategoriesRow extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
-                width: 80,
+                width: 82,
                 margin: const EdgeInsets.only(right: 10),
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? AppColors.primary.withValues(alpha: 0.12)
-                      : colors.input,
-                  borderRadius: BorderRadius.circular(16),
+                  // A white tile in both states — the selection is carried by
+                  // the ring and the disc behind the glyph, so the strip does
+                  // not turn into five competing fills.
+                  color: colors.card,
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isActive ? AppColors.primary : colors.border,
-                    width: isActive ? 1.5 : 1,
+                    width: isActive ? 1.6 : 1,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    sport == null
-                        ? const ExcludeSemantics(
-                            child: Text('\u{1F3C5}',
-                                style: TextStyle(fontSize: 28)))
-                        : SportGlyph(name: sport.name, imageUrl: sport.image),
-                    const SizedBox(height: 6),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? AppColors.primary.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      // "All" is the one tile with no sport to draw, so it
+                      // gets the brand's own ball rather than a stray emoji.
+                      child: sport == null
+                          ? Icon(Icons.sports_soccer_rounded,
+                              size: 27,
+                              color: isActive
+                                  ? colors.brandText
+                                  : colors.textSecondary)
+                          : SportGlyph(
+                              name: sport.name, imageUrl: sport.image),
+                    ),
+                    const SizedBox(height: 4),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Text(
                         label,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          // The neon primary is a fill, not an ink: as label
-                          // text on the light theme it washes out.
+                          // The brand blue is a fill, not an ink: as label
+                          // text on the light theme it needs the ink variant.
                           color: isActive
                               ? colors.brandText
-                              : colors.textSecondary,
+                              : colors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -814,68 +633,6 @@ class _CategoriesRow extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// A hand that waves once when the header appears.
-///
-/// The wave used to be appended to the greeting string, but only when the user
-/// had no name — so the people it was meant to greet never saw it.
-///
-/// Motion is a single 900ms gesture on mount rather than a loop: an emoji
-/// waving forever in the corner of every screen is noise, and looping motion
-/// is what makes an interface feel restless.
-class _Wave extends StatefulWidget {
-  const _Wave();
-
-  @override
-  State<_Wave> createState() => _WaveState();
-}
-
-class _WaveState extends State<_Wave> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _turns;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    // Two waves out and back, easing to rest rather than snapping.
-    _turns = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.06), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 0.06, end: -0.04), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -0.04, end: 0.05), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 0.05, end: 0.0), weight: 1),
-    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-
-    // Respect a viewer who has asked the system for less motion: the hand is
-    // still there, it simply does not move.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return;
-      _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: RotationTransition(
-        turns: _turns,
-        // Rotate about the wrist, not the middle of the glyph.
-        alignment: Alignment.bottomLeft,
-        child: const Text('\u{1F44B}', style: TextStyle(fontSize: 17)),
       ),
     );
   }

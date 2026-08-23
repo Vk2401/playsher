@@ -24,7 +24,7 @@ class AppTheme {
       primary: AppColors.primary,
       onPrimary: AppColors.onPrimary,
       secondary: AppColors.accent,
-      onSecondary: AppColors.onPrimary,
+      onSecondary: AppColors.onAccent,
       error: AppColors.error,
       onError: Colors.white,
       surface: c.card,
@@ -77,7 +77,7 @@ class AppTheme {
 
       chipTheme: ChipThemeData(
         backgroundColor: c.input,
-        selectedColor: const Color(0x3300D261),
+        selectedColor: AppColors.primarySelected,
         labelStyle: TextStyle(fontSize: 13, color: c.textPrimary),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -149,18 +149,20 @@ class AppTheme {
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: const Color(0x1A00D261),
+        // No pill behind the selected destination: the filled-vs-outlined icon
+        // and the brand-coloured label already carry the state, and the pill
+        // was the one heavy shape in an otherwise flat bar. State is still
+        // legible without colour, because the icon itself changes.
+        indicatorColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
               color: AppColors.primary,
-              letterSpacing: 0.8,
             );
           }
-          return TextStyle(
-              fontSize: 10, color: c.textSecondary, letterSpacing: 0.8);
+          return TextStyle(fontSize: 11.5, color: c.textSecondary);
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
