@@ -55,6 +55,10 @@ class AppColors {
   static String get primaryHex =>
       '#${(primary.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
+  /// [primary] lifted, for the top-left end of a brand gradient — the login
+  /// screen's Send OTP button. A flat fill reads as a slab at that size.
+  static const Color primaryLift = Color(0xFF2E7FE0);
+
   /// Foreground that sits on a [primary] fill. White — [primary] is a deep
   /// blue at 6.02:1 against white and only 3.49:1 against black, so black
   /// labels on a primary button fail AA. [accent] is still a light neon and
@@ -92,6 +96,32 @@ class AppColors {
   /// photo scrim; it disappears against a white card, so ratings in a list use
   /// this amber instead.
   static const Color rating = Color(0xFFFFB300);
+
+  // ── Sports equipment ──────────────────────────────────────────────────────
+  // The decorative props scattered behind the login page. Theme-independent on
+  // purpose: a cricket ball is red in the dark too. `SportProp` dims the whole
+  // scatter on the dark page rather than recolouring any of these.
+
+  /// A basketball: the leather, and the seams pressed into it.
+  static const Color propBasketball = Color(0xFFD9722B);
+  static const Color propBasketballLine = Color(0xFF3D2313);
+
+  /// A cricket ball: the lacquered leather, and the stitched seam.
+  static const Color propCricket = Color(0xFF9E1F26);
+  static const Color propCricketSeam = Color(0xFFF2E7D0);
+
+  /// A tennis ball, and the felt seam curving round it.
+  static const Color propTennis = Color(0xFFC6DE4A);
+  static const Color propTennisSeam = Color(0xFFFAFDF0);
+
+  /// A volleyball's panels.
+  static const Color propVolley = Color(0xFFF4F6F9);
+  static const Color propVolleyPanel = Color(0xFF2F6FB8);
+
+  /// A cricket bat: the willow blade, its edge, and the rubber grip.
+  static const Color propWillow = Color(0xFFE3C089);
+  static const Color propWillowEdge = Color(0xFFC29B60);
+  static const Color propGrip = Color(0xFF23303F);
 
   // ── Semantic status tokens ────────────────────────────────────────────────
   // Deliberately theme-independent: a "pending" badge must read the same in

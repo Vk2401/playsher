@@ -136,3 +136,44 @@ jobs:
         with:
           files: artifacts/*.apk
           generate_release_notes: true
+
+  latest:
+    name: Publish as the "latest" release
+    # Every push to main overwrites one rolling release, so the download URL
+    # never changes: .../releases/download/latest/playsher-latest.apk
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      # The artifact name carries the commit and build number; the release asset
+      # must keep one fixed name or the shareable URL breaks on every build.
+      - name: Use a fixed asset name
+        run: |
+          set -euo pipefail
+          src="$(find artifacts -name '*.apk' | head -1)"
+          test -n "$src" || { echo "::error::no APK downloaded"; exit 1; }
+          mv "$src" artifacts/playsher-latest.apk
+
+      - name: Move the "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          body: |
+            Automatic build of `main` — always the newest APK.
+
+            **Download:** [playsher-latest.apk](https://github.com/${{ github.repository }}/releases/download/latest/playsher-latest.apk)
+
+            Commit `${{ github.sha }}` · build ${{ github.run_number }} · debug-signed (testing only)
+          files: artifacts/playsher-latest.apk
+          prerelease: true
+          make_latest: false
