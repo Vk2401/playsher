@@ -419,9 +419,10 @@ class _NumberField extends StatelessWidget {
                   color: frame.ink,
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(Icons.keyboard_arrow_down_rounded,
-                  size: 20, color: frame.body),
+              // No chevron: +91 is the only dialling code the app accepts
+              // (the validator takes an Indian mobile and the controller
+              // prefixes +91), so a disclosure arrow would advertise a
+              // country picker that isn't there.
               const SizedBox(width: 14),
               Container(width: 1, height: 26, color: colors.border),
             ],
