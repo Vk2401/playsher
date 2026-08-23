@@ -122,7 +122,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final frame = context.frame;
     final size = MediaQuery.of(context).size;
 
@@ -168,39 +167,88 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           ),
         ),
 
-        // Verify auto-fires on the last digit, with the keyboard covering most
-        // of the screen — the wait has to be visible where the user is
+        // Verify auto-fires on the last digit, with the keyboard covering
+        // most of the screen — the wait has to be visible where the user is
         // actually looking, so it is a full-screen overlay, not a spinner
         // tucked into a button.
-        if (_verifying)
-          Positioned.fill(
-            child: ColoredBox(
-              color: colors.background.withValues(alpha: 0.86),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 3, color: AppColors.primary),
+        if (_verifying) const _VerifyingOverlay(),
+      ],
+    );
+  }
+}
+
+/// The wait between the sixth digit and the next screen.
+///
+/// A card on a dimmed page, not a wash over it: the previous version tinted
+/// the whole screen with the page colour at 86%, which on a light theme left
+/// the form perfectly legible and merely faded — it read as the screen having
+/// broken rather than as work in progress.
+///
+/// It also carries its own [Material]. The overlay sits above the `Scaffold`
+/// so the keyboard cannot resize it, and that puts it outside the Material the
+/// `Scaffold` provides — text with no Material ancestor renders in Flutter's
+/// debug face, yellow underline and all, which is exactly what it did.
+class _VerifyingOverlay extends StatelessWidget {
+  const _VerifyingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final frame = context.frame;
+
+    return Positioned.fill(
+      child: Material(
+        // A scrim over an arbitrary page is the one place a literal black is
+        // right: it has to darken both themes by the same amount. The filled
+        // Material also swallows every tap, which is what makes the wait
+        // non-cancelable.
+        color: Colors.black.withValues(alpha: 0.45),
+        child: Semantics(
+          liveRegion: true,
+          label: 'Verifying your code',
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+              decoration: BoxDecoration(
+                color: colors.card,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.brandInk.withValues(alpha: 0.28),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 3.2, color: AppColors.primary),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Verifying your code',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: frame.ink,
                     ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Verifying your code…',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'This only takes a moment',
+                    style: TextStyle(fontSize: 13.5, color: frame.body),
+                  ),
+                ],
               ),
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }
@@ -593,8 +641,8 @@ class _VerifyButton extends StatelessWidget {
                       'Verify & Continue',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                          fontSize: 16.5, fontWeight: FontWeight.w700),
                     ),
                   ),
                   SizedBox(width: 10),
