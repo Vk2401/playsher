@@ -59,29 +59,27 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
         statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
         statusBarBrightness: dark ? Brightness.dark : Brightness.light,
       ),
-      child: Scaffold(
-        backgroundColor: frame.page,
-        body: Stack(
-          children: [
-            // Behind the content, not over it: the kit fills the corners the
-            // cards leave and is covered wherever they reach it.
-            //
-            // Pinned to the top at the page's full height rather than left to
-            // fill the body, because the body shrinks when the keyboard opens.
-            // The kit therefore keeps painting the corners that are still on
-            // screen and the keyboard simply covers the pieces it overlaps —
-            // the Stack clips the overflow. Dropping it outright, or letting
-            // it re-lay-out against the shorter body, is what made the balls
-            // vanish and the top corner jump the moment the field was tapped.
-            Positioned(
-              top: 0,
-              left: 0,
-              width: size.width,
-              height: size.height,
-              child: _KitScatter(size: size),
-            ),
-
-            SafeArea(
+      // The page is painted in three layers, and the kit sits *outside* the
+      // Scaffold on purpose.
+      //
+      // `resizeToAvoidBottomInset` shrinks the Scaffold's body when the
+      // keyboard opens, and a Stack clips to its own bounds — so decoration
+      // parented to the body gets sliced straight through by the keyboard's
+      // edge, mid-ball, with dead page below it where the rest of the kit
+      // should be. Out here nothing resizes it: the kit is laid out against
+      // the whole screen, every piece keeps the position it was composed at,
+      // and the keyboard simply covers the bottom of it the way it covers any
+      // other pixels. Only the content still needs to move for the keyboard,
+      // and that is exactly what stays inside the Scaffold.
+      child: Stack(
+        children: [
+          Positioned.fill(child: ColoredBox(color: frame.page)),
+          Positioned.fill(child: _KitScatter(size: size)),
+          Scaffold(
+            // The page colour is the layer below; painting it again here
+            // would bury the kit under the Scaffold.
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
               bottom: false,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(14, 8, 14, 32),
@@ -144,8 +142,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
