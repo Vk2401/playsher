@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Native launch screen shown until Flutter draws its first frame. Keep it in
+     step with SplashScreen: the same page colour, the same centred mark, so the
+     handover is invisible. Both follow dark mode through the qualified
+     resources — @color/splash_background (values / values-night) and
+     @drawable/splash_mark (drawable / drawable-night, blue mark on the light
+     page, white on the dark one). Not ?android:colorBackground: that resolved
+     to a black window on a light phone before the first frame. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+    <item android:drawable="@color/splash_background" />
 
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
+    <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+            android:src="@drawable/splash_mark" />
+    </item>
 </layer-list>

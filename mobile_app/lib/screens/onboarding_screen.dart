@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../core/storage.dart';
+import '../widgets/onboarding_page.dart';
 
+/// The three-page introduction, shown once before the first login.
+///
+/// Follows the device theme through [FramePalette], like the splash it hands
+/// over from: a fresh install on a dark phone runs the whole first-launch flow
+/// dark rather than flashing between a light introduction and a dark app.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -14,27 +21,83 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageCtrl = PageController();
   int _page = 0;
 
-  static const _pages = [
-    _OnboardPage(
-      icon: Icons.explore_rounded,
-      title: 'Discover\nNearby Venues',
-      subtitle:
-          'Find the best sports grounds around you \u2014 cricket, football, basketball and more.',
-      bgColor: Color(0xFF001F0F),
+  static const _verified = OnboardingFeature(
+    icon: Icons.verified_user_rounded,
+    title: 'Secure Payments',
+    body: 'Safe and hassle-free transactions.',
+  );
+
+  static const _pages = <OnboardingContent>[
+    OnboardingContent(
+      illustration: 'assets/images/onboarding_book.png',
+      heroIcon: Icons.calendar_month_rounded,
+      title: 'Book Slots',
+      titleAccent: 'Instantly',
+      deck: 'Pick your date, choose available slots and confirm your booking '
+          'in seconds.',
+      features: [
+        OnboardingFeature(
+          icon: Icons.bolt_rounded,
+          title: 'Quick & Easy Booking',
+          body: 'Book your favourite turf in just a few taps.',
+        ),
+        OnboardingFeature(
+          icon: Icons.access_time_rounded,
+          title: 'Real-time Availability',
+          body: 'See live slots and never miss a game.',
+        ),
+        _verified,
+      ],
     ),
-    _OnboardPage(
-      icon: Icons.calendar_month_rounded,
-      title: 'Book Slots\nInstantly',
-      subtitle:
-          'Pick your date, choose available slots and confirm your booking in seconds.',
-      bgColor: Color(0xFF0A1400),
+    OnboardingContent(
+      illustration: 'assets/images/onboarding_discover.png',
+      heroIcon: Icons.location_on_rounded,
+      title: 'Discover',
+      titleAccent: 'Nearby Venues',
+      deck: 'Find the best sports grounds around you — cricket, football, '
+          'basketball and more.',
+      features: [
+        OnboardingFeature(
+          icon: Icons.location_on_rounded,
+          title: 'Nearby Search',
+          body: 'Find the best turfs closest to your location.',
+        ),
+        OnboardingFeature(
+          icon: Icons.sports_soccer_rounded,
+          title: 'Multiple Sports',
+          body: 'Explore venues for all your favourite sports.',
+        ),
+        OnboardingFeature(
+          icon: Icons.verified_user_rounded,
+          title: 'Verified Venues',
+          body: 'Book from trusted and quality venues.',
+        ),
+      ],
     ),
-    _OnboardPage(
-      icon: Icons.group_rounded,
-      title: 'Join Games &\nMeet Players',
-      subtitle:
-          'Join open games in your area, team up with other players and level up your game.',
-      bgColor: Color(0xFF1A1400),
+    OnboardingContent(
+      illustration: 'assets/images/onboarding_join.png',
+      heroIcon: Icons.groups_rounded,
+      title: 'Join Games &',
+      titleAccent: 'Meet Players',
+      deck: 'Join open games in your area, team up with other players and '
+          'level up your game.',
+      features: [
+        OnboardingFeature(
+          icon: Icons.groups_rounded,
+          title: 'Join Open Games',
+          body: 'Find and join open games near you instantly.',
+        ),
+        OnboardingFeature(
+          icon: Icons.people_alt_rounded,
+          title: 'Meet Players',
+          body: 'Connect with players who share your passion.',
+        ),
+        OnboardingFeature(
+          icon: Icons.trending_up_rounded,
+          title: 'Level Up Your Game',
+          body: 'Play more, improve skills and have fun!',
+        ),
+      ],
     ),
   ];
 
@@ -63,189 +126,119 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final isLast = _page == _pages.length - 1;
+    final frame = context.frame;
+    final dark = context.isDark;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageCtrl,
-            itemCount: _pages.length,
-            onPageChanged: (i) => setState(() => _page = i),
-            itemBuilder: (_, i) => _OnboardPageView(page: _pages[i]),
-          ),
-          if (!isLast)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 12,
-              right: 20,
-              child: TextButton(
-                onPressed: _finish,
-                child: const Text(
-                  'Skip',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: frame.page,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8, top: 4),
+                  child: TextButton(
+                    onPressed: _finish,
+                    child: Text(
+                      'Skip',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: context.colors.brandText,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 40,
-            left: 32,
-            right: 32,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(_pages.length, (i) {
-                    final active = i == _page;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: active ? 24 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: active
-                            ? AppColors.accent
-                            : Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    );
-                  }),
+
+              // Only the page content slides; the dots and the button below are
+              // the same control on all three pages and hold still.
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageCtrl,
+                  itemCount: _pages.length,
+                  onPageChanged: (i) => setState(() => _page = i),
+                  itemBuilder: (_, i) => OnboardingPage(content: _pages[i]),
                 ),
-                const SizedBox(height: 36),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _next,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+              ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(_pages.length, (i) {
+                        final active = i == _page;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOut,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: active ? 26 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: active
+                                ? context.colors.brandText
+                                : frame.dot,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _next,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              isLast ? 'Get Started' : 'Next',
+                              style: const TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.arrow_forward_rounded, size: 20),
+                          ],
+                        ),
                       ),
                     ),
-                    child: Text(isLast ? 'Get Started' : 'Next'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OnboardPage {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color bgColor;
-
-  const _OnboardPage({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.bgColor,
-  });
-}
-
-class _OnboardPageView extends StatelessWidget {
-  final _OnboardPage page;
-  const _OnboardPageView({required this.page});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [page.bgColor, Colors.black],
-        ),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -0.6),
-                  radius: 0.8,
-                  colors: [
-                    AppColors.primary.withValues(alpha: 0.15),
-                    Colors.transparent,
+                    TextButton(
+                      onPressed: _finish,
+                      child: Text(
+                        'Skip for now',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: frame.body,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 80),
-                  Center(
-                    child: Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(page.icon,
-                              size: 72, color: AppColors.primary),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 56),
-                  Text(
-                    page.title,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    page.subtitle,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white.withValues(alpha: 0.7),
-                      height: 1.6,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

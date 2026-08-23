@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The splash frame's page colour. Fixed, not dark-mode aware: the Flutter
+         SplashScreen is one designed light frame, so the native launch screen
+         must be light too or the handover flashes black.
+         Keep in step with AppColors.splashSkyTop. -->
+    <color name="splash_background">#FFF7FAFD</color>
+</resources>

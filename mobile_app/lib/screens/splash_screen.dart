@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
-import '../core/constants.dart';
 import '../core/storage.dart';
 import '../providers/app_version_provider.dart';
+import '../widgets/playsher_logo.dart';
+import '../widgets/splash_stage.dart';
 
+/// The first frame of the app: the lockup standing in a floodlit stadium.
+///
+/// Follows the device theme, so a fresh install on a dark phone opens at the
+/// ground at night rather than on a white screen. See [SplashStage].
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -64,64 +70,93 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
+    final frame = context.frame;
+    final dark = context.isDark;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: FadeTransition(
-        opacity: _fade,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ScaleTransition(
-                scale: _scale,
-                child: Container(
-                  width: 110,
-                  height: 110,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: frame.page,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final h = constraints.maxHeight;
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                const SplashStage(),
+
+                // One entrance for the screen: the lockup fades up while the
+                // stadium is already in place behind it.
+                FadeTransition(
+                  opacity: _fade,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Positioned(
+                        top: h * 0.26,
+                        left: 0,
+                        right: 0,
+                        child: Column(
+                          children: [
+                            ScaleTransition(
+                              scale: _scale,
+                              child: const PlaysherLogo.tile(size: 112),
+                            ),
+                            const SizedBox(height: 26),
+
+                            // The wordmark is a very wide shape (10.8:1), so it
+                            // is sized by the width it may occupy — not by a
+                            // height, which ran it off both edges of the phone.
+                            SizedBox(
+                              width: constraints.maxWidth * 0.58,
+                              child: FittedBox(
+                                child: PlaysherLogo.wordmark(
+                                  size: 40,
+                                  tone: dark
+                                      ? PlaysherTone.white
+                                      : PlaysherTone.navy,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              'Book · Play · Win',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                // brandText, not primary: the deep brand blue
+                                // is only 3.5:1 on the night sky.
+                                color: context.colors.brandText,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // The bar sits low on the turf, clear of the centre
+                      // circle above it and of the gesture bar below.
+                      Positioned(
+                        top: h * 0.86,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: SplashProgress(
+                            width: constraints.maxWidth * 0.38,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.sports_soccer,
-                      size: 60, color: AppColors.primary),
                 ),
-              ),
-              const SizedBox(height: 28),
-              Text(
-                AppConstants.appName,
-                style: TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w800,
-                  color: colors.textPrimary,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Book \u00b7 Play \u00b7 Win',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.primary,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 80),
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(colors.textPrimary),
-                ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
       ),
     );

@@ -68,6 +68,11 @@ class AppColors {
   /// far too light for white text.
   static const Color onAccent = Color(0xFF000000);
 
+  /// The deep navy the brand sheet sets the wordmark in, on a light surface.
+  /// Darker than [primary] on purpose: in the lockup the mark carries the blue,
+  /// and a second [primary] beside it flattens the two into one shape.
+  static const Color brandInk = Color(0xFF0B2A5B);
+
   /// The brand blue over an [imageScrim] or a dark hero. [primary] is only
   /// 3.49:1 on black, so anything brand-coloured on a photo uses this instead.
   static const Color brandOnImage = Color(0xFF5AA9FF);
@@ -157,4 +162,134 @@ class AppColors {
 extension AppColorsExtension on BuildContext {
   AppColors get colors => AppColors.of(this);
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
+}
+
+/// The palette of the two designed frames — the splash stadium and onboarding.
+///
+/// These screens are pictures, not surfaces: a stadium under a floodlit sky,
+/// and an illustrated introduction. [AppColors]'s surface tokens describe a
+/// card and its border, which is the wrong vocabulary for a horizon, so the
+/// frames carry their own set — but they still come in a light and a dark
+/// version, because a fresh install follows the device's theme and a light
+/// stadium on a dark phone is the seam the whole flow is meant to avoid.
+class FramePalette {
+  const FramePalette._({
+    required this.page,
+    required this.skyMid,
+    required this.skyHaze,
+    required this.ray,
+    required this.standLight,
+    required this.standDeep,
+    required this.skyline,
+    required this.lamp,
+    required this.glow,
+    required this.turfFar,
+    required this.turfMid,
+    required this.turfNear,
+    required this.turfStripe,
+    required this.line,
+    required this.track,
+    required this.ink,
+    required this.body,
+    required this.tile,
+    required this.dot,
+  });
+
+  /// The page the frame sits on, and the top of the sky.
+  final Color page;
+
+  /// The sky, from [page] down to the stand.
+  final Color skyMid;
+  final Color skyHaze;
+
+  /// The light sweeping in from the corners.
+  final Color ray;
+
+  /// The far stand, and the skyline behind it.
+  final Color standLight;
+  final Color standDeep;
+  final Color skyline;
+
+  /// The floodlight banks: the lamps, and the glow around them.
+  final Color lamp;
+  final Color glow;
+
+  /// The turf, from the halfway line towards the camera.
+  final Color turfFar;
+  final Color turfMid;
+  final Color turfNear;
+
+  /// The mown stripes, and the painted lines over them.
+  final Color turfStripe;
+  final Color line;
+
+  /// The loader's unlit track.
+  final Color track;
+
+  /// A headline on [page] — the onboarding title, the splash wordmark.
+  final Color ink;
+
+  /// Body copy on [page]: the deck, and a feature row's second line.
+  final Color body;
+
+  /// The pale tile a feature row's icon sits in.
+  final Color tile;
+
+  /// An unvisited page dot.
+  final Color dot;
+
+  static const light = FramePalette._(
+    page: Color(0xFFF7FAFD),
+    skyMid: Color(0xFFE8F2FC),
+    skyHaze: Color(0xFFC7E0F7),
+    ray: Color(0x38FFFFFF),
+    standLight: Color(0xFF6CADEB),
+    standDeep: Color(0xFF1F6DC7),
+    skyline: Color(0x2E0A3F73),
+    lamp: Color(0xFFFFFFFF),
+    glow: Color(0x66FFFFFF),
+    turfFar: Color(0xFFA8DC72),
+    turfMid: Color(0xFF7CC94F),
+    turfNear: Color(0xFF9AD86A),
+    turfStripe: Color(0x1F1E5B18),
+    line: Color(0x99FFFFFF),
+    track: Color(0x99FFFFFF),
+    ink: AppColors.brandInk,
+    body: Color(0xFF4A5A72),
+    tile: Color(0xFFEAF2FD),
+    dot: Color(0xFFC9D6E5),
+  );
+
+  /// Night at the ground: the same stadium under floodlights rather than a
+  /// second design. The turf stays green — it is grass, not a surface — but
+  /// unlit, and the sky goes to the deep navy the stands already sit in.
+  static const dark = FramePalette._(
+    page: Color(0xFF0A121F),
+    skyMid: Color(0xFF0D1B2E),
+    skyHaze: Color(0xFF14304F),
+    ray: Color(0x14FFFFFF),
+    standLight: Color(0xFF1E5590),
+    standDeep: Color(0xFF0A2B50),
+    skyline: Color(0x4D000C1A),
+    lamp: Color(0xFFFFFFFF),
+    glow: Color(0x4DFFFFFF),
+    turfFar: Color(0xFF2F7038),
+    turfMid: Color(0xFF1E5527),
+    turfNear: Color(0xFF2A6631),
+    turfStripe: Color(0x1F000000),
+    line: Color(0x80FFFFFF),
+    track: Color(0x3DFFFFFF),
+    ink: Color(0xFFFFFFFF),
+    body: Color(0xFF9BAFC6),
+    tile: Color(0xFF16253B),
+    dot: Color(0xFF2C3E56),
+  );
+
+  static FramePalette of(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? dark : light;
+}
+
+/// Convenience extension so a frame can write `context.frame.turfMid`.
+extension FramePaletteExtension on BuildContext {
+  FramePalette get frame => FramePalette.of(this);
 }

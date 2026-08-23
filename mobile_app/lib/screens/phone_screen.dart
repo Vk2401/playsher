@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/playsher_logo.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
@@ -57,16 +58,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                 const SizedBox(height: 56),
 
                 // Logo
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(Icons.sports_soccer,
-                      color: AppColors.primary, size: 38),
-                ),
+                const PlaysherLogo.tile(size: 72),
                 const SizedBox(height: 32),
 
                 Text(

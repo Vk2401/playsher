@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The splash frame's page colour with the OS in dark mode.
+         Keep in step with FramePalette.dark.page. -->
+    <color name="splash_background">#FF0A121F</color>
+</resources>

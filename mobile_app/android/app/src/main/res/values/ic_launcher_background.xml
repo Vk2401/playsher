@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Playsher brand blue. Same hex as AppColors.primary in lib/core/app_colors.dart. -->
+    <color name="ic_launcher_background">#0061C2</color>
+</resources>
