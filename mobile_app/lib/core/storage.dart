@@ -98,7 +98,31 @@ class StorageService {
   }
 
   // ── Clear ─────────────────────────────────────────────────────────────────
-  static Future<void> clearAll() => _storage.deleteAll();
+
+  /// The preference keys that belong to the *account*, not the device.
+  ///
+  /// The rest of the prefs — `onboarding_seen`, `theme_mode` — are the phone's
+  /// own settings and survive a logout on purpose: whoever signs in next is
+  /// still using the same handset, and re-running onboarding or resetting
+  /// their theme is not part of switching accounts.
+  static const _accountPrefKeys = <String>[
+    'user_city',
+    'last_latitude',
+    'last_longitude',
+  ];
+
+  /// Erase everything the signed-in account left on the device.
+  ///
+  /// Secure storage holds the tokens and the cached profile; the account's
+  /// city and last known position live in SharedPreferences and used to
+  /// survive a logout, so the next user inherited the previous one's city.
+  static Future<void> clearAll() async {
+    await _storage.deleteAll();
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in _accountPrefKeys) {
+      await prefs.remove(key);
+    }
+  }
 
   static Future<bool> isLoggedIn() async {
     final token = await getAccessToken();

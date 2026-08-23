@@ -20,8 +20,11 @@ class FavoritesNotifier extends StateNotifier<AsyncValue<List<GroundModel>>> {
         final ground = map['ground'] as Map<String, dynamic>? ?? map;
         return GroundModel.fromJson(ground);
       }).toList();
+      // Disposed on logout, and this request may well outlive that.
+      if (!mounted) return;
       state = AsyncValue.data(grounds);
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
@@ -32,6 +35,7 @@ class FavoritesNotifier extends StateNotifier<AsyncValue<List<GroundModel>>> {
 
     // Optimistic update
     if (isFav) {
+      if (!mounted) return;
       state = AsyncValue.data(current.where((g) => g.id != groundId).toList());
     }
 
@@ -45,6 +49,7 @@ class FavoritesNotifier extends StateNotifier<AsyncValue<List<GroundModel>>> {
       await load();
     } catch (_) {
       // Revert on error
+      if (!mounted) return;
       state = AsyncValue.data(current);
     }
   }

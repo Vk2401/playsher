@@ -5,6 +5,7 @@ import '../core/api_client.dart';
 import '../core/api_error.dart';
 import '../core/storage.dart';
 import '../models/user_model.dart';
+import 'session_scope.dart';
 
 class AuthState {
   final UserModel? user;
@@ -24,11 +25,13 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(const AuthState()) {
+  AuthNotifier(this._ref) : super(const AuthState()) {
     // Register 401 callback so interceptor can force logout
     ApiClient.onSessionExpired = _forceLogout;
     _loadUser();
   }
+
+  final Ref _ref;
 
   Future<void> _loadUser() async {
     final token = await StorageService.getAccessToken();
@@ -46,9 +49,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Called by ApiClient interceptor when a 401 is received.
+  ///
+  /// The guard is load-bearing, not tidiness: clearing the caches makes
+  /// whatever is still on screen refetch, those refetches now have no token
+  /// and come back 401, and each one calls this again. Returning early once
+  /// the session is already gone is what stops that from looping.
   void _forceLogout() {
+    if (!state.isAuthenticated) return;
     if (kDebugMode) debugPrint('[Auth] Session expired — forcing logout');
     state = const AuthState();
+    invalidateUserScopedProviders(_ref);
   }
 
   /// Sends OTP. Navigates to OTP screen regardless of API result.
@@ -178,13 +188,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Sign out, and leave nothing of this account behind.
+  ///
+  /// Dropping the tokens is only half of it. Every provider that answered a
+  /// personalised request still holds that answer, so a logout that stops at
+  /// storage lets the next sign-in — with a different number — open onto the
+  /// previous user's name, bookings and favourites. The state is cleared
+  /// before the caches so that any refetch a live screen kicks off finds an
+  /// unauthenticated session and stops, rather than bouncing through
+  /// [_forceLogout] again.
   Future<void> logout() async {
     try {
       final refreshToken = await StorageService.getRefreshToken();
       await ApiClient.logout(refreshToken ?? '');
     } catch (_) {}
-    await StorageService.clearAll();
     state = const AuthState();
+    await StorageService.clearAll();
+    invalidateUserScopedProviders(_ref);
   }
 
   /// Save tokens and user from playsher-api response data.
@@ -236,5 +256,5 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (_) => AuthNotifier(),
+  AuthNotifier.new,
 );

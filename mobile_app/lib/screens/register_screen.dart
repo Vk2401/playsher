@@ -63,6 +63,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
+  /// Leaving this screen abandons a half-made account, so it asks first.
+  ///
+  /// The number has been verified but nothing is saved against it yet — going
+  /// back drops that and returns to the number entry, so the confirmation is
+  /// the difference between a deliberate exit and a mis-swipe on the edge of
+  /// the screen. Answering yes clears whatever the flow already put on the
+  /// device, which is why it goes through `logout` rather than just popping.
+  Future<void> _confirmLeave() async {
+    if (_submitting) return;
+
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text(
+          "Your number is verified, but your profile isn't saved yet. "
+          "You'll need to verify it again to finish signing up.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child:
+                const Text('Log out', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (leave != true || !mounted) return;
+    await ref.read(authProvider.notifier).logout();
+    if (!mounted) return;
+    context.go('/login');
+  }
+
   /// The verified number, spaced the way it is dialled rather than stored.
   String get _prettyMobile {
     final m = widget.mobile;
@@ -78,108 +116,116 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final frame = context.frame;
     final loading = _submitting || ref.watch(authProvider).isLoading;
 
-    return Scaffold(
-      backgroundColor: frame.page,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-          child: Form(
-            key: _form,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                  color: frame.ink,
-                  tooltip: 'Back',
-                  constraints:
-                      const BoxConstraints(minWidth: 44, minHeight: 44),
-                  padding: EdgeInsets.zero,
-                  alignment: Alignment.centerLeft,
-                  onPressed: loading ? null : () => context.pop(),
-                ),
-                const SizedBox(height: 14),
-                const PlaysherLogo.tile(size: 72),
-                const SizedBox(height: 24),
-                Text.rich(
-                  TextSpan(
-                    style: TextStyle(
-                      fontSize: 31,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                      letterSpacing: -0.5,
-                      color: frame.ink,
-                    ),
-                    children: [
-                      const TextSpan(text: 'Complete Your\n'),
-                      TextSpan(
-                        text: 'Profile',
-                        style: TextStyle(color: colors.brandText),
+    // canPop: false so the gesture and the hardware button both come through
+    // _confirmLeave. A dialog on the chevron alone would be a confirmation the
+    // most common way of leaving never sees.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: Scaffold(
+        backgroundColor: frame.page,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+            child: Form(
+              key: _form,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconButton(
+                    icon:
+                        const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    color: frame.ink,
+                    tooltip: 'Back',
+                    constraints:
+                        const BoxConstraints(minWidth: 44, minHeight: 44),
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.centerLeft,
+                    onPressed: loading ? null : _confirmLeave,
+                  ),
+                  const SizedBox(height: 6),
+                  const PlaysherLogo.tile(size: 56),
+                  const SizedBox(height: 16),
+                  Text.rich(
+                    TextSpan(
+                      style: TextStyle(
+                        fontSize: 29,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                        letterSpacing: -0.5,
+                        color: frame.ink,
                       ),
-                    ],
+                      children: [
+                        const TextSpan(text: 'Complete Your\n'),
+                        TextSpan(
+                          text: 'Profile',
+                          style: TextStyle(color: colors.brandText),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  "You're almost there!\nJust fill in a few details.",
-                  style: TextStyle(
-                    fontSize: 15.5,
-                    height: 1.5,
-                    color: frame.body,
+                  const SizedBox(height: 10),
+                  Text(
+                    "You're almost there!\nJust fill in a few details.",
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.45,
+                      color: frame.body,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 30),
+                  const SizedBox(height: 18),
 
-                // The number is not editable here: it is the one the code was
-                // just verified against, and changing it would strand the
-                // registration against a mobile nobody proved.
-                const _FieldLabel('Mobile Number'),
-                _VerifiedMobileField(mobile: _prettyMobile),
-                const SizedBox(height: 22),
+                  // The number is not editable here: it is the one the code was
+                  // just verified against, and changing it would strand the
+                  // registration against a mobile nobody proved.
+                  const _FieldLabel('Mobile Number'),
+                  _VerifiedMobileField(mobile: _prettyMobile),
+                  const SizedBox(height: 16),
 
-                const _FieldLabel('Full Name', required: true),
-                _ProfileField(
-                  controller: _name,
-                  enabled: !loading,
-                  icon: Icons.person_outline_rounded,
-                  hint: 'Enter your full name',
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Name is required';
-                    }
-                    if (v.trim().length < 2) return 'Enter a valid name';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 22),
+                  const _FieldLabel('Full Name', required: true),
+                  _ProfileField(
+                    controller: _name,
+                    enabled: !loading,
+                    icon: Icons.person_outline_rounded,
+                    hint: 'Enter your full name',
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Name is required';
+                      }
+                      if (v.trim().length < 2) return 'Enter a valid name';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
 
-                const _FieldLabel('Email (optional)'),
-                _ProfileField(
-                  controller: _email,
-                  enabled: !loading,
-                  icon: Icons.mail_outline_rounded,
-                  hint: 'Enter your email address',
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _register(),
-                  validator: (v) {
-                    if (v != null && v.isNotEmpty && !v.contains('@')) {
-                      return 'Enter a valid email address';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 26),
+                  const _FieldLabel('Email (optional)'),
+                  _ProfileField(
+                    controller: _email,
+                    enabled: !loading,
+                    icon: Icons.mail_outline_rounded,
+                    hint: 'Enter your email address',
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _register(),
+                    validator: (v) {
+                      if (v != null && v.isNotEmpty && !v.contains('@')) {
+                        return 'Enter a valid email address';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
 
-                const _SafeNote(),
-                const SizedBox(height: 26),
+                  const _SafeNote(),
+                  const SizedBox(height: 20),
 
-                _GetStartedButton(loading: loading, onPressed: _register),
-                const SizedBox(height: 26),
-                const Center(child: _StepRule()),
-              ],
+                  _GetStartedButton(loading: loading, onPressed: _register),
+                ],
+              ),
             ),
           ),
         ),
@@ -199,7 +245,7 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Text.rich(
         TextSpan(
           style: TextStyle(
@@ -234,7 +280,7 @@ class _VerifiedMobileField extends StatelessWidget {
     final frame = context.frame;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
         color: colors.card,
         borderRadius: BorderRadius.circular(14),
@@ -334,7 +380,7 @@ class _ProfileField extends StatelessWidget {
       decoration: InputDecoration(
         filled: true,
         fillColor: colors.card,
-        contentPadding: const EdgeInsets.symmetric(vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16),
         border: border,
         enabledBorder: border,
         disabledBorder: border,
@@ -363,7 +409,7 @@ class _SafeNote extends StatelessWidget {
     final frame = context.frame;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: frame.tile,
         borderRadius: BorderRadius.circular(16),
@@ -398,8 +444,8 @@ class _SafeNote extends StatelessWidget {
                 Text(
                   'We use industry-standard security to keep your data '
                   'protected and private.',
-                  style:
-                      TextStyle(fontSize: 13.5, height: 1.45, color: frame.body),
+                  style: TextStyle(
+                      fontSize: 13.5, height: 1.4, color: frame.body),
                 ),
               ],
             ),
@@ -420,7 +466,7 @@ class _GetStartedButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 58,
+      height: 56,
       child: ElevatedButton(
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
@@ -443,51 +489,14 @@ class _GetStartedButton extends StatelessWidget {
                       'Get Started',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                          fontSize: 16.5, fontWeight: FontWeight.w700),
                     ),
                   ),
                   SizedBox(width: 10),
                   Icon(Icons.arrow_forward_rounded, size: 20),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-/// How far through sign-up this is: number, code, profile.
-///
-/// The two behind are filled, the one underfoot is not — and the count is
-/// announced, because three bars mean nothing read aloud.
-class _StepRule extends StatelessWidget {
-  const _StepRule();
-
-  static const _steps = 3;
-  static const _done = 2;
-
-  @override
-  Widget build(BuildContext context) {
-    final frame = context.frame;
-
-    return Semantics(
-      label: 'Step $_steps of $_steps: your profile',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(_steps, (i) {
-            final filled = i < _done;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: filled ? 30 : 26,
-              height: 5,
-              decoration: BoxDecoration(
-                color: filled ? AppColors.primary : frame.dot,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          }),
-        ),
       ),
     );
   }

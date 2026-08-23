@@ -8,7 +8,11 @@ class CityNotifier extends StateNotifier<String?> {
   }
 
   Future<void> _load() async {
-    state = await StorageService.getCity();
+    final city = await StorageService.getCity();
+    // The read is asynchronous and this notifier is disposed on logout, so the
+    // answer can arrive after it is gone — writing state then throws.
+    if (!mounted) return;
+    state = city;
   }
 
   Future<void> setCity(String city) async {

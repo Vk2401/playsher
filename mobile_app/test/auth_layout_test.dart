@@ -155,6 +155,54 @@ void main() {
     }
   }
 
+  // The design is one screenful, and it must stay one.
+  //
+  // This cannot assert "does not scroll" directly: the test font draws every
+  // glyph as a square of the font size, so every string is far wider than any
+  // real face renders it and the page wraps into much more height than a
+  // device ever gives it. Measured with a real face at the default text scale
+  // and a phone's own insets, both devices below come out at 0 — nothing
+  // below the fold. What is guarded here is the budget: add a field or a
+  // section and this number climbs, which is the regression worth catching.
+  // The scroll view itself stays for the cases that genuinely need it — a
+  // small phone, or a large text scale.
+  for (final device in const {
+    'Pixel 7': (Size(412, 915), 130.0),
+    'iPhone 14': (Size(390, 844), 240.0),
+  }.entries) {
+    testWidgets('the profile page stays within one screen on ${device.key}',
+        (tester) async {
+      final (size, budget) = device.value;
+      tester.view
+        ..physicalSize = size
+        ..devicePixelRatio = 1.0
+        // A phone's status bar and gesture area are part of the height the
+        // page has to fit into; without them this measures a screen nobody
+        // has.
+        ..padding = const FakeViewPadding(top: 48, bottom: 34);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_wrap(const RegisterScreen(mobile: '+919876543210'),
+          Brightness.light, 1.0, 0));
+      await tester.pump();
+
+      // .first, and scoped to the page's own scroll view: every TextField
+      // carries a Scrollable of its own.
+      final extent = tester
+          .state<ScrollableState>(find
+              .descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first)
+          .position
+          .maxScrollExtent;
+
+      expect(extent, lessThanOrEqualTo(budget),
+          reason: 'the profile page has grown past one screen');
+    });
+  }
+
   testWidgets('the profile form refuses an empty name', (tester) async {
     tester.view
       ..physicalSize = const Size(412, 915)
@@ -174,5 +222,30 @@ void main() {
     await tester.pump();
 
     expect(find.text('Name is required'), findsOneWidget);
+  });
+
+  testWidgets('leaving the profile form asks before logging out',
+      (tester) async {
+    tester.view
+      ..physicalSize = const Size(412, 915)
+      ..devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(const RegisterScreen(mobile: '+919876543210'),
+        Brightness.light, 1.0, 0));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Log out?'), findsOneWidget);
+    expect(find.text('Stay'), findsOneWidget);
+
+    // Staying dismisses the dialog and leaves the form as it was.
+    await tester.tap(find.text('Stay'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Log out?'), findsNothing);
+    expect(find.text('Mobile Number'), findsOneWidget);
   });
 }
