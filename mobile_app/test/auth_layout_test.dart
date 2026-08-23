@@ -7,8 +7,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:playsher_app/screens/location_screen.dart';
 import 'package:playsher_app/screens/otp_screen.dart';
 import 'package:playsher_app/screens/register_screen.dart';
+import 'package:playsher_app/widgets/location_hero.dart';
 import 'package:playsher_app/widgets/security_shield.dart';
 import 'package:playsher_app/widgets/sport_props.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -114,6 +116,32 @@ void main() {
           await tester.pumpWidget(const SizedBox.shrink());
         });
 
+        testWidgets('location lays out on $where', (tester) async {
+          tester.view
+            ..physicalSize = device.value
+            ..devicePixelRatio = 1.0;
+          addTearDown(tester.view.reset);
+
+          await tester.pumpWidget(_wrap(
+              const LocationScreen(fromRegister: true), brightness, scale, 0));
+          await tester.pump();
+
+          expect(find.byType(LocationHero), findsOneWidget);
+          expect(find.text('Allow Location Access'), findsOneWidget);
+          expect(find.text('Skip for now'), findsOneWidget);
+          expect(find.text('Find grounds near you'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+
+          // Reached later from the app rather than straight after sign-up, it
+          // is a request rather than a greeting.
+          await tester.pumpWidget(
+              _wrap(const LocationScreen(), brightness, scale, 0));
+          await tester.pump();
+
+          expect(find.text('Enable Location'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        });
+
         testWidgets('profile lays out on $where', (tester) async {
           tester.view
             ..physicalSize = device.value
@@ -200,6 +228,41 @@ void main() {
 
       expect(extent, lessThanOrEqualTo(budget),
           reason: 'the profile page has grown past one screen');
+    });
+  }
+
+  // Same budget guard as the profile page, and the same caveat: measured with
+  // a real face at the default text scale and a phone's own insets, this page
+  // comes out at 0 on both devices.
+  for (final device in const {
+    'Pixel 7': (Size(412, 915), 225.0),
+    'iPhone 14': (Size(390, 844), 310.0),
+  }.entries) {
+    testWidgets('the location page stays within one screen on ${device.key}',
+        (tester) async {
+      final (size, budget) = device.value;
+      tester.view
+        ..physicalSize = size
+        ..devicePixelRatio = 1.0
+        ..padding = const FakeViewPadding(top: 48, bottom: 34);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+          _wrap(const LocationScreen(fromRegister: true), Brightness.light, 1.0, 0));
+      await tester.pump();
+
+      final extent = tester
+          .state<ScrollableState>(find
+              .descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first)
+          .position
+          .maxScrollExtent;
+
+      expect(extent, lessThanOrEqualTo(budget),
+          reason: 'the location page has grown past one screen');
     });
   }
 

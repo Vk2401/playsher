@@ -4,7 +4,13 @@ import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../providers/location_provider.dart';
+import '../widgets/location_hero.dart';
 
+/// The one thing the app asks for before it starts: where the user is.
+///
+/// It asks by showing what it buys — a ground on a map, then three plain
+/// sentences — rather than by explaining a permission. Skipping is a first
+/// class answer and sits under the CTA, not hidden behind it.
 class LocationScreen extends ConsumerStatefulWidget {
   final bool fromRegister;
   const LocationScreen({super.key, this.fromRegister = false});
@@ -54,140 +60,102 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final frame = context.frame;
 
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: frame.page,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(flex: 2),
-              Center(
-                child: Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                      width: 1,
+              const LocationHero(),
+              const SizedBox(height: 16),
+
+              // The greeting only lands the first time; coming back to this
+              // screen later, it is a request and says so.
+              if (widget.fromRegister)
+                Text.rich(
+                  TextSpan(
+                    style: TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                      letterSpacing: -0.5,
+                      color: frame.ink,
                     ),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.location_on_rounded,
-                        size: 60,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                widget.fromRegister
-                    ? 'Welcome to ${AppConstants.appName}!'
-                    : 'Enable Location',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: colors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Allow ${AppConstants.appName} to use your location to show nearby sports grounds, suggest fields in your city, and give you better recommendations.',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: colors.textSecondary,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _Benefit(
-                  icon: Icons.explore_rounded,
-                  text: 'Find grounds near you',
-                  colors: colors),
-              _Benefit(
-                  icon: Icons.sports_rounded,
-                  text: 'Discover local games',
-                  colors: colors),
-              _Benefit(
-                  icon: Icons.recommend_rounded,
-                  text: 'Get personalised suggestions',
-                  colors: colors),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: AppColors.error.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
                     children: [
-                      const Icon(Icons.error_outline_rounded,
-                          size: 18, color: AppColors.error),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.error),
-                        ),
+                      const TextSpan(text: 'Welcome to '),
+                      TextSpan(
+                        text: AppConstants.appName,
+                        style: TextStyle(color: colors.brandText),
                       ),
+                      const TextSpan(text: '! 👋'),
                     ],
                   ),
-                ),
-              ],
-              const Spacer(flex: 3),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: _loading ? null : _requestLocation,
-                  icon: _loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.5, color: AppColors.onPrimary),
-                        )
-                      : const Icon(Icons.my_location_rounded, size: 20),
-                  label: Text(
-                    _loading
-                        ? 'Getting location\u2026'
-                        : 'Allow Location Access',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700),
+                )
+              else
+                Text(
+                  'Enable Location',
+                  style: TextStyle(
+                    fontSize: 27,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                    letterSpacing: -0.5,
+                    color: frame.ink,
                   ),
                 ),
+              const SizedBox(height: 10),
+              Text(
+                'Allow ${AppConstants.appName} to use your location to show '
+                'nearby sports grounds, suggest fields in your city, and give '
+                'you better recommendations.',
+                style: TextStyle(fontSize: 15, height: 1.45, color: frame.body),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
+              const SizedBox(height: 16),
+
+              const _Benefit(
+                icon: Icons.explore_rounded,
+                title: 'Find grounds near you',
+                detail: 'Discover the best turfs and courts closest to your '
+                    'location.',
+              ),
+              const SizedBox(height: 10),
+              const _Benefit(
+                icon: Icons.sports_soccer_rounded,
+                title: 'Discover local games',
+                detail: 'Join matches and events happening around you.',
+              ),
+              const SizedBox(height: 10),
+              const _Benefit(
+                icon: Icons.thumb_up_rounded,
+                title: 'Get personalised suggestions',
+                detail: 'Receive recommendations tailored to your favourite '
+                    'sports and time.',
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                _PermissionError(message: _error!),
+              ],
+
+              const SizedBox(height: 18),
+              _AllowButton(loading: _loading, onPressed: _requestLocation),
+              const SizedBox(height: 6),
+              Center(
                 child: TextButton(
                   onPressed: _loading ? null : _skip,
                   child: Text(
                     'Skip for now',
                     style: TextStyle(
-                        color: colors.textPrimary, fontWeight: FontWeight.w500),
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w500,
+                      color: frame.body,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -196,31 +164,160 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
   }
 }
 
+/// One reason the app is asking, as a title and the sentence behind it.
 class _Benefit extends StatelessWidget {
+  const _Benefit({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+
   final IconData icon;
-  final String text;
-  final AppColors colors;
-  const _Benefit(
-      {required this.icon, required this.text, required this.colors});
+  final String title;
+  final String detail;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    final colors = context.colors;
+    final frame = context.frame;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: frame.tile,
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, size: 16, color: AppColors.primary),
+            child: Center(
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary,
+                ),
+                child: Icon(icon, size: 17, color: AppColors.onPrimary),
+              ),
+            ),
           ),
-          const SizedBox(width: 12),
-          Text(text, style: TextStyle(fontSize: 14, color: colors.textPrimary)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                    color: frame.ink,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  detail,
+                  style: TextStyle(
+                      fontSize: 13.5, height: 1.4, color: frame.body),
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Why the request did not land, in a sentence the user can act on.
+class _PermissionError extends StatelessWidget {
+  const _PermissionError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              size: 18, color: AppColors.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                  fontSize: 13, height: 1.4, color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AllowButton extends StatelessWidget {
+  const _AllowButton({required this.loading, required this.onPressed});
+
+  final bool loading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        // Disabled while the platform dialog is up: a second tap would queue
+        // another request behind the one already on screen.
+        onPressed: loading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2.5, color: AppColors.onPrimary),
+              )
+            else
+              const Icon(Icons.my_location_rounded, size: 21),
+            const SizedBox(width: 12),
+            // Flexible: at a large text scale the label is wider than the
+            // button, and a CTA that overflows is a bar across the page.
+            Flexible(
+              child: Text(
+                loading ? 'Getting location…' : 'Allow Location Access',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 16.5, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
