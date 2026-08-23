@@ -123,6 +123,21 @@ class AppColors {
   static const Color propWillowEdge = Color(0xFFC29B60);
   static const Color propGrip = Color(0xFF23303F);
 
+  // ── Illustration: the shield the OTP screen is verified behind ────────────
+  // Theme-independent for the same reason the props are: it is a picture of an
+  // object, not a surface. It carries the brand hue rather than a token so the
+  // lit face and the deep edge can be lerped between without three tokens per
+  // step.
+
+  /// The shield's face: the lit top-left, the body, and the edge in shadow.
+  static const Color shieldLight = Color(0xFF7FB4F5);
+  static const Color shieldMid = Color(0xFF2F7FE4);
+  static const Color shieldDeep = Color(0xFF0B4FA8);
+
+  /// The padlock on the shield, and the bubble the code arrives in.
+  static const Color shieldMetal = Color(0xFFFFFFFF);
+  static const Color shieldBubble = Color(0xFFE7F0FD);
+
   // ── Semantic status tokens ────────────────────────────────────────────────
   // Deliberately theme-independent: a "pending" badge must read the same in
   // both themes. Tuned to stay legible on both the light and dark surfaces.

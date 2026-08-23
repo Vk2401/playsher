@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/kit_scatter.dart';
 import '../widgets/playsher_logo.dart';
-import '../widgets/sport_props.dart';
 
 /// The login screen: a floodlit ground behind the welcome, and the mobile
 /// number the whole OTP flow starts from.
@@ -74,7 +74,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       child: Stack(
         children: [
           Positioned.fill(child: ColoredBox(color: frame.page)),
-          Positioned.fill(child: _KitScatter(size: size)),
+          Positioned.fill(
+            child: KitScatter(size: size, layout: KitLayout.login),
+          ),
           Scaffold(
             // The page colour is the layer below; painting it again here
             // would bury the kit under the Scaffold.
@@ -144,71 +146,6 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// The sports kit tucked into the page's corners.
-///
-/// Every piece sits behind the cards and half of each one runs off an edge, so
-/// the page reads as a corner of a kit bag rather than a row of stickers. The
-/// football is the photograph from the design; the rest are painted to match
-/// it — see [SportPropIcon].
-class _KitScatter extends StatelessWidget {
-  const _KitScatter({required this.size});
-
-  final Size size;
-
-  @override
-  Widget build(BuildContext context) {
-    final w = size.width;
-    final h = size.height;
-
-    return IgnorePointer(
-      child: ExcludeSemantics(
-        child: Stack(
-          children: [
-            // Top right, above the welcome: the biggest piece, mostly off-page.
-            Positioned(
-              top: -w * 0.10,
-              right: -w * 0.16,
-              child: SportPropIcon(SportProp.basketball, size: w * 0.46),
-            ),
-            // Beside the deck, where the headline has already narrowed.
-            Positioned(
-              top: h * 0.20,
-              right: -w * 0.04,
-              child: SportPropIcon(SportProp.cricketBall, size: w * 0.17),
-            ),
-            Positioned(
-              top: h * 0.30,
-              right: w * 0.16,
-              child: SportPropIcon(SportProp.tennisBall, size: w * 0.10),
-            ),
-            // The bottom, under the form card.
-            Positioned(
-              left: -w * 0.05,
-              bottom: 0,
-              child: Image.asset(
-                'assets/images/login_ball.png',
-                width: w * 0.30,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-            Positioned(
-              right: w * 0.06,
-              bottom: -h * 0.06,
-              child: SportPropIcon(SportProp.cricketBat,
-                  size: w * 0.17, turns: 0.06),
-            ),
-            Positioned(
-              right: -w * 0.06,
-              bottom: h * 0.06,
-              child: SportPropIcon(SportProp.volleyball, size: w * 0.24),
-            ),
-          ],
-        ),
       ),
     );
   }
