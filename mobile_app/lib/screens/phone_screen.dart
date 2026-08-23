@@ -52,7 +52,6 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     final dark = context.isDark;
     final busy = _submitting || ref.watch(authProvider).isLoading;
     final size = MediaQuery.of(context).size;
-    final keyboardUp = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -65,10 +64,22 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
         body: Stack(
           children: [
             // Behind the content, not over it: the kit fills the corners the
-            // cards leave and is covered wherever they reach it. Decoration
-            // only, and only while there is room — with the keyboard up the
-            // page belongs to the field being typed into.
-            if (!keyboardUp) _KitScatter(size: size),
+            // cards leave and is covered wherever they reach it.
+            //
+            // Pinned to the top at the page's full height rather than left to
+            // fill the body, because the body shrinks when the keyboard opens.
+            // The kit therefore keeps painting the corners that are still on
+            // screen and the keyboard simply covers the pieces it overlaps —
+            // the Stack clips the overflow. Dropping it outright, or letting
+            // it re-lay-out against the shorter body, is what made the balls
+            // vanish and the top corner jump the moment the field was tapped.
+            Positioned(
+              top: 0,
+              left: 0,
+              width: size.width,
+              height: size.height,
+              child: _KitScatter(size: size),
+            ),
 
             SafeArea(
               bottom: false,

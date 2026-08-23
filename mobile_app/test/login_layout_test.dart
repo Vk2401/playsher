@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:playsher_app/screens/phone_screen.dart';
+import 'package:playsher_app/widgets/sport_props.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _devices = <String, Size>{
@@ -51,12 +52,18 @@ void main() {
           expect(find.text('Send OTP'), findsOneWidget);
           expect(tester.takeException(), isNull);
 
-          // With the keyboard up the field must still be reachable and the
-          // corner decoration must stand down.
+          final kitDown = tester.widgetList(find.byType(SportPropIcon)).length;
+          expect(kitDown, greaterThan(0));
+
+          // With the keyboard up the field must still be reachable — and the
+          // corner kit must still be there. It used to be dropped outright
+          // the moment the field was focused, so the balls disappeared from
+          // the top of the page as well as from behind the keyboard.
           await tester.pumpWidget(wrap(keyboard: 336));
           await tester.pump();
 
           expect(find.byType(TextFormField), findsOneWidget);
+          expect(find.byType(SportPropIcon), findsNWidgets(kitDown));
           expect(tester.takeException(), isNull);
 
           await tester.ensureVisible(find.byType(TextFormField));
