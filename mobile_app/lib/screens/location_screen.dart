@@ -64,100 +64,122 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
 
     return Scaffold(
       backgroundColor: frame.page,
+      // The reasons scroll; the two answers do not. Everything in one scroll
+      // view left the page top-aligned, so on a tall phone the slack fell
+      // *below* the buttons and they floated in the middle of nothing. The
+      // actions are the last child of a Column whose middle is Expanded, so
+      // they sit on the bottom edge whatever the content above them does.
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const LocationHero(),
-              const SizedBox(height: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const LocationHero(),
+                    const SizedBox(height: 16),
 
-              // The greeting only lands the first time; coming back to this
-              // screen later, it is a request and says so.
-              if (widget.fromRegister)
-                Text.rich(
-                  TextSpan(
-                    style: TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                      letterSpacing: -0.5,
-                      color: frame.ink,
-                    ),
-                    children: [
-                      const TextSpan(text: 'Welcome to '),
-                      TextSpan(
-                        text: AppConstants.appName,
-                        style: TextStyle(color: colors.brandText),
+                    // The greeting only lands the first time; coming back to
+                    // this screen later, it is a request and says so.
+                    if (widget.fromRegister)
+                      Text.rich(
+                        TextSpan(
+                          style: TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                            letterSpacing: -0.5,
+                            color: frame.ink,
+                          ),
+                          children: [
+                            const TextSpan(text: 'Welcome to '),
+                            TextSpan(
+                              text: AppConstants.appName,
+                              style: TextStyle(color: colors.brandText),
+                            ),
+                            const TextSpan(text: '! 👋'),
+                          ],
+                        ),
+                      )
+                    else
+                      Text(
+                        'Enable Location',
+                        style: TextStyle(
+                          fontSize: 27,
+                          fontWeight: FontWeight.w800,
+                          height: 1.2,
+                          letterSpacing: -0.5,
+                          color: frame.ink,
+                        ),
                       ),
-                      const TextSpan(text: '! 👋'),
-                    ],
-                  ),
-                )
-              else
-                Text(
-                  'Enable Location',
-                  style: TextStyle(
-                    fontSize: 27,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                    letterSpacing: -0.5,
-                    color: frame.ink,
-                  ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Allow ${AppConstants.appName} to use your location to '
+                      'show nearby sports grounds, suggest fields in your '
+                      'city, and give you better recommendations.',
+                      style: TextStyle(
+                          fontSize: 15, height: 1.45, color: frame.body),
+                    ),
+                    const SizedBox(height: 16),
+
+                    const _Benefit(
+                      icon: Icons.explore_rounded,
+                      title: 'Find grounds near you',
+                      detail: 'Discover the best turfs and courts closest to '
+                          'your location.',
+                    ),
+                    const SizedBox(height: 10),
+                    const _Benefit(
+                      icon: Icons.sports_soccer_rounded,
+                      title: 'Discover local games',
+                      detail: 'Join matches and events happening around you.',
+                    ),
+                    const SizedBox(height: 10),
+                    const _Benefit(
+                      icon: Icons.thumb_up_rounded,
+                      title: 'Get personalised suggestions',
+                      detail: 'Receive recommendations tailored to your '
+                          'favourite sports and time.',
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 10),
-              Text(
-                'Allow ${AppConstants.appName} to use your location to show '
-                'nearby sports grounds, suggest fields in your city, and give '
-                'you better recommendations.',
-                style: TextStyle(fontSize: 15, height: 1.45, color: frame.body),
               ),
-              const SizedBox(height: 16),
+            ),
 
-              const _Benefit(
-                icon: Icons.explore_rounded,
-                title: 'Find grounds near you',
-                detail: 'Discover the best turfs and courts closest to your '
-                    'location.',
-              ),
-              const SizedBox(height: 10),
-              const _Benefit(
-                icon: Icons.sports_soccer_rounded,
-                title: 'Discover local games',
-                detail: 'Join matches and events happening around you.',
-              ),
-              const SizedBox(height: 10),
-              const _Benefit(
-                icon: Icons.thumb_up_rounded,
-                title: 'Get personalised suggestions',
-                detail: 'Receive recommendations tailored to your favourite '
-                    'sports and time.',
-              ),
-
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                _PermissionError(message: _error!),
-              ],
-
-              const SizedBox(height: 18),
-              _AllowButton(loading: _loading, onPressed: _requestLocation),
-              const SizedBox(height: 6),
-              Center(
-                child: TextButton(
-                  onPressed: _loading ? null : _skip,
-                  child: Text(
-                    'Skip for now',
-                    style: TextStyle(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w500,
-                      color: frame.body,
+            // Out here with the buttons rather than at the end of the scroll,
+            // so a refusal is on screen even when the reasons above it are
+            // scrolled away.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_error != null) ...[
+                    _PermissionError(message: _error!),
+                    const SizedBox(height: 12),
+                  ],
+                  _AllowButton(loading: _loading, onPressed: _requestLocation),
+                  const SizedBox(height: 2),
+                  Center(
+                    child: TextButton(
+                      onPressed: _loading ? null : _skip,
+                      child: Text(
+                        'Skip for now',
+                        style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w500,
+                          color: frame.body,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -226,8 +248,8 @@ class _Benefit extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   detail,
-                  style: TextStyle(
-                      fontSize: 13.5, height: 1.4, color: frame.body),
+                  style:
+                      TextStyle(fontSize: 13.5, height: 1.4, color: frame.body),
                 ),
               ],
             ),

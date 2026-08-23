@@ -132,6 +132,20 @@ void main() {
           expect(find.text('Find grounds near you'), findsOneWidget);
           expect(tester.takeException(), isNull);
 
+          // The two answers sit on the bottom edge, not at the end of the
+          // scroll: inside it, a page shorter than the screen left them
+          // floating with the slack underneath.
+          for (final action in ['Allow Location Access', 'Skip for now']) {
+            expect(
+              find.descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.text(action),
+              ),
+              findsNothing,
+              reason: '"$action" must not scroll with the reasons',
+            );
+          }
+
           // Reached later from the app rather than straight after sign-up, it
           // is a request rather than a greeting.
           await tester.pumpWidget(
@@ -263,6 +277,33 @@ void main() {
 
       expect(extent, lessThanOrEqualTo(budget),
           reason: 'the location page has grown past one screen');
+    });
+  }
+
+  // Whatever the phone's height, the answers are on its bottom edge — the
+  // reported bug was a band of empty page below them on a tall screen.
+  for (final height in [844.0, 915.0, 950.0]) {
+    testWidgets('the location answers sit at the bottom of a ${height}px phone',
+        (tester) async {
+      const bottomInset = 34.0;
+      tester.view
+        ..physicalSize = Size(412, height)
+        ..devicePixelRatio = 1.0
+        ..padding = const FakeViewPadding(top: 48, bottom: bottomInset);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+          _wrap(const LocationScreen(), Brightness.light, 1.0, 0));
+      await tester.pump();
+
+      final skip = tester.getRect(find.text('Skip for now'));
+      final floor = height - bottomInset;
+
+      // Within a button's own padding of the safe area's bottom edge, and
+      // never past it.
+      expect(skip.bottom, lessThanOrEqualTo(floor));
+      expect(floor - skip.bottom, lessThan(40),
+          reason: 'the answers have drifted up the page');
     });
   }
 
