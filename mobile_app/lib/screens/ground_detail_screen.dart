@@ -129,9 +129,8 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
             actions: [
               Consumer(
                 builder: (context, ref, _) {
-                  final isFav = ref
-                      .watch(favoritesProvider.notifier)
-                      .isFavorite(ground.id);
+                  final isFav =
+                      ref.watch(favoriteIdsProvider).contains(ground.id);
                   return Container(
                     margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -147,9 +146,8 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                         color: isFav ? AppColors.error : Colors.white,
                       ),
                       tooltip: isFav ? 'Remove from saved' : 'Save this ground',
-                      onPressed: () => ref
-                          .read(favoritesProvider.notifier)
-                          .toggle(ground.id),
+                      onPressed: () =>
+                          ref.read(favoritesProvider.notifier).toggle(ground),
                     ),
                   );
                 },

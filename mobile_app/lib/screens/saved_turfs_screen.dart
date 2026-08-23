@@ -73,10 +73,6 @@ class SavedTurfsScreen extends ConsumerWidget {
                   itemCount: grounds.length,
                   itemBuilder: (_, i) => GroundCard(
                     ground: grounds[i],
-                    isFavorite: true,
-                    onFavoriteToggle: () => ref
-                        .read(favoritesProvider.notifier)
-                        .toggle(grounds[i].id),
                   ),
                 ),
               ),

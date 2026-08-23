@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:playsher_app/core/app_colors.dart';
 import 'package:playsher_app/core/theme.dart';
+import 'package:playsher_app/providers/favorites_provider.dart';
 import 'package:playsher_app/models/ground_model.dart';
 import 'package:playsher_app/models/slot_model.dart';
 import 'package:playsher_app/widgets/ground_card.dart';
@@ -64,6 +65,10 @@ Widget _host(Widget child,
   // here: with no location plugin registered it settles on "no fix", which is
   // the layout case where the distance badge is absent.
   return ProviderScope(
+    // The heart on a card reads the saved list itself now, and building that
+    // provider would fire a request this test has no interest in. The ids are
+    // all it watches, so overriding them keeps the render offline.
+    overrides: [favoriteIdsProvider.overrideWithValue(const <int>{})],
     child: MaterialApp(
       theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
       home: MediaQuery(
@@ -111,8 +116,6 @@ void main() {
         width: 380,
         child: GroundCard(
           ground: _ground(),
-          isFavorite: true,
-          onFavoriteToggle: () {},
         ),
       ),
     );
@@ -127,7 +130,6 @@ void main() {
         child: GroundCard(
           ground: _ground(),
           wide: true,
-          onFavoriteToggle: () {},
         ),
       ),
     );
@@ -149,8 +151,7 @@ void main() {
       await tester.pumpWidget(_host(
         SizedBox(
           height: height,
-          child: GroundCard(
-              ground: _ground(), wide: true, onFavoriteToggle: () {}),
+          child: GroundCard(ground: _ground(), wide: true),
         ),
         brightness: Brightness.dark,
         scale: 1.3,
@@ -198,7 +199,7 @@ void main() {
     await tester.pumpWidget(_host(
       SizedBox(
         width: 380,
-        child: GroundCard(ground: _ground(), onFavoriteToggle: () {}),
+        child: GroundCard(ground: _ground()),
       ),
       brightness: Brightness.dark,
       scale: 1.0,

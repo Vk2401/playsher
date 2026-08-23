@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../core/animations.dart';
 import '../core/app_colors.dart';
 import '../core/geo.dart';
-
 import '../models/ground_model.dart';
 import '../providers/location_provider.dart';
+import 'favorite_button.dart';
 
 /// A ground, in the two shapes the app uses: a wide card for the featured
 /// carousel and a horizontal row for every list.
@@ -18,8 +18,9 @@ import '../providers/location_provider.dart';
 class GroundCard extends ConsumerWidget {
   final GroundModel ground;
   final bool wide;
-  final VoidCallback? onFavoriteToggle;
-  final bool isFavorite;
+  /// Whether to draw the save control. On by default: a ground card without
+  /// a heart is the odd one out, not the norm.
+  final bool showFavorite;
 
   /// Shows a "Book Now" button on the list card. Off by default so a dense
   /// list stays dense; the home screen turns it on for the handful of venues
@@ -30,8 +31,7 @@ class GroundCard extends ConsumerWidget {
     super.key,
     required this.ground,
     this.wide = false,
-    this.onFavoriteToggle,
-    this.isFavorite = false,
+    this.showFavorite = true,
     this.showBookAction = false,
   });
 
@@ -49,14 +49,12 @@ class GroundCard extends ConsumerWidget {
         ? _WideCard(
             ground: ground,
             distanceKm: distanceKm,
-            isFavorite: isFavorite,
-            onFavoriteToggle: onFavoriteToggle,
+            showFavorite: showFavorite,
           )
         : _HorizontalCard(
             ground: ground,
             distanceKm: distanceKm,
-            isFavorite: isFavorite,
-            onFavoriteToggle: onFavoriteToggle,
+            showFavorite: showFavorite,
             showBookAction: showBookAction,
           );
   }
@@ -67,14 +65,12 @@ class GroundCard extends ConsumerWidget {
 class _WideCard extends StatelessWidget {
   final GroundModel ground;
   final double? distanceKm;
-  final bool isFavorite;
-  final VoidCallback? onFavoriteToggle;
+  final bool showFavorite;
 
   const _WideCard({
     required this.ground,
     this.distanceKm,
-    this.isFavorite = false,
-    this.onFavoriteToggle,
+    this.showFavorite = true,
   });
 
   @override
@@ -136,7 +132,7 @@ class _WideCard extends StatelessWidget {
                       // Only reserved when there is something in the top-right
                       // corner to run into; without it the badge was clipping
                       // "BASKETBALL" for no reason.
-                      right: (onFavoriteToggle != null ? 50 : 0) +
+                      right: (showFavorite ? 50 : 0) +
                           (ground.avgRating > 0 ? 56 : 0) +
                           12,
                       child: Align(
@@ -155,11 +151,7 @@ class _WideCard extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 6),
                             child: _RatingPill(rating: ground.avgRating),
                           ),
-                        if (onFavoriteToggle != null)
-                          _FavoriteButton(
-                            isFavorite: isFavorite,
-                            onTap: onFavoriteToggle!,
-                          ),
+                        if (showFavorite) FavoriteButton(ground: ground),
                       ],
                     ),
                   ),
@@ -248,15 +240,13 @@ class _WideCard extends StatelessWidget {
 class _HorizontalCard extends StatelessWidget {
   final GroundModel ground;
   final double? distanceKm;
-  final bool isFavorite;
-  final VoidCallback? onFavoriteToggle;
+  final bool showFavorite;
   final bool showBookAction;
 
   const _HorizontalCard({
     required this.ground,
     this.distanceKm,
-    this.isFavorite = false,
-    this.onFavoriteToggle,
+    this.showFavorite = true,
     this.showBookAction = false,
   });
 
@@ -311,14 +301,11 @@ class _HorizontalCard extends StatelessWidget {
                       bottom: 6,
                       child: _DistanceBadge(km: distanceKm!),
                     ),
-                  if (onFavoriteToggle != null)
+                  if (showFavorite)
                     Positioned(
                       top: -7,
                       right: -7,
-                      child: _FavoriteButton(
-                        isFavorite: isFavorite,
-                        onTap: onFavoriteToggle!,
-                      ),
+                      child: FavoriteButton(ground: ground),
                     ),
                 ],
               ),
@@ -761,50 +748,6 @@ class _AmenityStrip extends StatelessWidget {
 
 /// Favourite toggle with a 44x44 hit area and a small visual circle, as the
 /// touch-target rule requires. Shared by both card layouts.
-class _FavoriteButton extends StatelessWidget {
-  static const double _visualSize = 26;
-
-  final bool isFavorite;
-  final VoidCallback onTap;
-
-  const _FavoriteButton({required this.isFavorite, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: isFavorite ? 'Remove from saved' : 'Save this ground',
-      button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          // A drop shadow rather than a scrim disc: the disc read as a button
-          // the user could not name, and the heart is legible over a bright
-          // photo as long as it carries its own shadow.
-          child: Center(
-            child: SizedBox(
-              width: _visualSize,
-              height: _visualSize,
-              child: Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                size: _visualSize,
-                color: isFavorite ? AppColors.error : AppColors.onImage,
-                shadows: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _ImagePlaceholder extends StatelessWidget {
   final double? width;

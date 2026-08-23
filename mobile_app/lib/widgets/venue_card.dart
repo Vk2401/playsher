@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/animations.dart';
 import '../core/app_colors.dart';
 import '../models/ground_model.dart';
+import 'favorite_button.dart';
 import '../models/weather_model.dart';
 import 'sport_glyph.dart';
 
@@ -72,6 +73,14 @@ class VenueCard extends StatelessWidget {
                               const SizedBox(width: 8),
                               _Rating(ground: ground),
                             ],
+                            // In the title row rather than over the thumbnail:
+                            // an 84px picture cannot carry a 44px target
+                            // without becoming the target.
+                            FavoriteButton(
+                              ground: ground,
+                              tone: FavoriteButtonTone.onSurface,
+                              visualSize: 20,
+                            ),
                           ],
                         ),
 

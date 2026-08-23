@@ -9,7 +9,6 @@ import '../models/ground_model.dart';
 import '../models/sport_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/city_provider.dart';
-import '../providers/favorites_provider.dart';
 import '../providers/grounds_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/notifications_provider.dart';
@@ -79,8 +78,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final me = ref.watch(userLocationProvider);
     // Watched, not read: the heart on a featured card has to repaint when the
     // toggle lands. The notifier below is what answers "is this one saved".
-    ref.watch(favoritesProvider);
-    final favorites = ref.read(favoritesProvider.notifier);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -208,9 +205,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: GroundCard(
                               ground: featured[i],
                               wide: true,
-                              isFavorite: favorites.isFavorite(featured[i].id),
-                              onFavoriteToggle: () =>
-                                  favorites.toggle(featured[i].id),
                             ),
                           ),
                         ),
