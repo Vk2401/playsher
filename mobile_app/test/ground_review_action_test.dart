@@ -56,18 +56,20 @@ Future<void> openReviewsTab(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
 
-  final reviewsPill = find.text('Reviews');
-  expect(reviewsPill, findsOneWidget,
-      reason: 'the Reviews section pill should exist on the detail screen');
+  // "Reviews" now names two things: the count in the stat strip near the top
+  // and the tab further down. The tab is the later of the two in the tree.
+  final reviewsTab = find.text('Reviews').last;
+  expect(reviewsTab, findsOneWidget,
+      reason: 'the Reviews tab should exist on the detail screen');
 
   await tester.dragUntilVisible(
-    reviewsPill,
+    reviewsTab,
     find.byType(CustomScrollView),
     const Offset(0, -250),
   );
   await tester.pumpAndSettle();
 
-  await tester.tap(reviewsPill);
+  await tester.tap(reviewsTab);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
 }

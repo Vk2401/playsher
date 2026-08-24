@@ -175,15 +175,17 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.textContaining('Book Now'), findsNothing,
+    expect(find.textContaining('Continue to Book'), findsNothing,
         reason: 'The bar should stay hidden until a slot is chosen.');
 
     await tester.tap(find.text('6:00 PM').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.textContaining('Book Now'), findsOneWidget,
+    expect(find.textContaining('Continue to Book'), findsOneWidget,
         reason: 'Choosing a slot must surface the booking CTA.');
+    // The bar names what is about to be booked, not just its price.
+    expect(find.text('Selected Slot'), findsOneWidget);
     expect(find.textContaining('\u20b9'), findsWidgets);
   });
 }

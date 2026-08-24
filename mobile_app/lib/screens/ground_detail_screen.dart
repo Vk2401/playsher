@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:table_calendar/table_calendar.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/ground_model.dart';
@@ -10,13 +9,12 @@ import '../models/review_eligibility_model.dart';
 import '../models/ground_sport_model.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/grounds_provider.dart';
+import '../widgets/booking_picker.dart';
 import '../widgets/error_view.dart';
 import '../widgets/review_card.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/sport_glyph.dart';
 import '../widgets/write_review_sheet.dart';
-import '../widgets/sticky_bottom_bar.dart';
-import '../widgets/slot_tile.dart';
 
 class GroundDetailScreen extends ConsumerStatefulWidget {
   final String groundId;
@@ -31,8 +29,12 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
   int _imgIndex = 0;
 
   GroundSportModel? _selectedGroundSport;
-  DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
+
+  /// The Monday-agnostic start of the week the date strip is showing: it opens
+  /// on today rather than on a calendar week, because the first date anyone
+  /// wants is today.
+  DateTime _weekStart = DateTime.now();
   final Set<int> _selectedSlots = {};
 
   // Sport pill selection (replaces tab bar)
@@ -42,6 +44,29 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
   void dispose() {
     _pageCtrl.dispose();
     super.dispose();
+  }
+
+  /// The date as the API takes it.
+  static String _apiDate(DateTime day) =>
+      day.toIso8601String().split('T').first;
+
+  /// The date as the screen says it: "24 August 2026".
+  static String _longDate(DateTime day) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${day.day} ${months[day.month - 1]} ${day.year}';
   }
 
   /// Price is the venue's, so it no longer depends on which sport is selected.
@@ -353,27 +378,45 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                       children: [
                         Expanded(
                           child: _StatBox(
-                            icon: Icons.star_rounded,
-                            value: ground.avgRating.toStringAsFixed(1),
-                            label: 'RATING',
+                            icon: Icons.star_outline_rounded,
+                            value: ground.reviewCount == 0
+                                ? '—'
+                                : ground.avgRating.toStringAsFixed(1),
+                            label: 'Rating',
+                            caption: ground.reviewCount == 0
+                                ? 'No reviews yet'
+                                : '${ground.reviewCount} Reviews',
                           ),
                         ),
                         const _VertDivider(),
                         Expanded(
                           child: _StatBox(
-                            icon: Icons.rate_review_rounded,
+                            icon: Icons.chat_bubble_outline_rounded,
                             value: '${ground.reviewCount}',
-                            label: 'REVIEWS',
+                            label: 'Reviews',
+                            caption: 'See all',
+                          ),
+                        ),
+                        const _VertDivider(),
+                        Expanded(
+                          // The design's "Max Players" is not a field the API
+                          // has; the booking limit it does have is slots per
+                          // booking, so that is what this says rather than
+                          // inventing a headcount.
+                          child: _StatBox(
+                            icon: Icons.people_outline_rounded,
+                            value: '${_selectedGroundSport?.maxSlots ?? 0}',
+                            label: 'Max Slots',
+                            caption: 'Per Booking',
                           ),
                         ),
                         const _VertDivider(),
                         Expanded(
                           child: _StatBox(
-                            icon: Icons.attach_money_rounded,
-                            value: ground.startingPrice > 0
-                                ? '\u20b9${ground.startingPrice.toStringAsFixed(0)}'
-                                : '\u2014',
-                            label: 'FROM/SLOT',
+                            icon: Icons.currency_rupee_rounded,
+                            value: ground.formattedStartingPrice ?? '—',
+                            label: 'Price / Slot',
+                            caption: '30 Mins',
                           ),
                         ),
                       ],
@@ -389,14 +432,14 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                       child: Text(
                         'Select Sport',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: colors.textPrimary,
                         ),
                       ),
                     ),
                     SizedBox(
-                      height: 44,
+                      height: 52,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -412,16 +455,16 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                               margin: const EdgeInsets.only(right: 8),
                               constraints: const BoxConstraints(minWidth: 100),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
+                                  horizontal: 18, vertical: 11),
                               decoration: BoxDecoration(
-                                color: sel
-                                    ? AppColors.primary.withValues(alpha: 0.1)
-                                    : colors.input,
-                                borderRadius: BorderRadius.circular(20),
+                                // Filled when chosen, as the design has it: a
+                                // tinted outline read as "hovered" beside the
+                                // solid date and slot selections.
+                                color: sel ? AppColors.primary : colors.card,
+                                borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color:
                                       sel ? AppColors.primary : colors.border,
-                                  width: sel ? 2 : 1,
                                 ),
                               ),
                               child: Row(
@@ -430,17 +473,17 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                                   SportGlyph(
                                       name: gs.sport?.name ?? 'Sport',
                                       imageUrl: gs.sport?.image,
-                                      size: 16),
+                                      size: 20),
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
                                       gs.sport?.name ?? 'Sport',
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
                                         color: sel
-                                            ? AppColors.primary
-                                            : colors.textSecondary,
+                                            ? AppColors.onPrimary
+                                            : colors.textPrimary,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -456,91 +499,66 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                     const SizedBox(height: 20),
                   ],
 
-                  // Slot calendar + grid
+                  // Date, then time — the two questions a booking asks,
+                  // in the order the design asks them.
                   if (_selectedGroundSport != null) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: colors.card,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: colors.border),
-                        ),
-                        child: TableCalendar(
-                          firstDay: DateTime.now(),
-                          lastDay: DateTime.now().add(const Duration(days: 30)),
-                          focusedDay: _focusedDay,
-                          selectedDayPredicate: (d) =>
-                              isSameDay(d, _selectedDay),
-                          onDaySelected: (sel, foc) => setState(() {
-                            _selectedDay = sel;
-                            _focusedDay = foc;
-                            _selectedSlots.clear();
-                          }),
-                          calendarStyle: CalendarStyle(
-                            selectedDecoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            selectedTextStyle: const TextStyle(
-                              color: AppColors.onPrimary,
+                      child: DateStrip(
+                        selected: _selectedDay,
+                        firstDay: _weekStart,
+                        onSelected: (day) => setState(() {
+                          _selectedDay = day;
+                          // The slots belonged to the old day.
+                          _selectedSlots.clear();
+                        }),
+                        onPageChanged: (day) =>
+                            setState(() => _weekStart = day),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Select Time',
+                            style: TextStyle(
+                              fontSize: 16,
                               fontWeight: FontWeight.w700,
-                            ),
-                            todayDecoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            todayTextStyle: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            defaultTextStyle:
-                                TextStyle(color: colors.textPrimary),
-                            weekendTextStyle:
-                                TextStyle(color: colors.textSecondary),
-                            outsideTextStyle: TextStyle(color: colors.border),
-                            disabledTextStyle: TextStyle(color: colors.border),
-                          ),
-                          headerStyle: HeaderStyle(
-                            formatButtonVisible: false,
-                            titleCentered: true,
-                            titleTextStyle: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
                               color: colors.textPrimary,
                             ),
-                            leftChevronIcon: Icon(Icons.chevron_left,
-                                color: colors.textSecondary),
-                            rightChevronIcon: Icon(Icons.chevron_right,
-                                color: colors.textSecondary),
                           ),
-                          daysOfWeekStyle: DaysOfWeekStyle(
-                            weekdayStyle: TextStyle(
-                                color: colors.textSecondary, fontSize: 12),
-                            weekendStyle: TextStyle(
-                                color: colors.textSecondary, fontSize: 12),
+                          Text(
+                            '  \u2022  ',
+                            style: TextStyle(color: colors.textSecondary),
                           ),
-                        ),
+                          Flexible(
+                            child: Text(
+                              _longDate(_selectedDay),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        'Available Slots \u2014 ${_selectedDay.day}/${_selectedDay.month}/${_selectedDay.year}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: colors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _SlotsGrid(
+                      child: SlotPicker(
+                        // Keyed so switching sport or date rebuilds the picker
+                        // from scratch rather than keeping the old period.
+                        key: ValueKey(
+                            '${_selectedGroundSport!.id}-${_apiDate(_selectedDay)}'),
                         groundSportId: _selectedGroundSport!.id,
-                        date: _selectedDay.toIso8601String().split('T').first,
+                        date: _apiDate(_selectedDay),
+                        price: ground.formattedStartingPrice ?? '—',
                         selectedSlots: _selectedSlots,
                         onSlotToggle: (id) => setState(() {
                           if (_selectedSlots.contains(id)) {
@@ -551,32 +569,50 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                         }),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                   ],
 
-                  // Section nav pills
-                  SizedBox(
-                    height: 48,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        _SectionPill('Overview', 0, _contentSection,
-                            () => setState(() => _contentSection = 0)),
-                        _SectionPill('Amenities', 1, _contentSection,
-                            () => setState(() => _contentSection = 1)),
-                        _SectionPill('Reviews', 2, _contentSection,
-                            () => setState(() => _contentSection = 2)),
-                      ],
+                  // What the venue is, under three tabs.
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colors.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              for (final (i, tab) in const [
+                                (Icons.info_outline_rounded, 'Overview'),
+                                (Icons.tune_rounded, 'Amenities'),
+                                (Icons.star_outline_rounded, 'Reviews'),
+                              ].indexed)
+                                Expanded(
+                                  child: _SectionTab(
+                                    icon: tab.$1,
+                                    label: tab.$2,
+                                    selected: _contentSection == i,
+                                    onTap: () =>
+                                        setState(() => _contentSection = i),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 14, 4, 6),
+                            child: switch (_contentSection) {
+                              0 => _OverviewSection(ground: ground),
+                              1 => _AmenitiesSection(ground: ground),
+                              _ => _ReviewsSection(ground: ground),
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Content sections
-                  if (_contentSection == 0) _OverviewSection(ground: ground),
-                  if (_contentSection == 1) _AmenitiesSection(ground: ground),
-                  if (_contentSection == 2) _ReviewsSection(ground: ground),
 
                   const SizedBox(height: 24),
                 ],
@@ -587,29 +623,24 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
       ),
 
       // ── Booking bar ────────────────────────────────────────────────────────
-      // The shared widget rather than a hand-rolled copy: it already owns the
-      // bottom safe-area inset and the disabled/loading state.
+      // What was chosen, beside what it costs and the way on. The design puts
+      // the slot back in front of the user at the moment they commit, which is
+      // the last chance to notice it is the wrong one.
+      //
       // A venue with no price cannot be booked — the server refuses with 409 —
-      // so say so here rather than quoting ₹0 and failing at the payment step.
+      // so say so here rather than quoting a total and failing at payment.
       bottomNavigationBar: !hasSelection
           ? null
-          : !ground.isBookable
-              ? const StickyBottomBar(
-                  priceLabel: 'PRICE',
-                  price: 'Not set',
-                  buttonText: 'Not available for booking',
-                  onPressed: null,
-                )
-              : StickyBottomBar(
-              priceLabel: 'TOTAL PRICE',
-              price: '\u20b9${_totalPriceFor(ground)}',
-              buttonText:
-                  'Book Now (${_selectedSlots.length} slot${_selectedSlots.length > 1 ? 's' : ''})',
+          : _BookingBar(
+              date: _selectedDay,
+              slotCount: _selectedSlots.length,
+              total: _totalPriceFor(ground),
+              bookable: ground.isBookable,
               onPressed: () => context.push(
                 '/book/${_selectedGroundSport!.groundId}',
                 extra: {
                   'groundSport': _selectedGroundSport,
-                  'date': _selectedDay.toIso8601String().split('T').first,
+                  'date': _apiDate(_selectedDay),
                   'slotIds': _selectedSlots.toList(),
                   'totalPrice': _totalPriceFor(ground),
                   // The per-slot figure the total was built from, so the
@@ -633,8 +664,15 @@ class _StatBox extends StatelessWidget {
   final String value;
   final String label;
 
-  const _StatBox(
-      {required this.icon, required this.value, required this.label});
+  /// The line under the figure — "120 Reviews", "Per Booking", "30 Mins".
+  final String caption;
+
+  const _StatBox({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.caption,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -643,37 +681,40 @@ class _StatBox extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.15),
+            color: AppColors.primary.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 18, color: AppColors.primary),
+          child: Icon(icon, size: 17, color: AppColors.primary),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 7),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
-            color: colors.textSecondary,
-            letterSpacing: 0.6,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 11.5, color: colors.textSecondary),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 3),
         Text(
           value,
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
             color: colors.textPrimary,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          caption,
+          style: TextStyle(fontSize: 10.5, color: colors.textSecondary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -689,42 +730,62 @@ class _VertDivider extends StatelessWidget {
   }
 }
 
-// ── Section pill ──────────────────────────────────────────────────────────────
+// ── Section tab ───────────────────────────────────────────────────────────────
 
-class _SectionPill extends StatelessWidget {
+class _SectionTab extends StatelessWidget {
+  const _SectionTab({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
   final String label;
-  final int index;
-  final int current;
+  final bool selected;
   final VoidCallback onTap;
-
-  const _SectionPill(this.label, this.index, this.current, this.onTap);
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final sel = index == current;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        // Centred both ways and floored at 44 high: the label used to sit
-        // wherever its own baseline fell, so the three pills read ragged.
-        alignment: Alignment.center,
-        constraints: const BoxConstraints(minHeight: 44, minWidth: 96),
-        decoration: BoxDecoration(
-          color: sel ? AppColors.primary.withValues(alpha: 0.12) : colors.input,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: sel ? AppColors.primary : colors.border),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: sel ? AppColors.primary : colors.textSecondary,
+    final tint = selected ? colors.brandText : colors.textSecondary;
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+          decoration: BoxDecoration(
+            // The rule under the active tab, which is what the design uses to
+            // say which one you are on — colour alone would not.
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? AppColors.primary : Colors.transparent,
+                width: 2.5,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 17, color: tint),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: tint,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -733,6 +794,13 @@ class _SectionPill extends StatelessWidget {
 }
 
 // ── Overview section ──────────────────────────────────────────────────────────
+
+/// The venue's rules, one per sentence.
+List<String> _rulesOf(GroundModel ground) => (ground.venueRules ?? '')
+    .split(RegExp(r'[.;\n]'))
+    .map((r) => r.trim())
+    .where((r) => r.isNotEmpty)
+    .toList();
 
 class _OverviewSection extends StatelessWidget {
   final GroundModel ground;
@@ -767,7 +835,7 @@ class _OverviewSection extends StatelessWidget {
             ),
             const SizedBox(height: 20),
           ],
-          if ((ground.venueRules ?? '').isNotEmpty) ...[
+          if (_rulesOf(ground).isNotEmpty) ...[
             Text(
               'Venue Rules',
               style: TextStyle(
@@ -775,14 +843,18 @@ class _OverviewSection extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   color: colors.textPrimary),
             ),
-            const SizedBox(height: 8),
-            Text(
-              ground.venueRules!,
-              style: TextStyle(
-                fontSize: 14,
-                color: colors.textSecondary,
-                height: 1.6,
-              ),
+            const SizedBox(height: 12),
+            // The design draws each rule as a glyph. `venue_rules` is one free
+            // text field, so it is split into its sentences and each is given
+            // the icon its wording earns — no icon is invented for a rule the
+            // venue did not write, and anything unrecognised keeps a neutral
+            // one rather than being dropped.
+            Wrap(
+              spacing: 18,
+              runSpacing: 16,
+              children: [
+                for (final rule in _rulesOf(ground)) _RuleChip(rule: rule),
+              ],
             ),
           ],
         ],
@@ -982,72 +1054,210 @@ class _ReviewAction extends StatelessWidget {
   }
 }
 
-// ── Slots grid ────────────────────────────────────────────────────────────────
+// ── Booking bar ───────────────────────────────────────────────────────────────
 
-class _SlotsGrid extends ConsumerWidget {
-  final int groundSportId;
-  final String date;
-  final Set<int> selectedSlots;
-  final ValueChanged<int> onSlotToggle;
+// ── Booking bar ───────────────────────────────────────────────────────────────
 
-  const _SlotsGrid({
-    required this.groundSportId,
+/// What is about to be booked, and the way on.
+class _BookingBar extends StatelessWidget {
+  const _BookingBar({
     required this.date,
-    required this.selectedSlots,
-    required this.onSlotToggle,
+    required this.slotCount,
+    required this.total,
+    required this.bookable,
+    required this.onPressed,
   });
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
-    final slotsAsync = ref.watch(
-      slotsProvider(SlotQuery(groundSportId: groundSportId, date: date)),
-    );
+  final DateTime date;
+  final int slotCount;
+  final int total;
+  final bool bookable;
+  final VoidCallback onPressed;
 
-    return slotsAsync.when(
-      loading: () => const SlotGridShimmer(),
-      error: (e, _) => ErrorView(
-        message:
-            apiErrorMessage(e, fallback: 'Could not load slots for this date'),
-        onRetry: () => ref.invalidate(
-          slotsProvider(SlotQuery(groundSportId: groundSportId, date: date)),
-        ),
+  static const _days = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  static const _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final minutes = slotCount * 30;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        12 + MediaQuery.of(context).padding.bottom,
       ),
-      data: (allSlots) {
-        // Second line of defence behind the API's own filter: never offer a
-        // slot whose start time has gone by, or the tap dies at checkout.
-        final slots = allSlots.where((s) => !s.hasStarted).toList();
-        if (slots.isEmpty) {
-          // "Today is over" is a different answer from "this venue is shut",
-          // and sending someone to tomorrow is only useful for the first one.
-          final dayIsSpent = allSlots.isNotEmpty;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                dayIsSpent
-                    ? "Today's slots have all started. Try another date."
-                    : 'No slots available for this date.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.textSecondary),
+      decoration: BoxDecoration(
+        color: colors.card,
+        border: Border(top: BorderSide(color: colors.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  slotCount == 1 ? 'Selected Slot' : 'Selected Slots',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: colors.brandText,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${date.day} ${_months[date.month - 1]} ${date.year}'
+                  '  ·  ${_days[date.weekday - 1]}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '$slotCount ${slotCount == 1 ? 'slot' : 'slots'}'
+                  '  ·  $minutes mins  ·  '
+                  '${bookable ? '\u20b9$total' : 'price not set'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // The CTA takes what it needs and no more: on a narrow phone the
+          // slot summary beside it is the part worth reading, and an
+          // ellipsised date is worse than a shorter button.
+          SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              onPressed: bookable ? onPressed : null,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 52),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      bookable ? 'Continue to Book' : 'Not available',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14.5, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  if (bookable) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_rounded, size: 18),
+                  ],
+                ],
               ),
             ),
-          );
-        }
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: slots
-              .map((s) => SlotTile(
-                    slot: s,
-                    selected: selectedSlots.contains(s.id),
-                    onTap: !s.isAvailable ? null : () => onSlotToggle(s.id),
-                  ))
-              .toList(),
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Booking bar ───────────────────────────────────────────────────────────────
+/// One rule, under the glyph its wording earns.
+class _RuleChip extends StatelessWidget {
+  const _RuleChip({required this.rule});
+
+  final String rule;
+
+  /// Matched on what the owner actually wrote. The fallback is deliberately a
+  /// neutral "rule" mark: a wrong icon states something the venue did not.
+  static IconData _iconFor(String rule) {
+    final text = rule.toLowerCase();
+    if (text.contains('smok')) return Icons.smoke_free_rounded;
+    if (text.contains('alcohol') || text.contains('drink')) {
+      return Icons.no_drinks_rounded;
+    }
+    if (text.contains('shoe') || text.contains('stud') ||
+        text.contains('footwear')) {
+      return Icons.hiking_rounded;
+    }
+    if (text.contains('player') || text.contains('people') ||
+        text.contains('max')) {
+      return Icons.groups_rounded;
+    }
+    if (text.contains('food') || text.contains('outside')) {
+      return Icons.no_food_rounded;
+    }
+    if (text.contains('pet') || text.contains('dog')) return Icons.pets_rounded;
+    if (text.contains('time') || text.contains('late') ||
+        text.contains('punctual')) {
+      return Icons.schedule_rounded;
+    }
+    return Icons.rule_rounded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return SizedBox(
+      width: 82,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.input,
+              border: Border.all(color: colors.border),
+            ),
+            child: Icon(_iconFor(rule), size: 22, color: colors.textPrimary),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            rule,
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 11.5, height: 1.3, color: colors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
