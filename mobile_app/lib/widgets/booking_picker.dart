@@ -439,18 +439,23 @@ class SlotCard extends StatelessWidget {
   /// Null for a slot that cannot be taken — booked, or already started.
   final VoidCallback? onTap;
 
-  /// The proportions the design draws, as fractions of the card's width.
-  static const heightRatio = 1.31;
-  static const _radiusRatio = 0.10;
+  static const heightRatio = 1.32;
+  static const _radiusRatio = 0.16;
 
-  /// How many cards the design fits across the row.
-  static const _perRow = 6;
+  /// How many cards sit across the row.
+  ///
+  /// The mock fits six, but the mock is an artboard: at six on a real phone
+  /// the card is under fifty points wide and the times inside it shrink to
+  /// the point of being hard to read and hard to hit. Four is the same idea
+  /// at a size that survives contact with a thumb — the row still reads as a
+  /// timeline you scroll along rather than a stack of buttons.
+  static const _perRow = 4;
   static const gap = 8.0;
 
-  /// The width one card gets when [available] is shared between [_perRow] of
+  /// The width one card gets when the row is shared between [_perRow] of
   /// them — clamped so a very narrow or very wide phone still reads.
   static double widthFor(double available) =>
-      ((available - gap * (_perRow - 1)) / _perRow).clamp(46.0, 66.0);
+      ((available - gap * (_perRow - 1)) / _perRow).clamp(70.0, 104.0);
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +486,7 @@ class SlotCard extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           width: width,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(width * _radiusRatio),
@@ -509,7 +514,7 @@ class SlotCard extends StatelessWidget {
                         const SizedBox(width: 3),
                         // A white disc with the fill showing through the tick.
                         const Icon(Icons.check_circle,
-                            size: 13, color: AppColors.onPrimary),
+                            size: 15, color: AppColors.onPrimary),
                       ],
                     ],
                   ),
@@ -538,7 +543,7 @@ class _Line extends StatelessWidget {
       text,
       maxLines: 1,
       style: TextStyle(
-        fontSize: 11.5,
+        fontSize: 13,
         height: 1.2,
         fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
         color: color,
@@ -843,11 +848,6 @@ class _TimelineState extends State<_Timeline> {
     final ready = widget.controller.hasClients &&
         widget.controller.position.hasContentDimensions;
     final position = ready ? widget.controller.position : null;
-    // Before the first layout there is nothing to page through; the arrows
-    // come alive on the frame after.
-    final canGoBack = position != null && position.pixels > 1;
-    final canGoOn =
-        position != null && position.pixels < position.maxScrollExtent - 1;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -859,7 +859,21 @@ class _TimelineState extends State<_Timeline> {
         // lines grow with the text scale, so the height follows both.
         final height = MediaQuery.textScalerOf(context)
             .scale(cardWidth * SlotCard.heightRatio)
-            .clamp(cardWidth * SlotCard.heightRatio, 160.0);
+            .clamp(cardWidth * SlotCard.heightRatio, 190.0);
+
+        // Whether there is anything to page to, worked out from the cards
+        // themselves rather than from the scroll position. The position is
+        // only consulted to say *which* end you are at, and only once it
+        // exists: relying on it for the forward arrow meant the arrow was
+        // dead until something else scrolled the row — which is to say,
+        // until the arrow was no longer needed.
+        final content = widget.slots.length * cardWidth +
+            (widget.slots.length - 1) * SlotCard.gap;
+        final overflows = content > rowWidth + 1;
+        final canGoBack = position != null && position.pixels > 1;
+        final canGoOn = position != null
+            ? position.pixels < position.maxScrollExtent - 1
+            : overflows;
 
         return Column(
           children: [

@@ -274,16 +274,15 @@ void main() {
     // Live on arrival. On the frame the row is built the controller has no
     // clients, so the arrow starts disabled — and with nothing able to scroll
     // the row, no scroll notification would ever arrive to enable it.
-    // One more frame: the arrow wakes on the frame *after* the row is laid
-    // out, which is the whole point of the nudge being tested here.
-    await tester.pump();
-
     IconButton forwardArrow() => tester
         .widgetList<IconButton>(find.byType(IconButton))
         .firstWhere((b) => b.tooltip == 'Later slots');
 
+    // Live on the first frame the row is on screen — no scroll, no extra
+    // pump. It used to depend on a scroll notification to enable itself,
+    // which meant it only worked once you had already scrolled by hand.
     expect(forwardArrow().onPressed, isNotNull,
-        reason: 'the forward arrow must wake up after the first layout');
+        reason: 'the forward arrow must work without scrolling first');
 
     expect(find.text('6:00 PM'), findsWidgets);
     await tester.tap(find.byTooltip('Later slots'));
