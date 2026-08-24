@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -53,6 +55,8 @@ class DateStrip extends StatelessWidget {
     'December',
   ];
 
+  /// Today on the *device's* clock, which is the clock the person booking is
+  /// reading. Every "is this past?" question in the picker starts here.
   DateTime get _today => DateTime.now().dateOnly;
   DateTime get _lastDay => _today.add(Duration(days: daysAhead));
 
@@ -62,6 +66,8 @@ class DateStrip extends StatelessWidget {
     final days = [for (var i = 0; i < 7; i++) firstDay.add(Duration(days: i))];
     final canGoBack = firstDay.isAfter(_today);
     final canGoOn = days.last.isBefore(_lastDay);
+    final selectedDay = selected.dateOnly;
+    final weekHoldsSelection = days.any((d) => d == selectedDay);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,9 +86,9 @@ class DateStrip extends StatelessWidget {
             ),
             // Which month the week on show belongs to — the strip only prints
             // day numbers, so without this a week spanning a month boundary is
-            // ambiguous.
+            // ambiguous. A week that straddles two prints both.
             Text(
-              '${_months[days.first.month - 1]} ${days.first.year}',
+              _monthLabel(days.first, days.last),
               style: TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w600,
@@ -109,7 +115,8 @@ class DateStrip extends StatelessWidget {
                     Expanded(
                       child: _DayCell(
                         day: day,
-                        selected: day == selected.dateOnly,
+                        selected: day == selectedDay,
+                        isToday: day == _today,
                         enabled:
                             !day.isBefore(_today) && !day.isAfter(_lastDay),
                         onTap: () => onSelected(day),
@@ -128,24 +135,58 @@ class DateStrip extends StatelessWidget {
             ),
           ],
         ),
+        // Paging the week carries the strip away from the day being booked.
+        // Saying which day that still is — and offering the way back — beats
+        // a row with nothing highlighted and no explanation for it.
+        if (!weekHoldsSelection) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => onPageChanged(_clampWeek(selectedDay)),
+              icon: const Icon(Icons.event_available_rounded, size: 16),
+              label: Text(
+                'Booking ${_weekdays[selectedDay.weekday - 1]} '
+                '${selectedDay.day} ${_shortMonth(selectedDay.month)} — '
+                'jump back',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.5),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: colors.brandText,
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 
+  String _monthLabel(DateTime first, DateTime last) => first.month == last.month
+      ? '${_months[first.month - 1]} ${first.year}'
+      : '${_shortMonth(first.month)} – ${_shortMonth(last.month)} ${last.year}';
+
   DateTime _clampWeek(DateTime candidate) =>
       candidate.isBefore(_today) ? _today : candidate;
+
+  static String _shortMonth(int month) => _months[month - 1].substring(0, 3);
 }
 
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
     required this.selected,
+    required this.isToday,
     required this.enabled,
     required this.onTap,
   });
 
   final DateTime day;
   final bool selected;
+  final bool isToday;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -153,72 +194,75 @@ class _DayCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final weekday = DateStrip._weekdays[day.weekday - 1];
+    // "Today" earns the weekday's line: it is the day most bookings are for,
+    // and the date under it still says which day of the week it is.
+    final topLine = isToday ? 'Today' : weekday;
+
+    // A tint behind the selected day read as "slightly warmer card" beside
+    // six others. A fill reads as chosen from across the room.
+    final ink = !enabled
+        ? colors.border
+        : selected
+            ? AppColors.onPrimary
+            : colors.textPrimary;
+    final subInk = !enabled
+        ? colors.border
+        : selected
+            ? AppColors.onPrimaryMuted
+            : colors.textSecondary;
+
+    Widget line(String text, double size, FontWeight weight, Color color) =>
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            maxLines: 1,
+            style: TextStyle(fontSize: size, fontWeight: weight, color: color),
+          ),
+        );
 
     return Semantics(
-      label: '$weekday ${day.day}',
+      label: '$weekday ${day.day} ${DateStrip._shortMonth(day.month)}'
+          '${isToday ? ', today' : ''}${enabled ? '' : ', unavailable'}',
       selected: selected,
+      enabled: enabled,
       button: true,
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         behavior: HitTestBehavior.opaque,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
           margin: const EdgeInsets.symmetric(horizontal: 3),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
-            color: selected
-                ? AppColors.primary.withValues(alpha: 0.10)
-                : colors.card,
+            color: selected ? AppColors.primary : colors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? AppColors.primary : colors.border,
-              width: selected ? 1.6 : 1,
+              // Today keeps a ring even when it is not the chosen day, so the
+              // strip always says where "now" is.
+              color: selected
+                  ? AppColors.primary
+                  : isToday && enabled
+                      ? AppColors.primary.withValues(alpha: 0.45)
+                      : colors.border,
+              width: selected || isToday ? 1.6 : 1,
             ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                weekday,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: !enabled
-                      ? colors.border
-                      : selected
-                          ? colors.brandText
-                          : colors.textSecondary,
-                ),
-              ),
+              line(topLine, 11.5, FontWeight.w600, subInk),
               const SizedBox(height: 2),
-              Text(
-                '${day.day}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: !enabled
-                      ? colors.border
-                      : selected
-                          ? colors.brandText
-                          : colors.textPrimary,
-                ),
-              ),
+              line('${day.day}', 18, FontWeight.w800, ink),
               const SizedBox(height: 1),
-              Text(
-                _shortMonth(day.month),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: !enabled ? colors.border : colors.textSecondary,
-                ),
-              ),
+              line(DateStrip._shortMonth(day.month), 11, FontWeight.w400,
+                  subInk),
             ],
           ),
         ),
       ),
     );
   }
-
-  static String _shortMonth(int month) =>
-      DateStrip._months[month - 1].substring(0, 3);
 }
 
 class _Arrow extends StatelessWidget {
@@ -295,21 +339,24 @@ class SlotPeriodBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: colors.border),
       ),
-      child: Row(
-        children: [
-          for (final period in SlotPeriod.values) ...[
-            if (period != SlotPeriod.values.first)
-              Container(width: 1, height: 34, color: colors.border),
-            Expanded(
-              child: _PeriodTab(
-                period: period,
-                selected: period == selected,
-                empty: countFor(period) == 0,
-                onTap: () => onSelected(period),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final period in SlotPeriod.values) ...[
+              if (period != SlotPeriod.values.first)
+                Container(width: 1, color: colors.border),
+              Expanded(
+                child: _PeriodTab(
+                  period: period,
+                  selected: period == selected,
+                  count: countFor(period),
+                  onTap: () => onSelected(period),
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -319,56 +366,76 @@ class _PeriodTab extends StatelessWidget {
   const _PeriodTab({
     required this.period,
     required this.selected,
-    required this.empty,
+    required this.count,
     required this.onTap,
   });
 
   final SlotPeriod period;
   final bool selected;
-  final bool empty;
+
+  /// How many slots are left in this period — the number that decides whether
+  /// the tab is worth a tap.
+  final int count;
+
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final empty = count == 0;
     final tint = selected
         ? colors.brandText
         : empty
             ? colors.border
             : colors.textSecondary;
 
+    Widget line(String text, double size, FontWeight weight) => FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            maxLines: 1,
+            style: TextStyle(fontSize: size, fontWeight: weight, color: tint),
+          ),
+        );
+
     return Semantics(
       selected: selected,
       button: true,
-      label: '${period.label}, ${period.range}'
-          '${empty ? ', no slots' : ''}',
+      label: '${period.label}, ${period.range}, '
+          '${empty ? 'no slots left' : '$count slots left'}',
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(13),
+            // The underline is the part of "selected" that survives being
+            // read in greyscale.
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? AppColors.primary : Colors.transparent,
+                width: 2.5,
+              ),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(4, 10, 4, 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(period.icon, size: 19, color: tint),
               const SizedBox(height: 5),
-              Text(
-                period.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                  color: tint,
-                ),
-              ),
+              line(period.label, 12.5,
+                  selected ? FontWeight.w700 : FontWeight.w600),
+              const SizedBox(height: 2),
+              // A greyed-out tab is not a readable state on its own — a tab
+              // with nothing left says so in words.
+              line(empty ? 'No slots' : '$count left', 10.5, FontWeight.w600),
               const SizedBox(height: 1),
-              Text(
-                period.range,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 10.5, color: tint),
-              ),
+              line(period.range, 10, FontWeight.w400),
             ],
           ),
         ),
@@ -603,11 +670,22 @@ class _SlotPickerState extends ConsumerState<SlotPicker> {
   /// bounced back to Morning and showed morning slots.
   SlotPeriod? _chosen;
   bool _timeline = true;
-  final _scroll = ScrollController();
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    // A picker left open while the hour turns is still offering slots that
+    // have since started. Re-reading the clock once a minute drops them — and
+    // empties the period they were the last of — without a pull to refresh.
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _clock?.cancel();
     super.dispose();
   }
 
@@ -635,8 +713,10 @@ class _SlotPickerState extends ConsumerState<SlotPicker> {
         onRetry: () => ref.invalidate(slotsProvider(query)),
       ),
       data: (allSlots) {
-        // Second line of defence behind the API's own filter: never offer a
-        // slot whose start time has gone by, or the tap dies at checkout.
+        // Second line of defence behind the API's own filter, read against
+        // the device's own clock: never offer a slot whose start time has
+        // gone by, or the tap dies at checkout. A future date keeps every
+        // slot — the comparison is against an instant, not a time of day.
         final slots = allSlots.where((s) => !s.hasStarted).toList();
 
         if (slots.isEmpty) {
@@ -673,8 +753,13 @@ class _SlotPickerState extends ConsumerState<SlotPicker> {
               )
             else if (_timeline)
               _Timeline(
+                // Keyed so each period gets its own controller. Carried from
+                // one period to the next, the offset and the scroll extent
+                // belonged to a row that was no longer there: a short evening
+                // opened halfway along, and the arrows greyed against a
+                // length that no longer existed.
+                key: ValueKey('${widget.date}-${period.name}'),
                 slots: inPeriod,
-                controller: _scroll,
                 price: widget.price,
                 selectedSlots: widget.selectedSlots,
                 onSlotToggle: widget.onSlotToggle,
@@ -734,7 +819,7 @@ class _ViewToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    Widget half(String label, bool isTimeline) {
+    Widget half(String label, IconData icon, bool isTimeline) {
       final on = timeline == isTimeline;
       return Expanded(
         child: Semantics(
@@ -743,25 +828,39 @@ class _ViewToggle extends StatelessWidget {
           child: GestureDetector(
             onTap: () => onChanged(isTimeline),
             behavior: HitTestBehavior.opaque,
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
               height: 44,
               alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
-                color: on
-                    ? AppColors.primary.withValues(alpha: 0.10)
-                    : Colors.transparent,
+                color: on ? AppColors.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: on ? AppColors.primary : Colors.transparent,
-                  width: 1.4,
-                ),
               ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: on ? FontWeight.w700 : FontWeight.w600,
-                  color: on ? colors.brandText : colors.textSecondary,
+              // Scaled as a block rather than wrapped: the toggle is a fixed
+              // width and "Timeline" beside its glyph outgrows half of it at
+              // a large text scale.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 15,
+                      color: on ? AppColors.onPrimary : colors.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+                        color: on ? AppColors.onPrimary : colors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -773,13 +872,18 @@ class _ViewToggle extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        width: 180,
+        width: 200,
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
           color: colors.input,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(children: [half('Timeline', true), half('Grid', false)]),
+        child: Row(
+          children: [
+            half('Timeline', Icons.view_week_rounded, true),
+            half('Grid', Icons.grid_view_rounded, false),
+          ],
+        ),
       ),
     );
   }
@@ -787,15 +891,14 @@ class _ViewToggle extends StatelessWidget {
 
 class _Timeline extends StatefulWidget {
   const _Timeline({
+    super.key,
     required this.slots,
-    required this.controller,
     required this.price,
     required this.selectedSlots,
     required this.onSlotToggle,
   });
 
   final List<SlotModel> slots;
-  final ScrollController controller;
   final String price;
   final Set<int> selectedSlots;
   final ValueChanged<int> onSlotToggle;
@@ -805,12 +908,15 @@ class _Timeline extends StatefulWidget {
 }
 
 class _TimelineState extends State<_Timeline> {
+  /// Owned here, not passed in, so it dies with the row it measures.
+  final _controller = ScrollController();
+
   @override
   void initState() {
     super.initState();
     // The arrows grey out at each end, so they have to hear the row move —
     // by finger as well as by tap.
-    widget.controller.addListener(_onScroll);
+    _controller.addListener(_onScroll);
     // And they have to hear the *first* layout. On the frame this is built
     // the controller has no clients yet, so there is nothing to page through
     // and both arrows come up disabled; without this nudge nothing would ever
@@ -820,8 +926,19 @@ class _TimelineState extends State<_Timeline> {
   }
 
   @override
+  void didUpdateWidget(_Timeline old) {
+    super.didUpdateWidget(old);
+    // The same period can gain or lose a slot without the key changing — a
+    // minute passes, someone else books. Re-measure once it has re-laid out.
+    if (old.slots.length != widget.slots.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onScroll());
+    }
+  }
+
+  @override
   void dispose() {
-    widget.controller.removeListener(_onScroll);
+    _controller.removeListener(_onScroll);
+    _controller.dispose();
     super.dispose();
   }
 
@@ -832,11 +949,12 @@ class _TimelineState extends State<_Timeline> {
   /// Nearly a full screenful, so the slot you were looking at stays in view
   /// as an anchor rather than the row jumping to somewhere unrecognisable.
   void _page(int direction) {
-    final position = widget.controller.position;
+    if (!_controller.hasClients) return;
+    final position = _controller.position;
     final target =
         (position.pixels + direction * position.viewportDimension * 0.8)
             .clamp(position.minScrollExtent, position.maxScrollExtent);
-    widget.controller.animateTo(
+    _controller.animateTo(
       target,
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -845,9 +963,9 @@ class _TimelineState extends State<_Timeline> {
 
   @override
   Widget build(BuildContext context) {
-    final ready = widget.controller.hasClients &&
-        widget.controller.position.hasContentDimensions;
-    final position = ready ? widget.controller.position : null;
+    final ready =
+        _controller.hasClients && _controller.position.hasContentDimensions;
+    final position = ready ? _controller.position : null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -888,7 +1006,7 @@ class _TimelineState extends State<_Timeline> {
                   child: SizedBox(
                     height: height,
                     child: ListView.separated(
-                      controller: widget.controller,
+                      controller: _controller,
                       scrollDirection: Axis.horizontal,
                       padding: EdgeInsets.zero,
                       itemCount: widget.slots.length,
@@ -915,7 +1033,7 @@ class _TimelineState extends State<_Timeline> {
               ],
             ),
             const SizedBox(height: 10),
-            _ScrollDots(controller: widget.controller),
+            _ScrollDots(controller: _controller),
           ],
         );
       },

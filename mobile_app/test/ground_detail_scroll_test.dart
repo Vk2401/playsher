@@ -293,4 +293,52 @@ void main() {
     expect(find.text('6:00 PM'), findsNothing,
         reason: 'the arrow did not move the row');
   });
+
+  // Switching period used to carry the previous row's scroll offset into the
+  // new one: the row opened halfway along, and the arrows greyed against a
+  // length that no longer existed. Each period now measures its own row.
+  testWidgets('switching period starts its row at the beginning',
+      (tester) async {
+    tester.view.physicalSize = const Size(412, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // Ten in the morning and ten in the evening, so either row overflows.
+    await tester.pumpWidget(host(
+      slots: SlotModel.listFromJson([
+        for (final base in [6, 18])
+          for (var i = 0; i < 10; i++)
+            {
+              'id': base * 100 + i,
+              'slot_start_time':
+                  '${(base + i ~/ 2).toString().padLeft(2, '0')}:${i.isEven ? '00' : '30'}:00',
+              'slot_end_time':
+                  '${(base + (i + 1) ~/ 2).toString().padLeft(2, '0')}:${i.isEven ? '30' : '00'}:00',
+              'is_available': true,
+            },
+      ]),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Morning opens first, and pages away from its earliest slot.
+    expect(find.text('6:00 AM'), findsWidgets);
+    await tester.tap(find.byTooltip('Later slots'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('6:00 AM'), findsNothing);
+
+    await tester.tap(find.text('Evening'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    IconButton backArrow() => tester
+        .widgetList<IconButton>(find.byType(IconButton))
+        .firstWhere((b) => b.tooltip == 'Earlier slots');
+
+    expect(find.text('6:00 PM'), findsWidgets,
+        reason: 'the evening row must open on its first slot');
+    expect(backArrow().onPressed, isNull,
+        reason: 'a row at its start has nothing earlier to page to');
+  });
 }

@@ -14,6 +14,7 @@ import 'package:playsher_app/core/theme.dart';
 import 'package:playsher_app/providers/favorites_provider.dart';
 import 'package:playsher_app/models/ground_model.dart';
 import 'package:playsher_app/models/slot_model.dart';
+import 'package:playsher_app/widgets/booking_picker.dart';
 import 'package:playsher_app/widgets/ground_card.dart';
 import 'package:playsher_app/widgets/slot_tile.dart';
 import 'package:playsher_app/widgets/status_badge.dart';
@@ -177,6 +178,38 @@ void main() {
     await everyCombination(
       tester,
       () => SlotTile(slot: _slot(), selected: true, onTap: () {}),
+    );
+  });
+
+  // Seven day cells and two arrows across a 390dp phone, each cell carrying
+  // three lines of type: the row that most easily overflows at 1.3x.
+  testWidgets('DateStrip does not overflow', (tester) async {
+    final today = DateTime.now();
+    await everyCombination(
+      tester,
+      () => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: DateStrip(
+          selected: today,
+          firstDay: today,
+          onSelected: (_) {},
+          onPageChanged: (_) {},
+        ),
+      ),
+    );
+  });
+
+  testWidgets('SlotPeriodBar does not overflow', (tester) async {
+    await everyCombination(
+      tester,
+      () => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: SlotPeriodBar(
+          selected: SlotPeriod.afternoon,
+          onSelected: (_) {},
+          countFor: (p) => p == SlotPeriod.afternoon ? 12 : 0,
+        ),
+      ),
     );
   });
 
