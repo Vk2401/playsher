@@ -63,8 +63,17 @@ class DateStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final days = [for (var i = 0; i < 7; i++) firstDay.add(Duration(days: i))];
-    final canGoBack = firstDay.isAfter(_today);
+    // Normalised, and built by calendar day rather than by adding 24h at a
+    // time. A `firstDay` carrying a wall-clock time made every cell in the
+    // week 20:09:33 while `selectedDay` was midnight, so `day == selectedDay`
+    // was false for all seven and nothing highlighted — until an arrow tap
+    // happened to replace it with a clean date.
+    final start = firstDay.dateOnly;
+    final days = [
+      for (var i = 0; i < 7; i++)
+        DateTime(start.year, start.month, start.day + i),
+    ];
+    final canGoBack = start.isAfter(_today);
     final canGoOn = days.last.isBefore(_lastDay);
     final selectedDay = selected.dateOnly;
     final weekHoldsSelection = days.any((d) => d == selectedDay);
@@ -104,8 +113,8 @@ class DateStrip extends StatelessWidget {
               icon: Icons.chevron_left_rounded,
               tooltip: 'Previous week',
               onTap: canGoBack
-                  ? () => onPageChanged(
-                      _clampWeek(firstDay.subtract(const Duration(days: 7))))
+                  ? () => onPageChanged(_clampWeek(
+                      DateTime(start.year, start.month, start.day - 7)))
                   : null,
             ),
             Expanded(
@@ -129,8 +138,8 @@ class DateStrip extends StatelessWidget {
               icon: Icons.chevron_right_rounded,
               tooltip: 'Next week',
               onTap: canGoOn
-                  ? () => onPageChanged(
-                      _clampWeek(firstDay.add(const Duration(days: 7))))
+                  ? () => onPageChanged(_clampWeek(
+                      DateTime(start.year, start.month, start.day + 7)))
                   : null,
             ),
           ],
@@ -339,6 +348,11 @@ class SlotPeriodBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: colors.border),
       ),
+      // The tabs fill their cells edge to edge and let the bar clip the two
+      // outer corners. Rounding each tab instead left the selected one as a
+      // pill floating inside its cell, with its underline curling away from
+      // the dividers at both ends.
+      clipBehavior: Clip.antiAlias,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -412,7 +426,8 @@ class _PeriodTab extends StatelessWidget {
             color: selected
                 ? AppColors.primary.withValues(alpha: 0.10)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(13),
+            // Square: SlotPeriodBar clips the two corners that are actually on
+            // the outside. A radius here would round all four on every tab.
             // The underline is the part of "selected" that survives being
             // read in greyscale.
             border: Border(

@@ -29,12 +29,16 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
   int _imgIndex = 0;
 
   GroundSportModel? _selectedGroundSport;
-  DateTime _selectedDay = DateTime.now();
+
+  /// Both are dates, never moments: the strip compares them for equality to
+  /// decide what is selected, and a wall-clock time on either side makes that
+  /// comparison fail for every cell.
+  DateTime _selectedDay = DateTime.now().dateOnly;
 
   /// The Monday-agnostic start of the week the date strip is showing: it opens
   /// on today rather than on a calendar week, because the first date anyone
   /// wants is today.
-  DateTime _weekStart = DateTime.now();
+  DateTime _weekStart = DateTime.now().dateOnly;
   final Set<int> _selectedSlots = {};
 
   // Sport pill selection (replaces tab bar)

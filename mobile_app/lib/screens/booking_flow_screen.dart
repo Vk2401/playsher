@@ -12,6 +12,7 @@ import '../core/constants.dart';
 import '../models/ground_sport_model.dart';
 import '../models/slot_model.dart';
 import '../providers/auth_provider.dart';
+import '../providers/bookings_provider.dart';
 import '../providers/grounds_provider.dart';
 import '../widgets/sport_glyph.dart';
 import '../widgets/sticky_bottom_bar.dart';
@@ -235,6 +236,22 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   /// True once a booking exists server-side for this attempt.
   bool get _hasPendingBooking => _pendingBookingResult != null;
 
+  /// Drop everything the new booking just made wrong, before leaving for the
+  /// confirmation screen.
+  ///
+  /// Nothing was invalidated here before, so the slots the player had just
+  /// taken stayed green on the venue screen behind them, and every card in the
+  /// app went on advertising the old "n of m left today" until the process was
+  /// restarted. The two family providers are invalidated whole: the home and
+  /// explore lists each hold their own `GroundFilter` key, and the booked day
+  /// is not necessarily the one the picker is sitting on.
+  void _invalidateAfterBooking() {
+    ref.invalidate(groundsProvider);
+    ref.invalidate(slotsProvider);
+    ref.invalidate(groundDetailProvider(widget.groundId));
+    ref.invalidate(bookingsProvider);
+  }
+
   Future<void> _confirmBooking() async {
     // The CTA is disabled while loading, but guard re-entry here too: this is
     // the path that creates a booking and takes a payment, and a second call
@@ -280,6 +297,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       final bookingId = result['id'];
 
       if (!requiresPayment || bookingId == null) {
+        _invalidateAfterBooking();
         context.go('/booking-confirm', extra: {
           ...result,
           ..._displayFields,
@@ -365,6 +383,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       if (!mounted) return;
 
       final verifyData = verifyResult['data'] as Map<String, dynamic>? ?? {};
+      _invalidateAfterBooking();
       context.go('/booking-confirm', extra: {
         ...?_pendingBookingResult,
         ...?verifyData['booking'] as Map<String, dynamic>?,
