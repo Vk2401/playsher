@@ -36,6 +36,7 @@ GroundModel seededGround() => GroundModel.fromJson({
           'id': 10,
           'ground_id': 1,
           'price_per_half_hour': '2500',
+          'max_slots': 2,
           'sport': {'id': 1, 'name': 'Cricket'},
         },
         {
@@ -59,6 +60,12 @@ List<SlotModel> seededSlots() => SlotModel.listFromJson([
         'id': 102,
         'slot_start_time': '18:30:00',
         'slot_end_time': '19:00:00',
+        'is_available': true,
+      },
+      {
+        'id': 103,
+        'slot_start_time': '19:00:00',
+        'slot_end_time': '19:30:00',
         'is_available': true,
       },
     ]);
@@ -187,5 +194,104 @@ void main() {
     // The bar names what is about to be booked, not just its price.
     expect(find.text('Selected Slot'), findsOneWidget);
     expect(find.textContaining('\u20b9'), findsWidgets);
+  });
+
+  testWidgets('the venue\'s per-booking cap is enforced before checkout',
+      (tester) async {
+    tester.view.physicalSize = const Size(412, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(host(slots: seededSlots()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // The seeded ground-sport takes two slots per booking, and says so.
+    expect(find.text('Up to 2 slots per booking'), findsOneWidget);
+
+    // A time appears twice — as one card's end and the next one's start — so
+    // .last is the card that *starts* then, which is the one being picked.
+    await tester.tap(find.text('6:00 PM').first);
+    await tester.pump();
+    await tester.tap(find.text('6:30 PM').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining('2 slots'), findsWidgets);
+
+    // The third is refused, and refused *visibly* — a silent no-op reads as a
+    // dead tap, and letting it through only moves the refusal to the server.
+    await tester.tap(find.text('7:00 PM').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.textContaining('takes up to 2 slots'), findsOneWidget);
+    expect(find.textContaining('3 slots'), findsNothing);
+  });
+
+  testWidgets('an empty period says so instead of bouncing back',
+      (tester) async {
+    tester.view.physicalSize = const Size(412, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // Evening-only slots, so Night is empty.
+    await tester.pumpWidget(host(slots: seededSlots()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(find.text('Night'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // It used to fall back to the first period with slots, so tapping Night
+    // left Evening highlighted and evening slots on screen.
+    expect(find.textContaining('No slots left this night'), findsOneWidget);
+    expect(find.text('6:00 PM'), findsNothing);
+  });
+
+  testWidgets('the slot row can be paged with the arrows', (tester) async {
+    tester.view.physicalSize = const Size(412, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // Enough slots to overflow the row, so there is something to page to.
+    await tester.pumpWidget(host(
+      slots: SlotModel.listFromJson([
+        for (var i = 0; i < 10; i++)
+          {
+            'id': 200 + i,
+            'slot_start_time':
+                '${(18 + i ~/ 2).toString().padLeft(2, '0')}:${i.isEven ? '00' : '30'}:00',
+            'slot_end_time':
+                '${(18 + (i + 1) ~/ 2).toString().padLeft(2, '0')}:${i.isEven ? '30' : '00'}:00',
+            'is_available': true,
+          },
+      ]),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Live on arrival. On the frame the row is built the controller has no
+    // clients, so the arrow starts disabled — and with nothing able to scroll
+    // the row, no scroll notification would ever arrive to enable it.
+    // One more frame: the arrow wakes on the frame *after* the row is laid
+    // out, which is the whole point of the nudge being tested here.
+    await tester.pump();
+
+    IconButton forwardArrow() => tester
+        .widgetList<IconButton>(find.byType(IconButton))
+        .firstWhere((b) => b.tooltip == 'Later slots');
+
+    expect(forwardArrow().onPressed, isNotNull,
+        reason: 'the forward arrow must wake up after the first layout');
+
+    expect(find.text('6:00 PM'), findsWidgets);
+    await tester.tap(find.byTooltip('Later slots'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // The earliest slot has scrolled out of the row entirely.
+    expect(find.text('6:00 PM'), findsNothing,
+        reason: 'the arrow did not move the row');
   });
 }

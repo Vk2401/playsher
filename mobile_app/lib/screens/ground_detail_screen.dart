@@ -46,6 +46,36 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
     super.dispose();
   }
 
+  /// Take or drop a slot, within what the venue allows in one booking.
+  ///
+  /// The cap is the ground-sport's `max_slots`. Without it the bar happily
+  /// totted up five slots against a venue that takes two, and the refusal
+  /// arrived from the server after the user had committed.
+  void _toggleSlot(int id, GroundSportModel sport) {
+    if (_selectedSlots.contains(id)) {
+      setState(() => _selectedSlots.remove(id));
+      return;
+    }
+
+    if (_selectedSlots.length >= sport.maxSlots) {
+      // Silence would read as a dead tap, so say which rule refused it.
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'This venue takes up to ${sport.maxSlots} '
+              '${sport.maxSlots == 1 ? 'slot' : 'slots'} in one booking. '
+              'Unpick one to choose another.',
+            ),
+          ),
+        );
+      return;
+    }
+
+    setState(() => _selectedSlots.add(id));
+  }
+
   /// The date as the API takes it.
   static String _apiDate(DateTime day) =>
       day.toIso8601String().split('T').first;
@@ -124,6 +154,10 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
 
     final hasSelection =
         _selectedGroundSport != null && _selectedSlots.isNotEmpty;
+    // Some venues will not take a single half-hour; the server enforces it,
+    // and the bar should not offer a booking the server will refuse.
+    final meetsMinimum = _selectedGroundSport == null ||
+        _selectedSlots.length >= _selectedGroundSport!.minSlots;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -559,14 +593,10 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                         groundSportId: _selectedGroundSport!.id,
                         date: _apiDate(_selectedDay),
                         price: ground.formattedStartingPrice ?? '—',
+                        maxSlots: _selectedGroundSport!.maxSlots,
                         selectedSlots: _selectedSlots,
-                        onSlotToggle: (id) => setState(() {
-                          if (_selectedSlots.contains(id)) {
-                            _selectedSlots.remove(id);
-                          } else {
-                            _selectedSlots.add(id);
-                          }
-                        }),
+                        onSlotToggle: (id) =>
+                            _toggleSlot(id, _selectedGroundSport!),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -635,7 +665,8 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
               date: _selectedDay,
               slotCount: _selectedSlots.length,
               total: _totalPriceFor(ground),
-              bookable: ground.isBookable,
+              bookable: ground.isBookable && meetsMinimum,
+              minSlots: _selectedGroundSport!.minSlots,
               onPressed: () => context.push(
                 '/book/${_selectedGroundSport!.groundId}',
                 extra: {
@@ -1065,6 +1096,7 @@ class _BookingBar extends StatelessWidget {
     required this.slotCount,
     required this.total,
     required this.bookable,
+    required this.minSlots,
     required this.onPressed,
   });
 
@@ -1072,6 +1104,10 @@ class _BookingBar extends StatelessWidget {
   final int slotCount;
   final int total;
   final bool bookable;
+
+  /// The fewest slots this venue takes, so a bar that cannot continue can say
+  /// what is missing rather than just sitting there greyed.
+  final int minSlots;
   final VoidCallback onPressed;
 
   static const _days = [
@@ -1145,9 +1181,11 @@ class _BookingBar extends StatelessWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  '$slotCount ${slotCount == 1 ? 'slot' : 'slots'}'
-                  '  ·  $minutes mins  ·  '
-                  '${bookable ? '\u20b9$total' : 'price not set'}',
+                  slotCount < minSlots
+                      ? 'Pick at least $minSlots slots to continue'
+                      : '$slotCount ${slotCount == 1 ? 'slot' : 'slots'}'
+                          '  ·  $minutes mins  ·  '
+                          '${bookable ? '\u20b9$total' : 'price not set'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
@@ -1209,11 +1247,13 @@ class _RuleChip extends StatelessWidget {
     if (text.contains('alcohol') || text.contains('drink')) {
       return Icons.no_drinks_rounded;
     }
-    if (text.contains('shoe') || text.contains('stud') ||
+    if (text.contains('shoe') ||
+        text.contains('stud') ||
         text.contains('footwear')) {
       return Icons.hiking_rounded;
     }
-    if (text.contains('player') || text.contains('people') ||
+    if (text.contains('player') ||
+        text.contains('people') ||
         text.contains('max')) {
       return Icons.groups_rounded;
     }
@@ -1221,7 +1261,8 @@ class _RuleChip extends StatelessWidget {
       return Icons.no_food_rounded;
     }
     if (text.contains('pet') || text.contains('dog')) return Icons.pets_rounded;
-    if (text.contains('time') || text.contains('late') ||
+    if (text.contains('time') ||
+        text.contains('late') ||
         text.contains('punctual')) {
       return Icons.schedule_rounded;
     }

@@ -240,7 +240,7 @@ class _Arrow extends StatelessWidget {
       onPressed: onTap,
       // 40 wide keeps seven day cells legible on a 360dp phone; the height
       // still clears the 44 minimum.
-      constraints: const BoxConstraints(minWidth: 34, minHeight: 44),
+      constraints: const BoxConstraints(minWidth: _arrowWidth, minHeight: 44),
       padding: EdgeInsets.zero,
     );
   }
@@ -566,10 +566,16 @@ class SlotPicker extends ConsumerStatefulWidget {
     required this.price,
     required this.selectedSlots,
     required this.onSlotToggle,
+    required this.maxSlots,
   });
 
   final int groundSportId;
   final String date;
+
+  /// How many slots this venue takes in one booking. Printed under the row so
+  /// the rule is known before it is hit, rather than only when a tap is
+  /// refused.
+  final int maxSlots;
 
   /// The venue's price for one slot, already formatted.
   final String price;
@@ -582,7 +588,15 @@ class SlotPicker extends ConsumerStatefulWidget {
 }
 
 class _SlotPickerState extends ConsumerState<SlotPicker> {
-  SlotPeriod _period = SlotPeriod.morning;
+  /// The period the user asked for, or null while the picker is still
+  /// choosing one for them.
+  ///
+  /// Both behaviours are wanted and they conflict: on arrival the row should
+  /// open on a period that has something in it, but once a tab is tapped that
+  /// tab is the answer — even when the answer is "nothing tonight". Falling
+  /// back for a *tapped* period is what made Night look broken: the tap
+  /// bounced back to Morning and showed morning slots.
+  SlotPeriod? _chosen;
   bool _timeline = true;
   final _scroll = ScrollController();
 
@@ -626,8 +640,7 @@ class _SlotPickerState extends ConsumerState<SlotPicker> {
           return _Empty(dayIsSpent: allSlots.isNotEmpty);
         }
 
-        final period =
-            slots.any(_period.holds) ? _period : _firstWithSlots(slots);
+        final period = _chosen ?? _firstWithSlots(slots);
         final inPeriod = slots.where(period.holds).toList();
 
         return Column(
@@ -640,7 +653,7 @@ class _SlotPickerState extends ConsumerState<SlotPicker> {
             const SizedBox(height: 12),
             SlotPeriodBar(
               selected: period,
-              onSelected: (p) => setState(() => _period = p),
+              onSelected: (p) => setState(() => _chosen = p),
               countFor: (p) => slots.where(p.holds).length,
             ),
             const SizedBox(height: 14),
@@ -688,6 +701,15 @@ class _SlotPickerState extends ConsumerState<SlotPicker> {
               ),
             const SizedBox(height: 14),
             const SlotLegend(),
+            if (widget.maxSlots > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Up to ${widget.maxSlots} '
+                '${widget.maxSlots == 1 ? 'slot' : 'slots'} per booking',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
+              ),
+            ],
           ],
         );
       },
@@ -758,7 +780,7 @@ class _ViewToggle extends StatelessWidget {
   }
 }
 
-class _Timeline extends StatelessWidget {
+class _Timeline extends StatefulWidget {
   const _Timeline({
     required this.slots,
     required this.controller,
@@ -774,10 +796,65 @@ class _Timeline extends StatelessWidget {
   final ValueChanged<int> onSlotToggle;
 
   @override
+  State<_Timeline> createState() => _TimelineState();
+}
+
+class _TimelineState extends State<_Timeline> {
+  @override
+  void initState() {
+    super.initState();
+    // The arrows grey out at each end, so they have to hear the row move —
+    // by finger as well as by tap.
+    widget.controller.addListener(_onScroll);
+    // And they have to hear the *first* layout. On the frame this is built
+    // the controller has no clients yet, so there is nothing to page through
+    // and both arrows come up disabled; without this nudge nothing would ever
+    // scroll the row, so no scroll notification would arrive to enable them,
+    // and they would stay dead.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onScroll());
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (mounted) setState(() {});
+  }
+
+  /// Nearly a full screenful, so the slot you were looking at stays in view
+  /// as an anchor rather than the row jumping to somewhere unrecognisable.
+  void _page(int direction) {
+    final position = widget.controller.position;
+    final target =
+        (position.pixels + direction * position.viewportDimension * 0.8)
+            .clamp(position.minScrollExtent, position.maxScrollExtent);
+    widget.controller.animateTo(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ready = widget.controller.hasClients &&
+        widget.controller.position.hasContentDimensions;
+    final position = ready ? widget.controller.position : null;
+    // Before the first layout there is nothing to page through; the arrows
+    // come alive on the frame after.
+    final canGoBack = position != null && position.pixels > 1;
+    final canGoOn =
+        position != null && position.pixels < position.maxScrollExtent - 1;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cardWidth = SlotCard.widthFor(constraints.maxWidth);
+        // The arrows take their width off the row before the cards are
+        // measured, so six still fit between them.
+        final rowWidth = constraints.maxWidth - _arrowWidth * 2;
+        final cardWidth = SlotCard.widthFor(rowWidth);
         // The row cannot size itself to its children, and the card's four
         // lines grow with the text scale, so the height follows both.
         final height = MediaQuery.textScalerOf(context)
@@ -786,34 +863,54 @@ class _Timeline extends StatelessWidget {
 
         return Column(
           children: [
-            SizedBox(
-              height: height,
-              child: ListView.separated(
-                controller: controller,
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.zero,
-                itemCount: slots.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(width: SlotCard.gap),
-                itemBuilder: (_, i) => SlotCard(
-                  slot: slots[i],
-                  width: cardWidth,
-                  price: price,
-                  selected: selectedSlots.contains(slots[i].id),
-                  onTap: slots[i].isAvailable
-                      ? () => onSlotToggle(slots[i].id)
-                      : null,
+            Row(
+              children: [
+                _Arrow(
+                  icon: Icons.chevron_left_rounded,
+                  tooltip: 'Earlier slots',
+                  onTap: canGoBack ? () => _page(-1) : null,
                 ),
-              ),
+                Expanded(
+                  child: SizedBox(
+                    height: height,
+                    child: ListView.separated(
+                      controller: widget.controller,
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.zero,
+                      itemCount: widget.slots.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: SlotCard.gap),
+                      itemBuilder: (_, i) => SlotCard(
+                        slot: widget.slots[i],
+                        width: cardWidth,
+                        price: widget.price,
+                        selected:
+                            widget.selectedSlots.contains(widget.slots[i].id),
+                        onTap: widget.slots[i].isAvailable
+                            ? () => widget.onSlotToggle(widget.slots[i].id)
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+                _Arrow(
+                  icon: Icons.chevron_right_rounded,
+                  tooltip: 'Later slots',
+                  onTap: canGoOn ? () => _page(1) : null,
+                ),
+              ],
             ),
             const SizedBox(height: 10),
-            _ScrollDots(controller: controller),
+            _ScrollDots(controller: widget.controller),
           ],
         );
       },
     );
   }
 }
+
+/// What an [_Arrow] costs the row it flanks.
+const _arrowWidth = 34.0;
 
 /// How far along the row you are.
 ///
