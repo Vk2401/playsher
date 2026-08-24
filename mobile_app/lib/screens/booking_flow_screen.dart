@@ -33,6 +33,10 @@ class BookingFlowScreen extends ConsumerStatefulWidget {
 class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   bool _loading = false;
   String? _error;
+
+  /// How the [_error] banner should read — a real failure reads very
+  /// differently from the player simply closing the checkout sheet.
+  _NoticeTone _errorTone = _NoticeTone.error;
   String _paymentMethod = 'pay_at_ground'; // 'pay_at_ground' or 'online'
   late Razorpay _razorpay;
 
@@ -123,6 +127,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         if (_groundName != null) 'ground_name': _groundName,
         if (_groundSport?.sport?.name != null)
           'sport_name': _groundSport!.sport!.name,
+        if (_groundImage != null) 'ground_image': _groundImage,
       };
 
   @override
@@ -339,6 +344,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       if (mounted) {
         setState(() {
           _error = _parseError(e);
+          _errorTone = _NoticeTone.error;
           _loading = false;
         });
       }
@@ -371,6 +377,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         setState(() {
           _error =
               'Payment was successful but verification failed. Contact support.';
+          _errorTone = _NoticeTone.error;
           _loading = false;
         });
       }
@@ -380,9 +387,28 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   void _onPaymentError(PaymentFailureResponse response) {
     if (!mounted) return;
     setState(() {
-      _error = response.message ?? 'Payment failed. Please try again.';
+      _error = _humanizePaymentFailure(response);
+      _errorTone = response.code == Razorpay.PAYMENT_CANCELLED
+          ? _NoticeTone.cancelled
+          : _NoticeTone.error;
       _loading = false;
     });
+  }
+
+  /// The checkout closing itself is not a failure worth alarming the player
+  /// over, and razorpay_flutter's native bridge serialises a missing
+  /// description as the literal string "undefined" rather than leaving
+  /// [PaymentFailureResponse.message] null — never show that verbatim.
+  static String _humanizePaymentFailure(PaymentFailureResponse response) {
+    if (response.code == Razorpay.PAYMENT_CANCELLED) {
+      return "Payment cancelled. You can try again whenever you're ready.";
+    }
+    final raw = response.message?.trim();
+    final lower = raw?.toLowerCase();
+    if (raw == null || raw.isEmpty || lower == 'undefined' || lower == 'null') {
+      return 'Payment failed. Please try again.';
+    }
+    return raw;
   }
 
   void _onExternalWallet(ExternalWalletResponse response) {
@@ -396,6 +422,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       _error =
           'Complete the payment in ${response.walletName ?? 'your wallet app'}, '
           'then check My Bookings to confirm it went through.';
+      _errorTone = _NoticeTone.info;
     });
   }
 
@@ -692,43 +719,34 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: AppColors.error.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline_rounded,
-                          size: 18, color: AppColors.error),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _error!,
-                              style: const TextStyle(
-                                  fontSize: 13, color: AppColors.error),
-                            ),
-                            if (_hasPendingBooking) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                'Your slots are still held under this booking — '
-                                'retrying settles its payment rather than '
-                                'booking again.',
-                                style: TextStyle(
-                                    fontSize: 12, color: colors.textSecondary),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _InfoBanner(
+                  icon: _errorTone == _NoticeTone.error
+                      ? Icons.error_outline_rounded
+                      : Icons.info_outline_rounded,
+                  iconColor: switch (_errorTone) {
+                    _NoticeTone.error => AppColors.error,
+                    _NoticeTone.cancelled => AppColors.warning,
+                    _NoticeTone.info => AppColors.info,
+                  },
+                  title: switch (_errorTone) {
+                    _NoticeTone.error =>
+                      _hasPendingBooking ? 'Payment failed' : 'Booking failed',
+                    _NoticeTone.cancelled => 'Payment cancelled',
+                    _NoticeTone.info => 'Payment pending',
+                  },
+                  titleColor: switch (_errorTone) {
+                    _NoticeTone.error => AppColors.error,
+                    _NoticeTone.cancelled => AppColors.warning,
+                    _NoticeTone.info => AppColors.info,
+                  },
+                  // The retry reassurance only makes sense once a booking
+                  // actually exists to retry payment against, and the
+                  // wallet-pending message already carries its own guidance.
+                  subtitle: _hasPendingBooking && _errorTone != _NoticeTone.info
+                      ? '$_error\nYour slots are still held under this '
+                          'booking — retrying settles its payment rather '
+                          'than booking again.'
+                      : _error!,
                 ),
               ),
           ],
@@ -784,6 +802,11 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     );
   }
 }
+
+/// How the `_error` banner should read — a genuine failure, a checkout the
+/// player closed themselves, or a wallet payment still pending elsewhere are
+/// three different situations and shouldn't all land in the same red box.
+enum _NoticeTone { error, cancelled, info }
 
 /// "Hold for 04:56" — the countdown pinned to the app bar, so it stays
 /// visible even once the page has scrolled the banner further down out of

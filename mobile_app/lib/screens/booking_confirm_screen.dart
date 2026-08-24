@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/app_colors.dart';
 import '../core/booking_share.dart';
 import '../widgets/sport_glyph.dart';
+import '../widgets/status_badge.dart';
 
 class BookingConfirmScreen extends StatefulWidget {
   final Map<String, dynamic>? bookingData;
@@ -171,7 +173,9 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
     final balance = _num('balance_due');
     final ground = _str('ground_name');
     final sport = _str('sport_name');
+    final groundImage = _str('ground_image');
     final reference = _str('booking_reference');
+    final status = _str('status') ?? 'confirmed';
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -191,18 +195,18 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                         width: 104,
                         height: 104,
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.12),
+                          color: AppColors.success.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: Container(
                           margin: const EdgeInsets.all(18),
                           decoration: const BoxDecoration(
-                            color: AppColors.accent,
+                            color: AppColors.success,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.check_rounded,
-                            color: AppColors.onAccent,
+                            color: AppColors.onPrimary,
                             size: 40,
                             semanticLabel: 'Booking confirmed',
                           ),
@@ -230,7 +234,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                           Text(
                             balance > 0
                                 ? 'Your slot is reserved.\nPay ${_money(balance)} at the ground.'
-                                : 'Your slot is reserved — get ready to play!',
+                                : 'Your slot is confirmed. Get ready to play!',
                             style: TextStyle(
                               fontSize: 14,
                               color: colors.textSecondary,
@@ -243,6 +247,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                           _TicketCard(
                             ground: ground,
                             sport: sport,
+                            groundImage: groundImage,
+                            status: status,
                             reference: reference,
                             onCopyReference:
                                 reference == null ? null : _copyReference,
@@ -257,15 +263,14 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                                 _Fact(
                                   icon: Icons.access_time_rounded,
                                   label: 'Time',
-                                  value: _duration == null
-                                      ? _timeRange!
-                                      : '${_timeRange!}  ·  $_duration',
+                                  value: _timeRange!,
+                                  pill: _duration,
                                 ),
                             ],
                             money: [
                               _Fact(
                                 icon: Icons.receipt_long_rounded,
-                                label: 'Booking total',
+                                label: 'Booking Total',
                                 value: _money(total),
                                 emphasis: true,
                               ),
@@ -284,15 +289,16 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                                 ),
                               _Fact(
                                 icon: Icons.payment_rounded,
-                                label: 'Payment',
+                                label: 'Payment Method',
                                 value:
-                                    _isOnline ? 'Paid online' : 'Pay at ground',
+                                    _isOnline ? 'Paid online' : 'Pay at Ground',
+                                valueColor: colors.brandText,
                               ),
                             ],
                           ),
 
                           const SizedBox(height: 16),
-                          _ArriveEarlyNote(colors: colors),
+                          _ImportantNote(colors: colors),
                         ],
                       ),
                     ),
@@ -315,7 +321,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                         onPressed: _share,
                         icon: const Icon(Icons.ios_share_rounded, size: 19),
                         label: const Text(
-                          'Share booking details',
+                          'Share Booking Details',
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -348,7 +354,6 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          flex: 2,
                           child: SizedBox(
                             height: 52,
                             child: OutlinedButton(
@@ -366,6 +371,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    _SecureBookingNote(colors: colors),
                   ],
                 ),
               ),
@@ -382,6 +389,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen>
 class _TicketCard extends StatelessWidget {
   final String? ground;
   final String? sport;
+  final String? groundImage;
+  final String status;
   final String? reference;
   final VoidCallback? onCopyReference;
   final List<_Fact> rows;
@@ -390,6 +399,8 @@ class _TicketCard extends StatelessWidget {
   const _TicketCard({
     required this.ground,
     required this.sport,
+    required this.groundImage,
+    required this.status,
     required this.reference,
     required this.onCopyReference,
     required this.rows,
@@ -411,17 +422,35 @@ class _TicketCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: colors.card,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: SportGlyph(name: sport ?? '', size: 24),
-                  ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: groundImage == null
+                      ? Container(
+                          width: 46,
+                          height: 46,
+                          color: colors.card,
+                          child: Center(
+                            child: SportGlyph(name: sport ?? '', size: 24),
+                          ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: groundImage!,
+                          width: 46,
+                          height: 46,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) =>
+                              Container(width: 46, height: 46, color: colors.card),
+                          errorWidget: (_, __, ___) => Container(
+                            width: 46,
+                            height: 46,
+                            color: colors.card,
+                            child: Center(
+                              child: SportGlyph(name: sport ?? '', size: 24),
+                            ),
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -440,18 +469,30 @@ class _TicketCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (sport != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          sport!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colors.textSecondary,
-                          ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            SportGlyph(name: sport!, size: 14),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                sport!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                StatusBadge.bookingStatus(status),
               ],
             ),
           ),
@@ -475,7 +516,7 @@ class _TicketCard extends StatelessWidget {
             // The reference gets the footer to itself: it is the one string a
             // venue asks for, and people read it out or paste it.
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 6, 6, 6),
+              padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
               child: Row(
                 children: [
                   Expanded(
@@ -483,11 +524,10 @@ class _TicketCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'BOOKING REF',
+                          'Booking Reference',
                           style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 1,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
                             color: colors.textSecondary,
                           ),
                         ),
@@ -495,8 +535,8 @@ class _TicketCard extends StatelessWidget {
                         Text(
                           reference!,
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
                             color: colors.textPrimary,
                           ),
                         ),
@@ -509,10 +549,16 @@ class _TicketCard extends StatelessWidget {
                     child: GestureDetector(
                       onTap: onCopyReference,
                       behavior: HitTestBehavior.opaque,
-                      child: const SizedBox(
+                      child: Container(
                         width: 44,
                         height: 44,
-                        child: Icon(Icons.copy_rounded, size: 17),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: colors.border),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.copy_rounded,
+                            size: 17, color: colors.textSecondary),
                       ),
                     ),
                   ),
@@ -552,17 +598,29 @@ class _Fact extends StatelessWidget {
   final bool emphasis;
   final bool warn;
 
+  /// An explicit value colour — the payment method's "Paid online" reads in
+  /// the brand colour without being the larger, bolder [emphasis] size.
+  final Color? valueColor;
+
+  /// A small tinted pill after the value — the time range's "30 min".
+  final String? pill;
+
   const _Fact({
     required this.icon,
     required this.label,
     required this.value,
     this.emphasis = false,
     this.warn = false,
+    this.valueColor,
+    this.pill,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final color = warn
+        ? AppColors.warning
+        : valueColor ?? (emphasis ? colors.brandText : colors.textPrimary);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -576,18 +634,39 @@ class _Fact extends StatelessWidget {
         // Expanded, not a bare Row child: a long ground name or a wide time
         // range would otherwise overflow the card.
         Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: emphasis ? 15 : 13,
-              fontWeight: emphasis ? FontWeight.w800 : FontWeight.w600,
-              color: warn
-                  ? AppColors.warning
-                  : emphasis
-                      ? AppColors.accent
-                      : colors.textPrimary,
-            ),
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Text(
+                value,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: emphasis ? 15 : 13,
+                  fontWeight: emphasis ? FontWeight.w800 : FontWeight.w600,
+                  color: color,
+                ),
+              ),
+              if (pill != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    pill!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: colors.brandText,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -595,30 +674,95 @@ class _Fact extends StatelessWidget {
   }
 }
 
-class _ArriveEarlyNote extends StatelessWidget {
+/// "**Important:** Arrive 15 minutes early…" — a single flowing sentence with
+/// only its lead word emphasised, matched to the app's other info banners
+/// (`_InfoBanner` in the booking flow) rather than a one-off style.
+class _ImportantNote extends StatelessWidget {
   final AppColors colors;
-  const _ArriveEarlyNote({required this.colors});
+  const _ImportantNote({required this.colors});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
+        color: AppColors.info.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.25)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline_rounded,
-              size: 16, color: AppColors.primary),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AppColors.info.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.info_outline_rounded,
+                size: 15, color: AppColors.info),
+          ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Arrive 15 minutes early and show your booking reference at the venue.',
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Important: ',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                  const TextSpan(
+                    text: 'Arrive 15 minutes early and show your booking '
+                        'reference at the venue.',
+                  ),
+                ],
+              ),
               style: TextStyle(
                 fontSize: 12,
                 color: colors.textSecondary,
-                height: 1.4,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Secure booking. Enjoy your game!" — the reassurance the flow closes on,
+/// pinned beside the actions rather than lost above the fold in the scroll.
+class _SecureBookingNote extends StatelessWidget {
+  final AppColors colors;
+  const _SecureBookingNote({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.verified_user_rounded,
+              size: 15, color: AppColors.success),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Secure booking. Enjoy your game!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: colors.successText,
               ),
             ),
           ),

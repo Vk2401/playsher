@@ -96,7 +96,7 @@ void main() {
     testWidgets('offers a share action', (tester) async {
       await tester.pumpWidget(host(payload()));
       await tester.pumpAndSettle();
-      expect(find.text('Share booking details'), findsOneWidget);
+      expect(find.text('Share Booking Details'), findsOneWidget);
     });
 
     testWidgets('keeps both navigation actions', (tester) async {
