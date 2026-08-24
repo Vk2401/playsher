@@ -25,10 +25,10 @@ class RatingStars extends StatelessWidget {
           children: List.generate(5, (i) {
             if (i < rating.floor()) {
               return Icon(Icons.star_rounded,
-                  color: AppColors.accent, size: size);
+                  color: AppColors.star, size: size);
             } else if (i < rating) {
               return Icon(Icons.star_half_rounded,
-                  color: AppColors.accent, size: size);
+                  color: AppColors.star, size: size);
             }
             return Icon(Icons.star_outline_rounded,
                 color: colors.border, size: size);

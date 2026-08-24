@@ -34,9 +34,17 @@ class AppColors {
   /// success-tinted panel and would otherwise vanish into it.
   static const Color successDark = Color(0xFF0B5D34);
 
-  static const Color accent = Color(0xFFCCFF00);
+  /// The app's second brand colour: a violet, well clear of [primary]'s blue
+  /// so a selected chip, an active slot, or a status badge stays legible next
+  /// to a primary-coloured button or icon rather than merging into it. Was a
+  /// neon lime (`0xFFCCFF00`) — replaced everywhere at once by changing this
+  /// one line, since every call site names the token rather than the hex.
+  static const Color accent = Color(0xFF7C3AED);
   static const Color error = Color(0xFFFF4D4D);
-  static const Color star = Color(0xFFCCFF00);
+
+  /// Rating star, on any surface. The same amber as [rating] — a star reads
+  /// as a star because it's gold, on a card or over a photo scrim alike.
+  static const Color star = Color(0xFFFFB300);
 
   // ── Derived from [primary] ────────────────────────────────────────────────
   // The brand hex is declared exactly once, above. Everything that needs the
@@ -61,16 +69,15 @@ class AppColors {
 
   /// Foreground that sits on a [primary] fill. White — [primary] is a deep
   /// blue at 6.02:1 against white and only 3.49:1 against black, so black
-  /// labels on a primary button fail AA. [accent] is still a light neon and
-  /// keeps [onAccent] below.
+  /// labels on a primary button fail AA.
   static const Color onPrimary = Color(0xFFFFFFFF);
 
   /// Muted variant of [onPrimary] for secondary text on a [primary] fill.
   static const Color onPrimaryMuted = Color(0x8AFFFFFF);
 
-  /// Foreground on an [accent] / [star] fill, which stayed neon lime and is
-  /// far too light for white text.
-  static const Color onAccent = Color(0xFF000000);
+  /// Foreground on an [accent] fill. White — [accent] is dark enough for it
+  /// at 4.8:1.
+  static const Color onAccent = onPrimary;
 
   /// The deep navy the brand sheet sets the wordmark in, on a light surface.
   /// Darker than [primary] on purpose: in the lockup the mark carries the blue,
@@ -92,9 +99,9 @@ class AppColors {
   /// Foreground for text and icons on an [imageScrim].
   static const Color onImage = Color(0xFFFFFFFF);
 
-  /// Rating star drawn on a card surface. [star] is the neon lime used over a
-  /// photo scrim; it disappears against a white card, so ratings in a list use
-  /// this amber instead.
+  /// Rating star drawn on a card surface. Same amber as [star] — kept as its
+  /// own token because a few call sites reached for "rating" by name before
+  /// [star] existed.
   static const Color rating = Color(0xFFFFB300);
 
   // ── Sports equipment ──────────────────────────────────────────────────────

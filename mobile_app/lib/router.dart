@@ -28,8 +28,6 @@ import 'screens/coach_detail_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/saved_turfs_screen.dart';
 import 'screens/notifications_screen.dart';
-import 'models/venue_filters.dart';
-import 'screens/venue_filter_screen.dart';
 
 // ── Bridge: notifies GoRouter when auth state changes ─────────────────────────
 class _AuthRouterNotifier extends ChangeNotifier {
@@ -203,15 +201,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications',
         builder: (_, __) => const NotificationsScreen(),
-      ),
-
-      // ── Venue filter ───────────────────────────────────────────────────────
-      GoRoute(
-        path: '/venue-filter',
-        builder: (_, state) => VenueFilterScreen(
-          // Carried in so the sheet opens showing what is already applied.
-          initial: state.extra as VenueFilters? ?? VenueFilters.none,
-        ),
       ),
     ],
   );
