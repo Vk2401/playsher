@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/venue_filters.dart';
@@ -13,6 +12,7 @@ import '../widgets/ground_card.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/error_view.dart';
 import '../widgets/sport_glyph.dart';
+import '../widgets/venue_filter_sheet.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   final String? initialSearch;
@@ -57,15 +57,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   /// Opens the filter sheet and applies whatever comes back.
-  ///
-  /// The old call was a bare `context.push` whose result was discarded, and
-  /// the sheet popped without one anyway — which is why Apply Filters did
-  /// nothing at all.
   Future<void> _openFilters() async {
-    final result = await context.push<VenueFilters>(
-      '/venue-filter',
-      extra: _filters,
-    );
+    final result = await VenueFilterSheet.show(context, initial: _filters);
     if (!mounted || result == null) return;
     setState(() {
       _filters = result;
@@ -173,22 +166,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                                 height: 40,
                                 decoration: BoxDecoration(
                                   color: _filters.isEmpty
-                                      ? colors.input
+                                      ? colors.card
                                       : AppColors.primary
                                           .withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: _filters.isEmpty
-                                        ? colors.border
-                                        : AppColors.primary,
-                                  ),
+                                  border: Border.all(color: AppColors.primary),
                                 ),
-                                child: Icon(
+                                child: const Icon(
                                   Icons.tune_rounded,
                                   size: 20,
-                                  color: _filters.isEmpty
-                                      ? colors.textSecondary
-                                      : AppColors.primary,
+                                  color: AppColors.primary,
                                 ),
                               ),
                               // How many filters are narrowing the list, so it
