@@ -34,12 +34,11 @@ class AppColors {
   /// success-tinted panel and would otherwise vanish into it.
   static const Color successDark = Color(0xFF0B5D34);
 
-  /// The app's second brand colour: a violet, well clear of [primary]'s blue
-  /// so a selected chip, an active slot, or a status badge stays legible next
-  /// to a primary-coloured button or icon rather than merging into it. Was a
-  /// neon lime (`0xFFCCFF00`) — replaced everywhere at once by changing this
-  /// one line, since every call site names the token rather than the hex.
-  static const Color accent = Color(0xFF7C3AED);
+  /// The app's one accent colour: the same blue as [primary]. Was a neon lime
+  /// (`0xFFCCFF00`), then a violet meant to stay distinct from [primary] — the
+  /// violet didn't land, so a selected chip, an active slot, and a status
+  /// badge now share [primary]'s blue like everything else in the app.
+  static const Color accent = primary;
   static const Color error = Color(0xFFFF4D4D);
 
   /// Rating star, on any surface. The same amber as [rating] — a star reads
@@ -75,8 +74,8 @@ class AppColors {
   /// Muted variant of [onPrimary] for secondary text on a [primary] fill.
   static const Color onPrimaryMuted = Color(0x8AFFFFFF);
 
-  /// Foreground on an [accent] fill. White — [accent] is dark enough for it
-  /// at 4.8:1.
+  /// Foreground on an [accent] fill. Same as [onPrimary] — [accent] is
+  /// [primary].
   static const Color onAccent = onPrimary;
 
   /// The deep navy the brand sheet sets the wordmark in, on a light surface.
