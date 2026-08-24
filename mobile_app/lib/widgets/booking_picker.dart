@@ -39,8 +39,18 @@ class DateStrip extends StatelessWidget {
 
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   DateTime get _today => DateTime.now().dateOnly;
@@ -88,8 +98,8 @@ class DateStrip extends StatelessWidget {
               icon: Icons.chevron_left_rounded,
               tooltip: 'Previous week',
               onTap: canGoBack
-                  ? () => onPageChanged(_clampWeek(
-                      firstDay.subtract(const Duration(days: 7))))
+                  ? () => onPageChanged(
+                      _clampWeek(firstDay.subtract(const Duration(days: 7))))
                   : null,
             ),
             Expanded(
@@ -100,7 +110,8 @@ class DateStrip extends StatelessWidget {
                       child: _DayCell(
                         day: day,
                         selected: day == selected.dateOnly,
-                        enabled: !day.isBefore(_today) && !day.isAfter(_lastDay),
+                        enabled:
+                            !day.isBefore(_today) && !day.isAfter(_lastDay),
                         onTap: () => onSelected(day),
                       ),
                     ),
@@ -111,8 +122,8 @@ class DateStrip extends StatelessWidget {
               icon: Icons.chevron_right_rounded,
               tooltip: 'Next week',
               onTap: canGoOn
-                  ? () =>
-                      onPageChanged(_clampWeek(firstDay.add(const Duration(days: 7))))
+                  ? () => onPageChanged(
+                      _clampWeek(firstDay.add(const Duration(days: 7))))
                   : null,
             ),
           ],
@@ -242,7 +253,8 @@ enum SlotPeriod {
   evening('Evening', '6 PM – 12 AM', 18, 24, Icons.wb_twilight_rounded),
   night('Night', '12 AM – 6 AM', 0, 6, Icons.nightlight_round);
 
-  const SlotPeriod(this.label, this.range, this.fromHour, this.toHour, this.icon);
+  const SlotPeriod(
+      this.label, this.range, this.fromHour, this.toHour, this.icon);
 
   final String label;
   final String range;
@@ -404,6 +416,11 @@ class SlotLegend extends StatelessWidget {
 }
 
 /// One half-hour, priced.
+///
+/// Sized from the design rather than by eye: in the mock a card is 11.9% of
+/// the screen's width and half again as tall, so six sit across the row. Built
+/// at a comfortable-looking 100-odd points it took the place of three, which
+/// is the difference between "a row of times" and "three big buttons".
 class SlotCard extends StatelessWidget {
   const SlotCard({
     super.key,
@@ -411,105 +428,120 @@ class SlotCard extends StatelessWidget {
     required this.price,
     required this.selected,
     required this.onTap,
+    required this.width,
   });
 
   final SlotModel slot;
   final String price;
   final bool selected;
+  final double width;
 
   /// Null for a slot that cannot be taken — booked, or already started.
   final VoidCallback? onTap;
+
+  /// The proportions the design draws, as fractions of the card's width.
+  static const heightRatio = 1.31;
+  static const _radiusRatio = 0.10;
+
+  /// How many cards the design fits across the row.
+  static const _perRow = 6;
+  static const gap = 8.0;
+
+  /// The width one card gets when [available] is shared between [_perRow] of
+  /// them — clamped so a very narrow or very wide phone still reads.
+  static double widthFor(double available) =>
+      ((available - gap * (_perRow - 1)) / _perRow).clamp(46.0, 66.0);
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final bookable = onTap != null;
 
-    final background = selected
-        ? AppColors.primary
+    // Three states, each a fill *and* an ink — the tick below carries the
+    // selected one a fourth way, so none of them depends on seeing colour.
+    final (background, border, ink) = selected
+        ? (AppColors.primary, AppColors.primary, AppColors.onPrimary)
         : bookable
-            ? AppColors.success.withValues(alpha: 0.10)
-            : colors.input;
-    final ink = selected
-        ? AppColors.onPrimary
-        : bookable
-            ? colors.successText
-            : colors.textSecondary;
+            ? (
+                AppColors.success.withValues(alpha: 0.08),
+                AppColors.success.withValues(alpha: 0.30),
+                colors.successText,
+              )
+            // Booked: the card surface, as the design has it, with the border
+            // and the muted ink doing the work the green does elsewhere.
+            : (colors.card, colors.border, colors.textSecondary);
 
     return Semantics(
       button: bookable,
       selected: selected,
-      label: '${slot.timeRange}, $price'
-          '${bookable ? '' : ', booked'}',
+      label: '${slot.timeRange}, $price${bookable ? '' : ', booked'}',
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          width: 108,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          width: width,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected
-                  ? AppColors.primary
-                  : bookable
-                      ? AppColors.success.withValues(alpha: 0.35)
-                      : colors.border,
-              width: selected ? 1.6 : 1,
-            ),
+            borderRadius: BorderRadius.circular(width * _radiusRatio),
+            border: Border.all(color: border, width: selected ? 1.4 : 1),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                slot.formattedStart,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: ink,
-                ),
-              ),
-              Text('–', style: TextStyle(fontSize: 12, color: ink)),
-              Text(
-                slot.formattedEnd,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: ink,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+          // Scaled down as a whole rather than line by line: the card is
+          // deliberately small, and four lines of type in it will outgrow any
+          // fixed height at a large text scale. Shrinking the block keeps the
+          // design's proportions instead of clipping or overflowing.
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Flexible(
-                    child: Text(
-                      price,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: ink,
-                      ),
-                    ),
+                  _Line(slot.formattedStart, ink, bold: true),
+                  _Line('–', ink),
+                  _Line(slot.formattedEnd, ink, bold: true),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _Line(price, ink, bold: true),
+                      if (selected) ...[
+                        const SizedBox(width: 3),
+                        // A white disc with the fill showing through the tick.
+                        const Icon(Icons.check_circle,
+                            size: 13, color: AppColors.onPrimary),
+                      ],
+                    ],
                   ),
-                  // The tick is what says "selected" without relying on the
-                  // fill's colour.
-                  if (selected) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.check_circle_rounded,
-                        size: 15, color: AppColors.onPrimary),
-                  ],
                 ],
               ),
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One line of a slot card, shrunk to fit rather than wrapped or clipped: the
+/// card is narrow by design and "12:30 PM" is wider than "7:00 AM".
+class _Line extends StatelessWidget {
+  const _Line(this.text, this.color, {this.bold = false});
+
+  final String text;
+  final Color color;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      maxLines: 1,
+      style: TextStyle(
+        fontSize: 11.5,
+        height: 1.2,
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+        color: color,
       ),
     );
   }
@@ -630,20 +662,29 @@ class _SlotPickerState extends ConsumerState<SlotPicker> {
                 onSlotToggle: widget.onSlotToggle,
               )
             else
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final slot in inPeriod)
-                    SlotCard(
-                      slot: slot,
-                      price: widget.price,
-                      selected: widget.selectedSlots.contains(slot.id),
-                      onTap: slot.isAvailable
-                          ? () => widget.onSlotToggle(slot.id)
-                          : null,
-                    ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final cardWidth = SlotCard.widthFor(constraints.maxWidth);
+                  return Wrap(
+                    spacing: SlotCard.gap,
+                    runSpacing: SlotCard.gap,
+                    children: [
+                      for (final slot in inPeriod)
+                        SizedBox(
+                          height: cardWidth * SlotCard.heightRatio,
+                          child: SlotCard(
+                            slot: slot,
+                            width: cardWidth,
+                            price: widget.price,
+                            selected: widget.selectedSlots.contains(slot.id),
+                            onTap: slot.isAvailable
+                                ? () => widget.onSlotToggle(slot.id)
+                                : null,
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             const SizedBox(height: 14),
             const SlotLegend(),
@@ -734,34 +775,42 @@ class _Timeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The row's height has to follow the text, not a fixed number: at a large
-    // text scale the card's four lines are taller than any constant, and a
-    // horizontal ListView cannot size itself to its children.
-    final height = MediaQuery.textScalerOf(context).scale(150).clamp(150.0, 240.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = SlotCard.widthFor(constraints.maxWidth);
+        // The row cannot size itself to its children, and the card's four
+        // lines grow with the text scale, so the height follows both.
+        final height = MediaQuery.textScalerOf(context)
+            .scale(cardWidth * SlotCard.heightRatio)
+            .clamp(cardWidth * SlotCard.heightRatio, 160.0);
 
-    return Column(
-      children: [
-        SizedBox(
-          height: height,
-          child: ListView.separated(
-            controller: controller,
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.zero,
-            itemCount: slots.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => SlotCard(
-              slot: slots[i],
-              price: price,
-              selected: selectedSlots.contains(slots[i].id),
-              onTap: slots[i].isAvailable
-                  ? () => onSlotToggle(slots[i].id)
-                  : null,
+        return Column(
+          children: [
+            SizedBox(
+              height: height,
+              child: ListView.separated(
+                controller: controller,
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.zero,
+                itemCount: slots.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(width: SlotCard.gap),
+                itemBuilder: (_, i) => SlotCard(
+                  slot: slots[i],
+                  width: cardWidth,
+                  price: price,
+                  selected: selectedSlots.contains(slots[i].id),
+                  onTap: slots[i].isAvailable
+                      ? () => onSlotToggle(slots[i].id)
+                      : null,
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _ScrollDots(controller: controller),
-      ],
+            const SizedBox(height: 10),
+            _ScrollDots(controller: controller),
+          ],
+        );
+      },
     );
   }
 }
