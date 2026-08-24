@@ -173,14 +173,26 @@ class AppColors {
     required this.successText,
   });
 
+  /// Night, not absence of light.
+  ///
+  /// This used to be pure black with grey surfaces, which put a seam right
+  /// through the app: the designed frames — splash, onboarding, login, OTP,
+  /// the location page — sit on [FramePalette.dark]'s deep navy, so crossing
+  /// from the OTP screen to the home screen went from a night sky to a black
+  /// void. The surfaces below are that same navy, one step apart each, so
+  /// every screen in the app is the same evening.
+  ///
+  /// [background] matches `FramePalette.dark.page` exactly; the rest step up
+  /// from it, and [input] is `FramePalette.dark.tile` — the pale panel the
+  /// login flow already uses for a field or an inset strip.
   static const dark = AppColors._(
-    background: Color(0xFF000000),
-    card: Color(0xFF121212),
-    input: Color(0xFF1A1A1A),
-    elevated: Color(0xFF111111),
-    border: Color(0xFF2A2A2A),
+    background: Color(0xFF0A121F),
+    card: Color(0xFF111C2E),
+    input: Color(0xFF16253B),
+    elevated: Color(0xFF16253B),
+    border: Color(0xFF22334D),
     textPrimary: Color(0xFFFFFFFF),
-    textSecondary: Color(0xFFA0A0A0),
+    textSecondary: Color(0xFF9BAFC6),
     brandText: Color(0xFF5AA9FF),
     successText: Color(0xFF4ADE80),
   );
