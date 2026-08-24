@@ -17,6 +17,13 @@ const { appNow } = require('../utils/appTime');
  * should read "4 left" against the slots that remain, not against a morning
  * nobody can book.
  *
+ * Counted by *distinct start time*, not by row. A slot row belongs to a
+ * ground_sport, so a venue offering cricket, tennis and badminton carries three
+ * rows for the same 8:30 PM window; counting rows made one free window read as
+ * "3 left" and a six-window evening as "18". The card speaks for the venue —
+ * one price, one physical ground (see CLAUDE.md §7) — so the honest number is
+ * how many times of day are still open, however many sports share each one.
+ *
  * @returns {Promise<Map<number, {available: number, total: number}>>}
  */
 async function todaysSlotCounts(groundIds) {
@@ -26,8 +33,8 @@ async function todaysSlotCounts(groundIds) {
   const rows = await Slot.findAll({
     attributes: [
       [sequelize.col('groundSport.ground_id'), 'ground_id'],
-      [sequelize.fn('COUNT', sequelize.col('Slot.id')), 'total'],
-      [sequelize.fn('SUM', sequelize.literal('CASE WHEN Slot.is_available = 1 THEN 1 ELSE 0 END')), 'available'],
+      [sequelize.literal('COUNT(DISTINCT Slot.slot_start_time)'), 'total'],
+      [sequelize.literal('COUNT(DISTINCT CASE WHEN Slot.is_available = 1 THEN Slot.slot_start_time END)'), 'available'],
     ],
     include: [{
       model     : GroundSport,
