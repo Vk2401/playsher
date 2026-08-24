@@ -266,26 +266,19 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         result = rawResult['data'] as Map<String, dynamic>? ?? rawResult;
       }
 
-      // Step 2: If pay at ground, go directly to confirmation
-      if (_paymentMethod == 'pay_at_ground') {
-        context.go('/booking-confirm', extra: {
-          ...result,
-          ..._displayFields,
-          'payment_method': 'Pay at Ground',
-        });
-        return;
-      }
-
-      // Step 3: Online payment — create Razorpay order
+      // Step 2: A booking that needs nothing online right now goes straight
+      // to confirmation. Pay-at-ground is *not* that case any more — the
+      // backend requires its 10% advance through Razorpay exactly like an
+      // online booking requires the full amount, so both methods fall
+      // through to the order-creation step below.
       final requiresPayment = result['requires_payment'] == true;
       final bookingId = result['id'];
 
       if (!requiresPayment || bookingId == null) {
-        // Booking was created but doesn't need payment (unlikely path)
         context.go('/booking-confirm', extra: {
           ...result,
           ..._displayFields,
-          'payment_method': 'Online',
+          'payment_method': _isOnline ? 'Online' : 'Pay at Ground',
         });
         return;
       }
@@ -370,7 +363,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         ...?_pendingBookingResult,
         ...?verifyData['booking'] as Map<String, dynamic>?,
         ..._displayFields,
-        'payment_method': 'Online',
+        'payment_method': _isOnline ? 'Online' : 'Pay at Ground',
         'razorpay_payment_id': response.paymentId,
       });
     } catch (e) {
