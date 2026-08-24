@@ -54,15 +54,21 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
   static const _ratings = [3.0, 3.5, 4.0, 4.5, 5.0];
 
   static const _amenityIcons = {
+    'cctv': Icons.videocam_outlined,
     'parking': Icons.local_parking_rounded,
     'changing room': Icons.checkroom_rounded,
     'washroom': Icons.wc_rounded,
     'water': Icons.water_drop_rounded,
-    'floodlights': Icons.light_rounded,
+    'floodlight': Icons.light_rounded,
     'first aid': Icons.medical_services_rounded,
+    'cafeteria': Icons.local_cafe_rounded,
     'cafe': Icons.local_cafe_rounded,
     'wifi': Icons.wifi_rounded,
     'locker': Icons.lock_rounded,
+    'scoreboard': Icons.leaderboard_rounded,
+    'referee': Icons.sports_rounded,
+    'equipment': Icons.sports_handball_rounded,
+    'coaching': Icons.school_rounded,
   };
 
   IconData _amenityIcon(String name) {
@@ -103,7 +109,20 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
           // ── Custom App Bar ─────────────────────────────────────────────
           SafeArea(
             bottom: false,
-            child: Padding(
+            child: Column(
+              children: [
+                // A drag-handle bar, so the screen reads as the filter sheet
+                // it visually is even though it is routed as a full page.
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 10),
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
               child: Row(
                 children: [
@@ -142,15 +161,15 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.close_rounded,
-                            size: 16, color: colors.textSecondary),
+                        const Icon(Icons.refresh_rounded,
+                            size: 16, color: AppColors.primary),
                         const SizedBox(width: 4),
-                        Text(
+                        const Text(
                           'Reset',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: colors.textSecondary,
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
@@ -159,6 +178,8 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                   const SizedBox(width: 8),
                 ],
               ),
+            ),
+              ],
             ),
           ),
 
@@ -187,14 +208,13 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                     style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   ),
                   data: (sports) => Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: sports.map((s) {
                       final sel = _selectedSportIds.contains(s.id);
-                      return _ChipButton(
+                      return _SportCard(
                         label: s.name,
                         imageUrl: s.image,
-                        showGlyph: true,
                         selected: sel,
                         onTap: () => setState(() {
                           sel
@@ -211,7 +231,8 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const _SectionLabel(icon: null, label: 'PRICE RANGE'),
+                    const _SectionLabel(
+                        icon: Icons.payments_outlined, label: 'PRICE RANGE'),
                     Text(
                       '\u20b9${_priceRange.start.toInt()} - \u20b9${_priceRange.end.toInt()}',
                       style: const TextStyle(
@@ -265,6 +286,11 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    _ChipButton(
+                      label: 'Any',
+                      selected: _distanceKm == null,
+                      onTap: () => setState(() => _distanceKm = null),
+                    ),
                     ..._distances.map((d) {
                       final sel = _distanceKm == d;
                       return _ChipButton(
@@ -274,11 +300,6 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                             setState(() => _distanceKm = sel ? null : d),
                       );
                     }),
-                    _ChipButton(
-                      label: 'Any',
-                      selected: _distanceKm == null,
-                      onTap: () => setState(() => _distanceKm = null),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 28),
@@ -319,17 +340,25 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _ratings.map((r) {
-                    final sel = _minRating == r;
-                    final label = r == r.toInt().toDouble()
-                        ? '${r.toInt()}+'
-                        : '${r.toString()}+';
-                    return _ChipButton(
-                      label: label,
-                      selected: sel,
-                      onTap: () => setState(() => _minRating = sel ? null : r),
-                    );
-                  }).toList(),
+                  children: [
+                    _ChipButton(
+                      label: 'Any',
+                      selected: _minRating == null,
+                      onTap: () => setState(() => _minRating = null),
+                    ),
+                    ..._ratings.map((r) {
+                      final sel = _minRating == r;
+                      final label = r == r.toInt().toDouble()
+                          ? '${r.toInt()}+'
+                          : '${r.toString()}+';
+                      return _ChipButton(
+                        label: label,
+                        selected: sel,
+                        onTap: () =>
+                            setState(() => _minRating = sel ? null : r),
+                      );
+                    }),
+                  ],
                 ),
                 const SizedBox(height: 28),
 
@@ -357,7 +386,7 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                     runSpacing: 10,
                     children: amenities.map((a) {
                       final sel = _selectedAmenityIds.contains(a.id);
-                      return _AmenityChip(
+                      return _AmenityCard(
                         icon: _amenityIcon(a.name),
                         label: a.name,
                         selected: sel,
@@ -381,17 +410,11 @@ class _VenueFilterScreenState extends ConsumerState<VenueFilterScreen> {
                 20, 0, 20, MediaQuery.of(context).padding.bottom + 16),
             child: SizedBox(
               width: double.infinity,
-              height: 52,
+              // Same primary-blue CTA StickyBottomBar uses everywhere else —
+              // the theme's ElevatedButtonTheme already gives the right
+              // height, radius and weight, so no style override here.
               child: ElevatedButton(
                 onPressed: () => context.pop(_filters),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.onAccent,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w800),
-                ),
                 child: Text(
                   active > 0 ? 'Apply Filters ($active)' : 'Apply Filters',
                 ),
@@ -442,20 +465,10 @@ class _ChipButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  /// Sport icon from the API; falls back to a name-matched emoji.
-  final String? imageUrl;
-
-  /// Sport chips carry a glyph; distance and rating chips do not. Without this
-  /// the glyph fell back to a trophy for "2 km" and "3+", because no sport is
-  /// named either of those.
-  final bool showGlyph;
-
   const _ChipButton({
     required this.label,
     required this.selected,
     required this.onTap,
-    this.imageUrl,
-    this.showGlyph = false,
   });
 
   @override
@@ -478,22 +491,70 @@ class _ChipButton extends StatelessWidget {
             width: 1.5,
           ),
         ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: selected ? AppColors.onPrimary : colors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sport option card: icon beside label, two per row ────────────────────────
+
+class _SportCard extends StatelessWidget {
+  final String label;
+  final String? imageUrl;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SportCard({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: (MediaQuery.of(context).size.width - 50) / 2,
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color:
+              selected ? AppColors.accent.withValues(alpha: 0.1) : colors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.accent : colors.border,
+            width: 1.5,
+          ),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (showGlyph) ...[
-              SportGlyph(name: label, imageUrl: imageUrl, size: 16),
-              const SizedBox(width: 6),
-            ],
+            SportGlyph(name: label, imageUrl: imageUrl, size: 18),
+            const SizedBox(width: 10),
             Flexible(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? AppColors.onPrimary : colors.textPrimary,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? AppColors.accent : colors.textPrimary,
                 ),
               ),
             ),
@@ -504,15 +565,15 @@ class _ChipButton extends StatelessWidget {
   }
 }
 
-// ── Amenity chip with icon ───────────────────────────────────────────────────
+// ── Amenity card: icon over label, three per row ──────────────────────────────
 
-class _AmenityChip extends StatelessWidget {
+class _AmenityCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _AmenityChip({
+  const _AmenityCard({
     required this.icon,
     required this.label,
     required this.selected,
@@ -526,8 +587,8 @@ class _AmenityChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: (MediaQuery.of(context).size.width - 50) / 2,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        width: (MediaQuery.of(context).size.width - 60) / 3,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
         decoration: BoxDecoration(
           color:
               selected ? AppColors.accent.withValues(alpha: 0.1) : colors.card,
@@ -537,25 +598,24 @@ class _AmenityChip extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 18,
+              size: 20,
               color: selected ? AppColors.accent : colors.textSecondary,
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? AppColors.accent : colors.textPrimary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: selected ? AppColors.accent : colors.textPrimary,
               ),
             ),
           ],

@@ -9,10 +9,10 @@ import '../models/venue_filters.dart';
 import '../providers/grounds_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/venues_intent_provider.dart';
-import '../providers/weather_provider.dart';
-import '../widgets/venue_card.dart';
+import '../widgets/ground_card.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/error_view.dart';
+import '../widgets/sport_glyph.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   final String? initialSearch;
@@ -129,17 +129,32 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
-                      'Explore Turfs',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: colors.textPrimary,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Explore Venues',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Find and book the perfect venue for your game.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(width: 12),
                   Semantics(
                     label: 'Filter grounds',
                     button: true,
@@ -240,7 +255,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                             TextStyle(color: colors.textPrimary, fontSize: 14),
                         cursorColor: AppColors.primary,
                         decoration: InputDecoration(
-                          hintText: 'Ground, sport or area\u2026',
+                          hintText: 'Search ground, sport or area\u2026',
                           hintStyle: TextStyle(
                               color: colors.textSecondary, fontSize: 14),
                           border: InputBorder.none,
@@ -284,11 +299,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   children: [
                     _FilterPill(
                       label: 'All Sports',
+                      icon: Icons.apps_rounded,
                       selected: _sportId == null,
                       onTap: () => setState(() => _sportId = null),
                     ),
                     ...list.map((s) => _FilterPill(
                           label: s.name,
+                          imageUrl: s.image,
                           selected: _sportId == s.id,
                           onTap: () => setState(
                               () => _sportId = _sportId == s.id ? null : s.id),
@@ -316,18 +333,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   // so they are applied here over the page that came back.
                   final list = _filters.apply(all);
 
-                  // One batched weather request for what is on screen, rather
-                  // than a call per card. Published after the frame so it does
-                  // not mutate a provider mid-build.
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) publishWeatherPoints(ref, list);
-                  });
-                  final weather = ref
-                          .watch(groundWeatherProvider(
-                              list.map((g) => g.id).toList()))
-                          .valueOrNull ??
-                      const {};
-
                   if (list.isEmpty) {
                     // Distinguish "your filters hid everything" from "there is
                     // nothing here" — only the first has an obvious fix.
@@ -354,10 +359,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: list.length,
-                      itemBuilder: (_, i) => VenueCard(
-                        ground: list[i],
-                        weather: weather[list[i].id],
-                      ),
+                      itemBuilder: (_, i) => GroundCard(ground: list[i]),
                     ),
                   );
                 },
@@ -375,19 +377,31 @@ class _FilterPill extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _FilterPill(
-      {required this.label, required this.selected, required this.onTap});
+  /// A fixed glyph — used for "All Sports". A real sport instead uses
+  /// [imageUrl] through [SportGlyph], so its icon matches every other place
+  /// the sport is shown.
+  final IconData? icon;
+  final String? imageUrl;
+
+  const _FilterPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+    this.imageUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final iconColor = selected ? AppColors.onPrimary : colors.textSecondary;
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
         constraints: const BoxConstraints(minHeight: 44),
         decoration: BoxDecoration(
@@ -397,14 +411,24 @@ class _FilterPill extends StatelessWidget {
             color: selected ? AppColors.accent : colors.border,
           ),
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? AppColors.onPrimary : colors.textSecondary,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null)
+              Icon(icon, size: 16, color: iconColor)
+            else
+              SportGlyph(name: label, imageUrl: imageUrl, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? AppColors.onPrimary : colors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );
