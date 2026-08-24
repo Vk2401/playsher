@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ import '../models/ground_sport_model.dart';
 import '../models/slot_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/grounds_provider.dart';
+import '../widgets/sport_glyph.dart';
 import '../widgets/sticky_bottom_bar.dart';
 
 class BookingFlowScreen extends ConsumerStatefulWidget {
@@ -66,6 +68,8 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   /// What is collected at the venue.
   int get _balanceAtGround => _isOnline ? 0 : _totalPrice - _payableNow;
   String? get _groundName => widget.extra['groundName'] as String?;
+  String? get _groundLocality => widget.extra['groundLocality'] as String?;
+  String? get _groundImage => widget.extra['groundImage'] as String?;
 
   /// The slots this booking covers, resolved from the same provider the picker
   /// used. Watched rather than passed through `extra` so the times survive a
@@ -96,9 +100,9 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     final total = slots.length * 30;
     final hours = total ~/ 60;
     final mins = total % 60;
-    if (hours == 0) return '$mins min';
-    if (mins == 0) return '$hours hr';
-    return '$hours hr $mins min';
+    if (hours == 0) return '$mins mins';
+    if (mins == 0) return '$hours hr${hours == 1 ? '' : 's'}';
+    return '$hours hr${hours == 1 ? '' : 's'} $mins mins';
   }
 
   /// "Thu, 20 Aug 2026" — the raw ISO date was being shown to the user.
@@ -442,7 +446,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   }
 
   static String _formatHold(Duration d) {
-    final m = d.inMinutes.remainder(60).toString();
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final sec = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$sec';
   }
@@ -475,9 +479,19 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
           'Confirm Booking',
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
+        actions: [
+          // The countdown that matters most lives where the eye already is on
+          // the way in — the banner further down repeats it for the moment
+          // attention has moved to the payment method instead.
+          if (_holdRemaining != null && !_holdLapsed)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _HoldPill(remaining: _formatHold(_holdRemaining!)),
+            ),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -491,13 +505,15 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               timeRange: _selectedTimeRange,
               duration: _selectedDuration,
               groundName: _groundName,
+              groundLocality: _groundLocality,
+              groundImage: _groundImage,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             Text(
               'Payment Method',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: colors.textPrimary,
               ),
@@ -507,17 +523,19 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             _PaymentOption(
               icon: Icons.credit_card_rounded,
               label: 'Pay Online',
+              badge: 'Recommended',
               subtitle: 'UPI, Cards, Net Banking',
+              footer: 'Powered by Razorpay',
               selected: _paymentMethod == 'online',
               onTap: _loading || _hasPendingBooking
                   ? null
                   : () => setState(() => _paymentMethod = 'online'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _PaymentOption(
               icon: Icons.account_balance_wallet_rounded,
               label: 'Pay at Ground',
-              subtitle: 'Pay a 10% advance now, rest at the venue',
+              subtitle: 'Pay 10% advance now, rest at the venue',
               selected: _paymentMethod == 'pay_at_ground',
               onTap: _loading || _hasPendingBooking
                   ? null
@@ -526,6 +544,16 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
             const SizedBox(height: 24),
 
+            Text(
+              'Price Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // What is charged now versus at the venue. Without this the
             // pay-at-ground CTA quotes a number smaller than the booking and
             // reads like the price changed.
@@ -533,207 +561,183 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: colors.card,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: colors.border),
               ),
               child: Column(
                 children: [
                   _MoneyRow(
-                    label: 'Booking total',
-                    value: '\u20b9$_totalPrice',
+                    label:
+                        'Booking Total (${_slotIds.length} slot${_slotIds.length == 1 ? '' : 's'})',
+                    value: '₹$_totalPrice',
                     colors: colors,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   _MoneyRow(
-                    label: _isOnline ? 'Paying now' : 'Advance now (10%)',
-                    value: '\u20b9$_payableNow',
+                    label: 'Platform Fee',
+                    value: '₹0',
+                    colors: colors,
+                    trailingIcon: Tooltip(
+                      message: 'No platform fee is charged on this booking.',
+                      child: Icon(Icons.info_outline_rounded,
+                          size: 14, color: colors.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _DashedDivider(color: colors.border),
+                  const SizedBox(height: 14),
+                  _MoneyRow(
+                    label: 'Total Amount',
+                    value: '₹$_totalPrice',
                     colors: colors,
                     emphasise: true,
                   ),
+                  // The advance/balance split only means anything once it's
+                  // not the whole amount — paying online, "due at the
+                  // ground" would just repeat "₹0" beside the total above.
                   if (!_isOnline) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     _MoneyRow(
                       label: 'Due at the ground',
-                      value: '\u20b9$_balanceAtGround',
+                      value: '₹$_balanceAtGround',
                       colors: colors,
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _isOnline
+                                ? 'Pay Now (100% online)'
+                                : 'Pay Now (10% advance)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '₹$_payableNow',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Online payment info
-            if (_paymentMethod == 'online')
-              Container(
-                padding: const EdgeInsets.all(14),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.verified_user_rounded,
-                        size: 18, color: AppColors.primary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Secure payment powered by Razorpay. Your slot is instantly confirmed after payment.',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: colors.textSecondary,
-                            height: 1.5),
-                      ),
-                    ),
-                  ],
+            // Online payment reassurance — only relevant to the method that
+            // is actually selected.
+            if (_isOnline)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _InfoBanner(
+                  icon: Icons.verified_user_rounded,
+                  iconColor: AppColors.success,
+                  title: 'Secure Payment',
+                  titleColor: colors.textPrimary,
+                  subtitle:
+                      'Your payment is processed securely by Razorpay.\n'
+                      'Your slot will be instantly confirmed after payment.',
                 ),
               ),
-
-            // Warning banner
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.info.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppColors.info.withValues(alpha: 0.20)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline_rounded,
-                      size: 18, color: AppColors.info),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Cancellations must be made at least 2 hours before the slot. No-shows may affect future bookings.',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: colors.textSecondary,
-                          height: 1.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
             // The server releases these slots when the hold lapses, so the
             // countdown has to be visible — otherwise the booking silently
             // stops working mid-payment.
-            if (_holdRemaining != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: (_holdLapsed ? AppColors.error : AppColors.warning)
-                      .withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: (_holdLapsed ? AppColors.error : AppColors.warning)
-                        .withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _holdLapsed
-                          ? Icons.timer_off_rounded
-                          : Icons.timer_outlined,
-                      size: 18,
-                      color: _holdLapsed ? AppColors.error : AppColors.warning,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _holdLapsed
-                            ? 'Your slots were released. Go back and pick them '
-                                'again to continue.'
-                            : 'Slots held for ${_formatHold(_holdRemaining!)} — '
-                                'complete payment before the timer runs out.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              _holdLapsed ? AppColors.error : AppColors.warning,
-                        ),
-                      ),
-                    ),
-                  ],
+            if (_holdRemaining != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _InfoBanner(
+                  icon: _holdLapsed
+                      ? Icons.timer_off_rounded
+                      : Icons.timer_outlined,
+                  iconColor: _holdLapsed ? AppColors.error : AppColors.warning,
+                  title: _holdLapsed
+                      ? 'Slots released'
+                      : 'Slots held for ${_formatHold(_holdRemaining!)}',
+                  titleColor: _holdLapsed ? AppColors.error : AppColors.warning,
+                  subtitle: _holdLapsed
+                      ? 'Go back and pick them again to continue.'
+                      : 'Complete the payment before the timer runs out.',
                 ),
               ),
-            ],
 
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: AppColors.error.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline_rounded,
-                        size: 18, color: AppColors.error),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _error!,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.error),
-                          ),
-                          if (_hasPendingBooking) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'Your slots are still held under this booking — '
-                              'retrying settles its payment rather than '
-                              'booking again.',
-                              style: TextStyle(
-                                  fontSize: 12, color: colors.textSecondary),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 16),
-
-            // Security disclaimer
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colors.elevated,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colors.border),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.lock_outline_rounded,
-                      size: 14, color: colors.textSecondary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Your payment info is secure and encrypted',
-                      style:
-                          TextStyle(fontSize: 11, color: colors.textSecondary),
-                    ),
-                  ),
-                ],
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: _InfoBanner(
+                icon: Icons.info_outline_rounded,
+                iconColor: AppColors.info,
+                title: 'Cancellation Policy',
+                titleColor: AppColors.info,
+                subtitle:
+                    'Cancellations must be made at least 2 hours before the slot.\n'
+                    'No-shows may affect future bookings.',
               ),
             ),
 
-            const SizedBox(height: 40),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 18, color: AppColors.error),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _error!,
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppColors.error),
+                            ),
+                            if (_hasPendingBooking) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Your slots are still held under this booking — '
+                                'retrying settles its payment rather than '
+                                'booking again.',
+                                style: TextStyle(
+                                    fontSize: 12, color: colors.textSecondary),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -741,16 +745,186 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       // Bottom bar — the shared widget, not a hand-rolled copy: it already
       // owns the safe-area inset and the double-submit guard.
       bottomNavigationBar: StickyBottomBar(
-        priceLabel: _isOnline ? 'TOTAL AMOUNT' : 'PAY NOW (ADVANCE)',
-        price: '\u20b9$_payableNow',
+        priceLabel: 'Pay Now',
+        price: '₹$_payableNow',
+        priceCaption: _isOnline ? 'Total Amount' : 'Advance amount',
+        secureNote: _isOnline
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_rounded, size: 12, color: colors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Secure by Razorpay',
+                    style: TextStyle(fontSize: 10.5, color: colors.textSecondary),
+                  ),
+                ],
+              )
+            : null,
         buttonText: _holdLapsed
             ? 'Slots released'
             : _hasPendingBooking
                 // The booking already exists; this attempt only settles payment.
                 ? 'Retry payment'
-                : 'Pay \u20b9$_payableNow',
+                : 'Pay ₹$_payableNow',
+        footnote: _isOnline && !_holdLapsed
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      size: 13, color: AppColors.success),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Instant Confirmation',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: colors.successText,
+                    ),
+                  ),
+                ],
+              )
+            : null,
         isLoading: _loading,
         onPressed: _holdLapsed ? null : _confirmBooking,
+      ),
+    );
+  }
+}
+
+/// "Hold for 04:56" — the countdown pinned to the app bar, so it stays
+/// visible even once the page has scrolled the banner further down out of
+/// view.
+class _HoldPill extends StatelessWidget {
+  const _HoldPill({required this.remaining});
+
+  final String remaining;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.timer_outlined, size: 13, color: AppColors.primary),
+          const SizedBox(width: 5),
+          Text(
+            'Hold for $remaining',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A dashed rule between the line items and the total — thin enough to read
+/// as a break in the list rather than another row.
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const dashWidth = 5.0;
+        const gap = 4.0;
+        final count = (constraints.maxWidth / (dashWidth + gap)).floor();
+        return SizedBox(
+          height: 1,
+          child: Row(
+            children: List.generate(
+              count,
+              (_) => Padding(
+                padding: const EdgeInsets.only(right: gap),
+                child: Container(width: dashWidth, height: 1, color: color),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The shared shape behind Secure Payment, the hold countdown and the
+/// cancellation policy: an icon in a tinted circle, a coloured title, and a
+/// muted body — three facts the checkout screen states rather than asks.
+class _InfoBanner extends StatelessWidget {
+  const _InfoBanner({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.titleColor,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final Color titleColor;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: iconColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: iconColor.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 16, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -762,11 +936,15 @@ class _MoneyRow extends StatelessWidget {
   final AppColors colors;
   final bool emphasise;
 
+  /// A small glyph after the label — the Platform Fee's info tooltip.
+  final Widget? trailingIcon;
+
   const _MoneyRow({
     required this.label,
     required this.value,
     required this.colors,
     this.emphasise = false,
+    this.trailingIcon,
   });
 
   @override
@@ -775,15 +953,26 @@ class _MoneyRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Flexible(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: emphasise ? colors.textPrimary : colors.textSecondary,
-              fontWeight: emphasise ? FontWeight.w600 : FontWeight.w400,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: emphasise ? 14.5 : 13,
+                    color: emphasise ? colors.textPrimary : colors.textSecondary,
+                    fontWeight: emphasise ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (trailingIcon != null) ...[
+                const SizedBox(width: 5),
+                trailingIcon!,
+              ],
+            ],
           ),
         ),
         const SizedBox(width: 12),
@@ -811,6 +1000,8 @@ class _SummaryCard extends StatelessWidget {
   final String? timeRange;
   final String? duration;
   final String? groundName;
+  final String? groundLocality;
+  final String? groundImage;
 
   const _SummaryCard({
     required this.groundSport,
@@ -821,13 +1012,15 @@ class _SummaryCard extends StatelessWidget {
     this.timeRange,
     this.duration,
     this.groundName,
+    this.groundLocality,
+    this.groundImage,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.elevated,
         borderRadius: BorderRadius.circular(16),
@@ -837,104 +1030,119 @@ class _SummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.sports_rounded,
-                    color: AppColors.primary, size: 24),
+                child: Center(
+                  child: SportGlyph(
+                    name: groundSport?.sport?.name ?? '',
+                    size: 24,
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    groundSport?.sport?.name ?? 'Sport',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: colors.textPrimary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      groundSport?.sport?.name ?? 'Sport',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    '\u20b9${pricePerSlot.toStringAsFixed(0)} / slot',
-                    style: TextStyle(fontSize: 13, color: colors.textSecondary),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      '₹${pricePerSlot.toStringAsFixed(0)} per slot • 30 mins',
+                      style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
+              if (groundImage != null) ...[
+                const SizedBox(width: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: CachedNetworkImage(
+                    imageUrl: groundImage!,
+                    width: 64,
+                    height: 46,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) =>
+                        Container(width: 64, height: 46, color: colors.card),
+                    errorWidget: (_, __, ___) =>
+                        Container(width: 64, height: 46, color: colors.card),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
           Container(height: 1, color: colors.border),
-          const SizedBox(height: 16),
-          Text(
-            'SELECTED TIME',
-            style: TextStyle(
-                fontSize: 10, color: colors.textSecondary, letterSpacing: 1),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            date,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: colors.textPrimary),
-          ),
-          const SizedBox(height: 12),
-          // The actual booked window, which this screen never showed — it said
-          // only "2 slots", leaving the user to trust it was the right two.
+          const SizedBox(height: 14),
+          _Row(icon: Icons.calendar_today_rounded, label: 'Date', value: date),
           if (timeRange != null) ...[
+            const SizedBox(height: 10),
             _Row(
               icon: Icons.access_time_rounded,
               label: 'Time',
               value: timeRange!,
             ),
-            const SizedBox(height: 8),
           ],
+          const SizedBox(height: 10),
           _Row(
             icon: Icons.hourglass_bottom_rounded,
             label: 'Duration',
             value: duration == null
                 ? '$slotCount slot${slotCount > 1 ? 's' : ''}'
-                : '$duration  ($slotCount slot${slotCount > 1 ? 's' : ''})',
+                : '$duration ($slotCount slot${slotCount > 1 ? 's' : ''})',
           ),
           if (groundName != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _Row(
               icon: Icons.stadium_rounded,
               label: 'Venue',
               value: groundName!,
+              caption: groundLocality,
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.all(14),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border:
-                  Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
+              color: colors.brandText.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'PRICE',
+                  'Total Price',
                   style: TextStyle(
-                      fontSize: 11,
-                      color: colors.textSecondary,
-                      letterSpacing: 1),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colors.textSecondary,
+                  ),
                 ),
                 Text(
-                  '\u20b9$totalPrice',
-                  style: const TextStyle(
+                  '₹$totalPrice',
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.accent,
+                    color: colors.brandText,
                   ),
                 ),
               ],
@@ -951,12 +1159,21 @@ class _Row extends StatelessWidget {
   final String label;
   final String value;
 
-  const _Row({required this.icon, required this.label, required this.value});
+  /// A second, muted line under [value] — the venue's locality under its name.
+  final String? caption;
+
+  const _Row({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.caption,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: colors.textSecondary),
         const SizedBox(width: 8),
@@ -964,16 +1181,31 @@ class _Row extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: colors.textSecondary)),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colors.textPrimary,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                textAlign: TextAlign.right,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
+                ),
+              ),
+              if (caption != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  caption!,
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: colors.textSecondary),
+                ),
+              ],
+            ],
           ),
         ),
       ],
@@ -984,14 +1216,22 @@ class _Row extends StatelessWidget {
 class _PaymentOption extends StatelessWidget {
   final IconData icon;
   final String label;
+
+  /// "Recommended" beside the label — only Pay Online carries one.
+  final String? badge;
   final String subtitle;
+
+  /// A second, muted subtitle line — "Powered by Razorpay".
+  final String? footer;
   final bool selected;
   final VoidCallback? onTap;
 
   const _PaymentOption({
     required this.icon,
     required this.label,
+    this.badge,
     required this.subtitle,
+    this.footer,
     required this.selected,
     required this.onTap,
   });
@@ -999,59 +1239,108 @@ class _PaymentOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withValues(alpha: 0.06)
-              : colors.input,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppColors.primary : colors.border,
-            width: selected ? 1.5 : 1,
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: '$label${badge == null ? '' : ', $badge'}, $subtitle',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : colors.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.primary : colors.border,
+              width: selected ? 1.6 : 1,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: AppColors.primary,
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colors.textPrimary,
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: colors.input,
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                Text(subtitle,
-                    style:
-                        TextStyle(fontSize: 12, color: colors.textSecondary)),
-              ],
-            ),
-            const Spacer(),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: selected
-                  ? const Icon(Icons.check_circle_rounded,
-                      key: ValueKey('check'),
-                      color: AppColors.primary,
-                      size: 22)
-                  : Icon(Icons.radio_button_unchecked_rounded,
-                      key: const ValueKey('uncheck'),
-                      color: colors.border,
-                      size: 22),
-            ),
-          ],
+                child: Icon(icon, size: 20, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                              color: colors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (badge != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '($badge)',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(subtitle,
+                        style:
+                            TextStyle(fontSize: 12, color: colors.textSecondary)),
+                    if (footer != null) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(Icons.bolt_rounded,
+                              size: 11, color: AppColors.primary),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              footer!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected ? AppColors.primary : colors.border,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );

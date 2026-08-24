@@ -679,8 +679,12 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                   // recomputing one from the sport.
                   'pricePerSlot': ground.pricePerSlot,
                   // POST /bookings answers with the bare Booking row, which
-                  // carries no ground or sport name — carry them ourselves.
+                  // carries no ground, address or sport name — carry them
+                  // ourselves so the checkout screen never has to re-fetch
+                  // the ground it already has open.
                   'groundName': ground.name,
+                  'groundLocality': ground.locality,
+                  'groundImage': ground.primaryImageUrl,
                 },
               ),
             ),

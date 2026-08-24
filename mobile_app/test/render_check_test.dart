@@ -174,6 +174,32 @@ void main() {
     );
   });
 
+  // The checkout bar's optional row — price, a secure-payment note, and the
+  // pay button sharing one line — is the tightest fit any StickyBottomBar
+  // caller asks for.
+  testWidgets(
+      'StickyBottomBar does not overflow with a secure note and footnote',
+      (tester) async {
+    await everyCombination(
+      tester,
+      () => const StickyBottomBar(
+        priceLabel: 'Pay Now',
+        price: '₹1,24,500',
+        priceCaption: 'Total Amount',
+        secureNote: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_rounded, size: 12),
+            SizedBox(width: 4),
+            Text('Secure by Razorpay'),
+          ],
+        ),
+        buttonText: 'Retry payment',
+        footnote: Text('Instant Confirmation'),
+      ),
+    );
+  });
+
   testWidgets('SlotTile does not overflow', (tester) async {
     await everyCombination(
       tester,
