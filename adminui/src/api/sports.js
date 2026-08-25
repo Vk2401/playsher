@@ -5,6 +5,10 @@ export const sportsApi = {
   getAll: (params) => apiClient.get('/admin/sports', { params }),
   getById: (id) => apiClient.get(`/sports/${id}`),
 
+  // The public list, readable by any signed-in role. The coach panel needs the
+  // sport names but is not allowed to call /admin/sports.
+  getPublic: (params) => apiClient.get('/sports', { params }),
+
   // Admin CRUD — /admin/sports
   create: (data) => apiClient.post('/admin/sports', data, {
     headers: { 'Content-Type': 'multipart/form-data' },

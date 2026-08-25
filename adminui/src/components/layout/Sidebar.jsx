@@ -27,6 +27,10 @@ import PersonIcon from '@mui/icons-material/Person'
 import SystemUpdateIcon from '@mui/icons-material/SystemUpdate'
 import StorageIcon from '@mui/icons-material/Storage'
 import ShieldIcon from '@mui/icons-material/Shield'
+import EventAvailableIcon from '@mui/icons-material/EventAvailable'
+import HowToRegIcon from '@mui/icons-material/HowToReg'
+import NotificationsIcon from '@mui/icons-material/Notifications'
+import SportsHandballIcon from '@mui/icons-material/SportsHandball'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 
@@ -45,6 +49,7 @@ const ADMIN_NAV = [
   { label: 'Settlements',   icon: AccountBalanceWalletIcon, path: '/admin/settlements' },
   { label: 'Games',          icon: SportsIcon,               path: '/admin/games' },
   { label: 'Coaches',        icon: DirectionsRunIcon,  path: '/admin/coaches' },
+  { label: 'Coach Sessions', icon: SportsHandballIcon, path: '/admin/coach-sessions' },
   { label: 'Reviews',        icon: StarIcon,           path: '/admin/reviews' },
   { label: 'App Versions',   icon: SystemUpdateIcon,   path: '/admin/app-versions' },
   { label: 'Admins',          icon: ShieldIcon,       path: '/admin/admins', superAdminOnly: true },
@@ -57,15 +62,26 @@ const OWNER_NAV = [
   { label: 'My Grounds', icon: LocationOnIcon,  path: '/owner/grounds' },
   { label: 'Bookings',   icon: BookOnlineIcon,  path: '/owner/bookings' },
   { label: 'Games',        icon: SportsIcon,        path: '/owner/games' },
+  { label: 'Coach Requests', icon: HowToRegIcon,        path: '/owner/coach-requests' },
+  { label: 'Coach Sessions', icon: SportsHandballIcon,  path: '/owner/coach-sessions' },
   { label: 'Bank Details', icon: AccountBalanceIcon, path: '/owner/bank-details' },
   { label: 'Profile',      icon: PersonIcon,         path: '/owner/profile' },
+]
+
+const COACH_NAV = [
+  { label: 'Dashboard',     icon: DashboardIcon,       path: '/coach/dashboard' },
+  { label: 'My Sessions',   icon: BookOnlineIcon,      path: '/coach/bookings' },
+  { label: 'Availability',  icon: EventAvailableIcon,  path: '/coach/availability' },
+  { label: 'My Grounds',    icon: LocationOnIcon,      path: '/coach/grounds' },
+  { label: 'Notifications', icon: NotificationsIcon,   path: '/coach/notifications' },
+  { label: 'Profile',       icon: PersonIcon,          path: '/coach/profile' },
 ]
 
 function SidebarContent({ open, onToggle, onItemClick }) {
   const theme = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isCoach } = useAuth()
 
   // Which admin am I? Only the super-admin tier gets the Admins entry, so the
   // sidebar never offers a link that answers 403. Same query key as the Admins
@@ -78,8 +94,8 @@ function SidebarContent({ open, onToggle, onItemClick }) {
   })
   const isSuperAdmin = me.data?.is_super_admin === true
 
-  const nav = (isAdmin ? ADMIN_NAV : OWNER_NAV)
-    .filter((item) => !item.superAdminOnly || isSuperAdmin)
+  const roleNav = isAdmin ? ADMIN_NAV : isCoach ? COACH_NAV : OWNER_NAV
+  const nav = roleNav.filter((item) => !item.superAdminOnly || isSuperAdmin)
 
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
@@ -110,7 +126,7 @@ function SidebarContent({ open, onToggle, onItemClick }) {
               Playsher
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap>
-              {isAdmin ? 'Admin Panel' : 'Owner Panel'}
+              {isAdmin ? 'Admin Panel' : isCoach ? 'Coach Panel' : 'Owner Panel'}
             </Typography>
           </Box>
         )}

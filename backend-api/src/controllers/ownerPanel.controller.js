@@ -2,10 +2,11 @@
  * Ground Owner Panel Controllers
  * Provides owner-scoped operations filtered by req.user.id.
  */
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const {
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
   Sport, Amenity, Slot, Booking, BookedSlot, User, Game, GameParticipant, Payment,
+  Coach, CoachGround, CoachBooking,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
@@ -13,6 +14,8 @@ const { ensureSlotsForDate } = require('../utils/slotGenerator');
 const { releaseExpiredHolds } = require('../utils/slotHolds');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { getPagination, paginationMeta } = require('../utils/helpers');
+const { notify } = require('../utils/notify');
+const { appToday } = require('../utils/appTime');
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
 
@@ -432,5 +435,192 @@ exports.listGames = async (req, res) => {
       order: [['created_at', 'DESC']],
     });
     return success(res, 'Games retrieved.', rows, 200, paginationMeta(count, page, limit));
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// ── Coaches at my grounds ─────────────────────────────────────────────────────
+
+/** The ids of the grounds this owner actually owns. Every query below is scoped to it. */
+async function ownedGroundIds(ownerId) {
+  const rows = await Ground.findAll({
+    where: { owner_id: ownerId, deleted_at: null },
+    attributes: ['id'],
+    raw: true,
+  });
+  return rows.map((r) => r.id);
+}
+
+/** What an owner needs to see about a coach asking to work at their ground. */
+const COACH_REQUEST_INCLUDES = [
+  {
+    model: Coach, as: 'coach',
+    attributes: [
+      'id', 'name', 'email', 'mobile', 'sport_name', 'level',
+      'experience_years', 'about', 'profile_picture', 'price_per_slot', 'is_approved',
+    ],
+  },
+  { model: Ground, as: 'ground', attributes: ['id', 'name', 'area', 'city'] },
+];
+
+/** GET /ground-owner/coach-requests */
+exports.listCoachRequests = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+    const groundIds = await ownedGroundIds(req.user.id);
+    if (groundIds.length === 0) {
+      return success(res, 'Coach requests retrieved.', [], 200, paginationMeta(0, page, limit));
+    }
+
+    const where = { ground_id: groundIds };
+    if (req.query.status) where.status = req.query.status;
+
+    const { count, rows } = await CoachGround.findAndCountAll({
+      where,
+      include: COACH_REQUEST_INCLUDES,
+      // Pending first: an unanswered request is the only row that needs the
+      // owner to do something, and it must not sink under old decisions.
+      order: [
+        [literal("FIELD(`CoachGround`.`status`, 'pending', 'approved', 'rejected')"), 'ASC'],
+        ['created_at', 'DESC'],
+      ],
+      limit, offset, distinct: true,
+    });
+    return success(res, 'Coach requests retrieved.', rows, 200, paginationMeta(count, page, limit));
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/** Load one request and prove it belongs to a ground this owner owns. */
+async function ownedRequest(req) {
+  const link = await CoachGround.findByPk(req.params.id, { include: COACH_REQUEST_INCLUDES });
+  if (!link) return { error: ['Request not found.', 404] };
+  const ground = await Ground.findOne({
+    where: { id: link.ground_id, owner_id: req.user.id, deleted_at: null },
+  });
+  // Same answer for "does not exist" and "is not yours", so this endpoint
+  // cannot be used to discover which request ids exist.
+  if (!ground) return { error: ['Request not found.', 404] };
+  return { link, ground };
+}
+
+/** PATCH /ground-owner/coach-requests/:id/approve */
+exports.approveCoachRequest = async (req, res) => {
+  try {
+    const { link, ground, error: notFound } = await ownedRequest(req);
+    if (notFound) return error(res, notFound[0], notFound[1]);
+    if (link.status === 'approved') return error(res, 'Already approved.', 409);
+
+    await link.update({
+      status       : 'approved',
+      response_note: req.body.response_note || null,
+      responded_at : new Date(),
+    });
+
+    await notify({
+      recipientType: 'coach',
+      recipientId  : link.coach_id,
+      type         : 'coach_ground_approved',
+      title        : 'Your ground registration was approved',
+      message      : `${ground.name} has approved you to coach there. Players can now book you at this venue.`,
+      referenceType: 'coach_ground',
+      referenceId  : link.id,
+      actionPath   : '/coach/grounds',
+    });
+
+    return success(res, 'Coach approved for this ground.', link);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/** PATCH /ground-owner/coach-requests/:id/reject */
+exports.rejectCoachRequest = async (req, res) => {
+  try {
+    const { link, ground, error: notFound } = await ownedRequest(req);
+    if (notFound) return error(res, notFound[0], notFound[1]);
+    if (link.status === 'rejected') return error(res, 'Already declined.', 409);
+
+    const upcoming = await CoachBooking.count({
+      where: {
+        coach_id    : link.coach_id,
+        ground_id   : link.ground_id,
+        session_date: { [Op.gte]: appToday() },
+        status      : { [Op.in]: ['pending', 'confirmed'] },
+      },
+    });
+    if (upcoming > 0) {
+      // Withdrawing the registration would hide a session that is still going
+      // to happen. The owner has to deal with those first.
+      return error(res, 'This coach still has upcoming sessions booked at your ground.', 409);
+    }
+
+    await link.update({
+      status       : 'rejected',
+      response_note: req.body.response_note || null,
+      responded_at : new Date(),
+    });
+
+    await notify({
+      recipientType: 'coach',
+      recipientId  : link.coach_id,
+      type         : 'coach_ground_rejected',
+      title        : 'Your ground registration was declined',
+      message      : req.body.response_note
+        ? `${ground.name} declined your request: ${req.body.response_note}`
+        : `${ground.name} declined your request to coach there.`,
+      referenceType: 'coach_ground',
+      referenceId  : link.id,
+      actionPath   : '/coach/grounds',
+    });
+
+    return success(res, 'Request declined.', link);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/** GET /ground-owner/coaches — the coaches approved to work at my grounds */
+exports.listGroundCoaches = async (req, res) => {
+  try {
+    const groundIds = await ownedGroundIds(req.user.id);
+    if (groundIds.length === 0) return success(res, 'Coaches retrieved.', []);
+
+    const rows = await CoachGround.findAll({
+      where  : { ground_id: groundIds, status: 'approved' },
+      include: COACH_REQUEST_INCLUDES,
+      order  : [['responded_at', 'DESC']],
+    });
+    return success(res, 'Coaches retrieved.', rows);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * GET /ground-owner/coach-sessions
+ *
+ * Coaching sessions taking place on this owner's courts. They are booked
+ * between a player and a coach, but they occupy the owner's ground, so the
+ * owner sees them alongside their own bookings rather than finding out on the day.
+ */
+exports.listCoachSessions = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+    const groundIds = await ownedGroundIds(req.user.id);
+    if (groundIds.length === 0) {
+      return success(res, 'Coaching sessions retrieved.', [], 200, paginationMeta(0, page, limit));
+    }
+
+    const where = { ground_id: groundIds };
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.upcoming === 'true') where.session_date = { [Op.gte]: appToday() };
+    if (req.query.date) where.session_date = req.query.date;
+
+    const { count, rows } = await CoachBooking.findAndCountAll({
+      where,
+      include: [
+        { model: Coach,  as: 'coach',  attributes: ['id', 'name', 'mobile', 'sport_name', 'profile_picture'] },
+        { model: User,   as: 'user',   attributes: ['id', 'name', 'mobile'] },
+        { model: Ground, as: 'ground', attributes: ['id', 'name'] },
+      ],
+      order: req.query.upcoming === 'true'
+        ? [['session_date', 'ASC'], ['time_from', 'ASC']]
+        : [['session_date', 'DESC'], ['time_from', 'DESC']],
+      limit, offset, distinct: true,
+    });
+    return success(res, 'Coaching sessions retrieved.', rows, 200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };

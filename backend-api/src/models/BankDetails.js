@@ -7,7 +7,7 @@ module.exports = (sequelize) => {
       id:                   { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
       user_id:              { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
       user_type:            {
-        type: DataTypes.ENUM('ground_owner', 'user'),
+        type: DataTypes.ENUM('ground_owner', 'user', 'coach'),
         defaultValue: 'ground_owner',
       },
       account_holder_name:  { type: DataTypes.STRING(255), allowNull: false },

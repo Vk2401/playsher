@@ -25,6 +25,7 @@ import AdminCoaches from '../pages/admin/Coaches.jsx'
 import AdminReviews from '../pages/admin/Reviews.jsx'
 import AdminProfile from '../pages/admin/Profile.jsx'
 import AdminSettlements from '../pages/admin/Settlements.jsx'
+import AdminCoachSessions from '../pages/admin/CoachSessions.jsx'
 
 // Owner
 import OwnerDashboard from '../pages/owner/Dashboard.jsx'
@@ -34,27 +35,35 @@ import OwnerBookings from '../pages/owner/Bookings.jsx'
 import OwnerGames from '../pages/owner/Games.jsx'
 import OwnerBankDetails from '../pages/owner/BankDetails.jsx'
 import OwnerProfile from '../pages/owner/Profile.jsx'
+import OwnerCoachRequests from '../pages/owner/CoachRequests.jsx'
+import OwnerCoachSessions from '../pages/owner/CoachSessions.jsx'
+
+// Coach
+import CoachDashboard from '../pages/coach/Dashboard.jsx'
+import CoachProfile from '../pages/coach/Profile.jsx'
+import CoachAvailability from '../pages/coach/Availability.jsx'
+import CoachGrounds from '../pages/coach/Grounds.jsx'
+import CoachBookings from '../pages/coach/Bookings.jsx'
+import CoachNotifications from '../pages/coach/Notifications.jsx'
 
 function ProtectedRoute({ children, requiredRole }) {
-  const { isAuthenticated, isAdmin, isOwner } = useAuth()
+  const { isAuthenticated, user, homePath } = useAuth()
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
 
-  if (requiredRole === 'admin' && !isAdmin)
-    return <Navigate to={isOwner ? '/owner/dashboard' : '/login'} replace />
-
-  if (requiredRole === 'ground_owner' && !isOwner)
-    return <Navigate to={isAdmin ? '/admin/dashboard' : '/login'} replace />
+  // Wrong panel for this role: send them to their own rather than to /login,
+  // which would read as "your session expired" to someone who is signed in.
+  if (requiredRole && user?.role !== requiredRole) {
+    return <Navigate to={homePath} replace />
+  }
 
   return children
 }
 
 function RootRedirect() {
-  const { isAuthenticated, isAdmin, isOwner } = useAuth()
+  const { isAuthenticated, homePath } = useAuth()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (isAdmin) return <Navigate to="/admin/dashboard" replace />
-  if (isOwner) return <Navigate to="/owner/dashboard" replace />
-  return <Navigate to="/login" replace />
+  return <Navigate to={homePath} replace />
 }
 
 export default function AppRouter() {
@@ -89,6 +98,7 @@ export default function AppRouter() {
           <Route path="settlements" element={<AdminSettlements />} />
           <Route path="games" element={<AdminGames />} />
           <Route path="coaches" element={<AdminCoaches />} />
+          <Route path="coach-sessions" element={<AdminCoachSessions />} />
           <Route path="reviews" element={<AdminReviews />} />
           <Route path="profile" element={<AdminProfile />} />
         </Route>
@@ -108,8 +118,28 @@ export default function AppRouter() {
           <Route path="grounds/:id" element={<OwnerGroundDetail />} />
           <Route path="bookings" element={<OwnerBookings />} />
           <Route path="games" element={<OwnerGames />} />
+          <Route path="coach-requests" element={<OwnerCoachRequests />} />
+          <Route path="coach-sessions" element={<OwnerCoachSessions />} />
           <Route path="bank-details" element={<OwnerBankDetails />} />
           <Route path="profile" element={<OwnerProfile />} />
+        </Route>
+
+        {/* Coach Routes */}
+        <Route
+          path="/coach"
+          element={
+            <ProtectedRoute requiredRole="coach">
+              <AppShell />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/coach/dashboard" replace />} />
+          <Route path="dashboard" element={<CoachDashboard />} />
+          <Route path="bookings" element={<CoachBookings />} />
+          <Route path="availability" element={<CoachAvailability />} />
+          <Route path="grounds" element={<CoachGrounds />} />
+          <Route path="notifications" element={<CoachNotifications />} />
+          <Route path="profile" element={<CoachProfile />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

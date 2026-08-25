@@ -99,6 +99,336 @@
     }
   ],
   "paths": {
+    "/admin/admins/me": {
+      "get": {
+        "tags": [
+          "Admins"
+        ],
+        "summary": "The signed-in admin, with their tier",
+        "description": "Open to any admin. `is_super_admin` tells the panel whether to offer the Admins screen, so it never shows a link that answers 403. `is_bootstrap_super_admin` is true when the tier is inherited because no super admin exists yet, rather than stored on the row.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current admin"
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/admin/admins": {
+      "get": {
+        "tags": [
+          "Admins"
+        ],
+        "summary": "List admin accounts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Matches name, email or mobile"
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "super_admin",
+                "admin"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "is_active",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admins",
+            "paginated. Password hashes are never returned.": null
+          },
+          "403": {
+            "description": "Super-admin tier required"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admins"
+        ],
+        "summary": "Create an admin account",
+        "description": "Replaces onboarding a colleague through /auth/admin/register with the shared ADMIN_SECRET.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "mobile",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Priya R"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "priya@playsher.com"
+                  },
+                  "mobile": {
+                    "type": "string",
+                    "example": "9876543210"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "super_admin",
+                      "admin"
+                    ],
+                    "default": "admin"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Admin created"
+          },
+          "403": {
+            "description": "Super-admin tier required"
+          },
+          "409": {
+            "description": "Email or mobile already in use"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/admin/admins/{id}": {
+      "get": {
+        "tags": [
+          "Admins"
+        ],
+        "summary": "Get one admin",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The admin"
+          },
+          "403": {
+            "description": "Super-admin tier required"
+          },
+          "404": {
+            "description": "Admin not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admins"
+        ],
+        "summary": "Update an admin's details or tier",
+        "description": "You cannot change your own role, and the last active super admin cannot be demoted — either would leave nobody able to promote anyone.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "super_admin",
+                      "admin"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admin updated"
+          },
+          "403": {
+            "description": "Super-admin tier required",
+            "or changing your own role": null
+          },
+          "409": {
+            "description": "Email/mobile clash",
+            "or last super admin": null
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/admin/admins/{id}/toggle-status": {
+      "patch": {
+        "tags": [
+          "Admins"
+        ],
+        "summary": "Activate or deactivate an admin",
+        "description": "Accounts are deactivated, never deleted. Refused on your own account, on the last active admin, and on the last active super admin.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status changed"
+          },
+          "403": {
+            "description": "Super-admin tier required",
+            "or acting on yourself": null
+          },
+          "409": {
+            "description": "Would leave no active admin or no super admin"
+          }
+        }
+      }
+    },
+    "/admin/admins/{id}/password": {
+      "patch": {
+        "tags": [
+          "Admins"
+        ],
+        "summary": "Reset another admin's password",
+        "description": "An administrative reset, so the current password is not required. Your own password is changed through /auth/change-password, which does require it.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "new_password"
+                ],
+                "properties": {
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset"
+          },
+          "403": {
+            "description": "Super-admin tier required",
+            "or your own account": null
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
     "/admin/grounds": {
       "get": {
         "tags": [
@@ -1079,18 +1409,37 @@
         "tags": [
           "AdminPanel"
         ],
-        "summary": "List all coaches (admin — includes unapproved)",
+        "summary": "List all coaches (admin — includes unapproved, pending first)",
         "parameters": [
           {
             "in": "query",
-            "name": "is_approved",
+            "name": "status",
             "schema": {
-              "type": "boolean"
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "inactive"
+              ]
             }
           },
           {
             "in": "query",
             "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sport_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "city",
             "schema": {
               "type": "string"
             }
@@ -1271,6 +1620,181 @@
         "responses": {
           "200": {
             "description": "Approved"
+          }
+        }
+      }
+    },
+    "/admin/coaches/{id}/reject": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Refuse a coach application, with a reason",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejected — the coach is told why"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/admin/coaches/{id}/password": {
+      "patch": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Issue or reset a coach's login password",
+        "description": "Signs the coach out everywhere by revoking their refresh tokens.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "password"
+                ],
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password set"
+          },
+          "400": {
+            "description": "Password too short",
+            "or the coach has no email": null
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/admin/coach-bookings": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Every coaching session on the platform",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "rejected",
+                "cancelled",
+                "completed"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "coach_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coaching sessions"
+          }
+        }
+      }
+    },
+    "/admin/coach-grounds": {
+      "get": {
+        "tags": [
+          "AdminPanel"
+        ],
+        "summary": "Every coach registration at a ground, and where it stands",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "coach_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ground_id",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coach registrations with their ground and owner"
           }
         }
       }
@@ -2446,6 +2970,111 @@
         }
       }
     },
+    "/auth/coach/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Coach self-registration (awaits admin approval)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "mobile",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  },
+                  "sport_id": {
+                    "type": "integer"
+                  },
+                  "sport_name": {
+                    "type": "string"
+                  },
+                  "experience_years": {
+                    "type": "integer"
+                  },
+                  "city": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration submitted",
+            "pending admin approval": null
+          },
+          "400": {
+            "description": "Validation error or duplicate email/mobile"
+          }
+        }
+      }
+    },
+    "/auth/coach/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Coach login (email + password)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access + refresh tokens"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "403": {
+            "description": "Deactivated or pending approval"
+          }
+        }
+      }
+    },
     "/auth/refresh-token": {
       "post": {
         "tags": [
@@ -3038,9 +3667,77 @@
         ],
         "summary": "List approved coaches (public)",
         "security": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sport_id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sport_name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "city",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "level",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "beginner",
+                "intermediate",
+                "advanced",
+                "professional"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "ground_id",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Only coaches approved to coach at this ground"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Coaches list"
+            "description": "Coaches list with rating",
+            "sport and approved grounds": null
           }
         }
       },
@@ -3187,6 +3884,70 @@
         }
       }
     },
+    "/coaches/{id}/slots": {
+      "get": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "A coach's bookable 30-minute blocks for one date (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Defaults to today"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slot list",
+            "each with is_available": null
+          },
+          "400": {
+            "description": "Bad date"
+          },
+          "404": {
+            "description": "Coach not found"
+          }
+        }
+      }
+    },
+    "/coaches/{id}/grounds": {
+      "get": {
+        "tags": [
+          "Coaches"
+        ],
+        "summary": "The grounds whose owners have approved this coach (public)",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground list"
+          }
+        }
+      }
+    },
     "/coaches/{id}/approve": {
       "patch": {
         "tags": [
@@ -3209,6 +3970,742 @@
           },
           "404": {
             "description": "Not found"
+          }
+        }
+      }
+    },
+    "/coach-bookings": {
+      "post": {
+        "tags": [
+          "CoachBookings"
+        ],
+        "summary": "Book a coaching session",
+        "description": "The session is created as `pending` and its blocks are held until the coach accepts or declines it. The amount is computed on the server from the coach's `price_per_slot`; any amount sent by the client is ignored.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "coach_id",
+                  "session_date",
+                  "slot_ids"
+                ],
+                "properties": {
+                  "coach_id": {
+                    "type": "integer"
+                  },
+                  "ground_id": {
+                    "type": "integer",
+                    "description": "Must be a ground the coach is approved at"
+                  },
+                  "session_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "slot_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "One unbroken stretch of the coach's free blocks"
+                  },
+                  "customer_note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session requested",
+            "awaiting the coach": null
+          },
+          "400": {
+            "description": "Invalid slots",
+            "a gap in the times": null,
+            "or a past slot": null
+          },
+          "404": {
+            "description": "Coach or ground not found"
+          },
+          "409": {
+            "description": "Coach has no price",
+            "or is not registered at that ground": null
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "CoachBookings"
+        ],
+        "summary": "My coaching sessions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "rejected",
+                "cancelled",
+                "completed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session list"
+          }
+        }
+      }
+    },
+    "/coach-bookings/upcoming": {
+      "get": {
+        "tags": [
+          "CoachBookings"
+        ],
+        "summary": "My next few sessions",
+        "responses": {
+          "200": {
+            "description": "Up to five upcoming sessions"
+          }
+        }
+      }
+    },
+    "/coach-bookings/{id}": {
+      "get": {
+        "tags": [
+          "CoachBookings"
+        ],
+        "summary": "One of my sessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session detail"
+          },
+          "403": {
+            "description": "Not mine"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/coach-bookings/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "CoachBookings"
+        ],
+        "summary": "Cancel one of my sessions and release its time",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cancellation_reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cancelled"
+          },
+          "409": {
+            "description": "Already resolved"
+          }
+        }
+      }
+    },
+    "/coach/profile": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "My coach profile",
+        "responses": {
+          "200": {
+            "description": "Coach profile"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Update my profile and my per-slot price",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "sport_id": {
+                    "type": "integer"
+                  },
+                  "sport_name": {
+                    "type": "string"
+                  },
+                  "experience_years": {
+                    "type": "integer"
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "beginner",
+                      "intermediate",
+                      "advanced",
+                      "professional"
+                    ]
+                  },
+                  "about": {
+                    "type": "string"
+                  },
+                  "experience_details": {
+                    "type": "string"
+                  },
+                  "awards": {
+                    "type": "string"
+                  },
+                  "qualities": {
+                    "type": "string"
+                  },
+                  "price_per_slot": {
+                    "type": "number",
+                    "description": "Rupees for one 30-minute block"
+                  },
+                  "profile_image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated"
+          },
+          "400": {
+            "description": "Nothing updatable supplied",
+            "or an invalid price": null
+          }
+        }
+      }
+    },
+    "/coach/dashboard": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Session counts, earnings and account state for the panel home",
+        "responses": {
+          "200": {
+            "description": "Dashboard figures"
+          }
+        }
+      }
+    },
+    "/coach/availability": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "My weekly working hours",
+        "responses": {
+          "200": {
+            "description": "One row per configured weekday"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Replace my weekly working hours",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "days"
+                ],
+                "properties": {
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "day_of_week"
+                      ],
+                      "properties": {
+                        "day_of_week": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 6,
+                          "description": "0 = Sunday"
+                        },
+                        "start_time": {
+                          "type": "string",
+                          "example": "07:00"
+                        },
+                        "end_time": {
+                          "type": "string",
+                          "example": "21:00"
+                        },
+                        "is_closed": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Availability saved"
+          },
+          "400": {
+            "description": "Invalid day or times"
+          }
+        }
+      }
+    },
+    "/coach/slots": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "My generated 30-minute blocks for one date",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Defaults to today"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slots",
+            "each flagged is_booked / is_blocked": null
+          },
+          "400": {
+            "description": "Bad date"
+          }
+        }
+      }
+    },
+    "/coach/slots/{id}/block": {
+      "patch": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Take one block off the market",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Blocked"
+          },
+          "409": {
+            "description": "Already booked"
+          }
+        }
+      }
+    },
+    "/coach/slots/{id}/unblock": {
+      "patch": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Reopen a block I had taken off the market",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reopened"
+          },
+          "409": {
+            "description": "Held by a session"
+          }
+        }
+      }
+    },
+    "/coach/grounds": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "My ground registrations and their approval state",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Ask a ground's owner to let me coach there",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ground_id"
+                ],
+                "properties": {
+                  "ground_id": {
+                    "type": "integer"
+                  },
+                  "request_note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Request sent to the owner"
+          },
+          "403": {
+            "description": "Coach account not approved yet"
+          },
+          "404": {
+            "description": "Ground not found"
+          },
+          "409": {
+            "description": "Already requested or already registered"
+          }
+        }
+      }
+    },
+    "/coach/grounds/available": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Grounds I have not yet asked to join",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "city",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ground list"
+          }
+        }
+      }
+    },
+    "/coach/grounds/{id}": {
+      "delete": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Withdraw a request or leave a ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Withdrawn"
+          },
+          "409": {
+            "description": "Upcoming sessions still booked there"
+          }
+        }
+      }
+    },
+    "/coach/bookings": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Sessions booked with me",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "rejected",
+                "cancelled",
+                "completed"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "upcoming",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session list"
+          }
+        }
+      }
+    },
+    "/coach/bookings/{id}": {
+      "get": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "One session booked with me",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session detail"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/coach/bookings/{id}/confirm": {
+      "patch": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Accept a session request",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "coach_note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed"
+          },
+          "409": {
+            "description": "Not pending any more"
+          }
+        }
+      }
+    },
+    "/coach/bookings/{id}/reject": {
+      "patch": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Decline a session and give its time back",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Declined"
+          },
+          "409": {
+            "description": "Already resolved"
+          }
+        }
+      }
+    },
+    "/coach/bookings/{id}/complete": {
+      "patch": {
+        "tags": [
+          "CoachPanel"
+        ],
+        "summary": "Mark a confirmed session as done",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completed"
+          },
+          "409": {
+            "description": "Not a confirmed session"
           }
         }
       }
@@ -4350,6 +5847,129 @@
         }
       }
     },
+    "/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "List my notifications, newest first",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "unread",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "description": "Return only unread rows"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification list"
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        }
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "How many unread notifications I have",
+        "responses": {
+          "200": {
+            "description": "{ unread: number }"
+          }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "patch": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark every unread notification of mine as read",
+        "responses": {
+          "200": {
+            "description": "{ updated: number }"
+          }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark one notification as read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marked as read"
+          },
+          "404": {
+            "description": "Not found in my inbox"
+          }
+        }
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Delete one of my notifications",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found in my inbox"
+          }
+        }
+      }
+    },
     "/ground-owner/grounds": {
       "get": {
         "tags": [
@@ -4742,10 +6362,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "price_per_half_hour": {
-                    "type": "number",
-                    "description": "Price per slot"
-                  },
                   "min_slots": {
                     "type": "integer"
                   },
@@ -5225,6 +6841,181 @@
         "responses": {
           "200": {
             "description": "Games list"
+          }
+        }
+      }
+    },
+    "/ground-owner/coach-requests": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Coaches asking to work at my grounds",
+        "description": "Unanswered requests are listed first.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coach registration requests"
+          }
+        }
+      }
+    },
+    "/ground-owner/coach-requests/{id}/approve": {
+      "patch": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Let a coach work at my ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "response_note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Approved — players can now book this coach here"
+          },
+          "404": {
+            "description": "Not a request on one of your grounds"
+          },
+          "409": {
+            "description": "Already approved"
+          }
+        }
+      }
+    },
+    "/ground-owner/coach-requests/{id}/reject": {
+      "patch": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Decline a coach's registration at my ground",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "response_note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Declined"
+          },
+          "404": {
+            "description": "Not a request on one of your grounds"
+          },
+          "409": {
+            "description": "Already declined",
+            "or sessions still upcoming": null
+          }
+        }
+      }
+    },
+    "/ground-owner/coaches": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Coaches approved to work at my grounds",
+        "responses": {
+          "200": {
+            "description": "Approved coach registrations"
+          }
+        }
+      }
+    },
+    "/ground-owner/coach-sessions": {
+      "get": {
+        "tags": [
+          "OwnerPanel"
+        ],
+        "summary": "Coaching sessions taking place at my grounds",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "rejected",
+                "cancelled",
+                "completed"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "upcoming",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coaching sessions on this owner's courts"
           }
         }
       }
@@ -5755,6 +7546,169 @@
         }
       }
     },
+    "/admin/schema": {
+      "get": {
+        "tags": [
+          "Schema"
+        ],
+        "summary": "Get the schema definition (database/schema.json)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The declared schema, with per-table counts"
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/admin/schema/plan": {
+      "get": {
+        "tags": [
+          "Schema"
+        ],
+        "summary": "Preview the changes needed to make the database match schema.json",
+        "description": "Read-only dry run. Returns operations classified as `safe` or `risky`, plus `blocked` changes that cannot be applied without data loss and `extras` — tables or columns present in the database but absent from the JSON, which are never touched.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The plan"
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/admin/schema/apply": {
+      "post": {
+        "tags": [
+          "Schema"
+        ],
+        "summary": "Apply the schema plan to the database",
+        "description": "Starts an asynchronous sync and returns a job id to poll. Safe operations run by default; risky ones (narrowing a column, tightening NULL to NOT NULL) only when `include_risky` is true. Nothing is ever dropped.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "include_risky": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Already in sync",
+            "nothing to do": null
+          },
+          "202": {
+            "description": "Sync started",
+            "job id returned": null
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/admin/schema/index-cleanup": {
+      "get": {
+        "tags": [
+          "Schema"
+        ],
+        "summary": "Preview removal of duplicate indexes",
+        "description": "Lists groups of indexes that cover exactly the same columns with the same uniqueness, and which copies would be dropped. One index per group is always kept, so no constraint is weakened and no foreign key is left without an index. Read-only.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cleanup plan"
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Schema"
+        ],
+        "summary": "Drop duplicate indexes",
+        "description": "The only endpoint that drops anything, and it only ever drops an index proven identical to another one that is kept. Deliberately separate from /apply so a column change can never carry a drop along with it. Returns a job id to poll.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nothing redundant to remove"
+          },
+          "202": {
+            "description": "Cleanup started",
+            "job id returned": null
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/admin/schema/jobs/{id}": {
+      "get": {
+        "tags": [
+          "Schema"
+        ],
+        "summary": "Get sync job progress",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status",
+            "percent complete and per-step results": null
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        }
+      }
+    },
     "/ground-sports/{gsId}/slots": {
       "get": {
         "tags": [
@@ -6267,6 +8221,10 @@
   },
   "tags": [
     {
+      "name": "Admins",
+      "description": "Admin account management (requires the super-admin tier)"
+    },
+    {
       "name": "AdminPanel",
       "description": "Admin panel — full platform management (requires admin role)"
     },
@@ -6291,6 +8249,14 @@
       "description": "Coach management"
     },
     {
+      "name": "CoachBookings",
+      "description": "Coaching sessions booked by a customer"
+    },
+    {
+      "name": "CoachPanel",
+      "description": "Coach panel — own profile, pricing, availability, ground registrations and sessions (requires coach role)"
+    },
+    {
       "name": "Favorites",
       "description": "User favorite grounds"
     },
@@ -6307,6 +8273,10 @@
       "description": "Ground owner management (admin)"
     },
     {
+      "name": "Notifications",
+      "description": "The signed-in account's inbox — same shape for customers, ground owners, coaches and admins"
+    },
+    {
       "name": "OwnerPanel",
       "description": "Ground owner panel — manage own grounds, slots, bookings and games (requires ground_owner role)"
     },
@@ -6321,6 +8291,10 @@
     {
       "name": "Reviews",
       "description": "Review management"
+    },
+    {
+      "name": "Schema",
+      "description": "Database schema definition and sync (requires admin role)"
     },
     {
       "name": "Slots",

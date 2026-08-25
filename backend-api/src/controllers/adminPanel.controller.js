@@ -9,10 +9,13 @@ const {
   Ground, GroundOwner, GroundImage, GroundSport,
   Sport, Amenity, Coach, Review, User, Booking,
   Payment, Game, GameParticipant, RefreshToken,
+  CoachGround, CoachBooking, CoachAvailability,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
+const { pickAdminCoachFields } = require('../utils/coachFields');
+const { notify } = require('../utils/notify');
 
 const SALT_ROUNDS = 12;
 
@@ -155,29 +158,85 @@ exports.listCoaches = async (req, res) => {
     const where = {};
     if (req.query.search) {
       where[Op.or] = [
-        { name: { [Op.like]: `%${req.query.search}%` } },
-        { email: { [Op.like]: `%${req.query.search}%` } },
+        { name  : { [Op.like]: `%${req.query.search}%` } },
+        { email : { [Op.like]: `%${req.query.search}%` } },
+        { mobile: { [Op.like]: `%${req.query.search}%` } },
       ];
     }
-    const { count, rows } = await Coach.findAndCountAll({ where, limit, offset, order: [['created_at', 'DESC']] });
+    if (req.query.status === 'pending')  where.is_approved = false;
+    if (req.query.status === 'approved') where.is_approved = true;
+    if (req.query.status === 'inactive') where.is_active = false;
+    if (req.query.sport_id) where.sport_id = req.query.sport_id;
+    if (req.query.city)     where.city = req.query.city;
+
+    const { count, rows } = await Coach.findAndCountAll({
+      where,
+      include: [{ model: Sport, as: 'sport', attributes: ['id', 'name'] }],
+      limit, offset, distinct: true,
+      // Coaches waiting on a decision come first — the admin's job on this page
+      // is the queue, not the archive.
+      order: [['is_approved', 'ASC'], ['created_at', 'DESC']],
+    });
     return success(res, 'Coaches retrieved.', rows, 200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };
 
-/** GET /admin/coaches/:id */
+/** GET /admin/coaches/:id — profile, ground registrations and session counts */
 exports.getCoach = async (req, res) => {
   try {
-    const coach = await Coach.findByPk(req.params.id);
+    const coach = await Coach.findByPk(req.params.id, {
+      include: [
+        { model: Sport, as: 'sport', attributes: ['id', 'name'] },
+        {
+          model: CoachGround, as: 'groundLinks',
+          include: [{ model: Ground, as: 'ground', attributes: ['id', 'name', 'area', 'city'] }],
+        },
+        { model: CoachAvailability, as: 'availabilities' },
+      ],
+      order: [[{ model: CoachAvailability, as: 'availabilities' }, 'day_of_week', 'ASC']],
+    });
     if (!coach) return error(res, 'Coach not found.', 404);
-    return success(res, 'Coach retrieved.', coach);
+
+    const [sessions, earnings] = await Promise.all([
+      CoachBooking.count({ where: { coach_id: coach.id } }),
+      CoachBooking.sum('total_amount', {
+        where: { coach_id: coach.id, status: { [Op.in]: ['confirmed', 'completed'] } },
+      }),
+    ]);
+
+    const payload = coach.toJSON();
+    payload.total_sessions = sessions;
+    payload.total_earnings = Number(earnings || 0);
+    // Whether this account can actually sign in. An admin-created profile has
+    // no password until one is issued, and the page has to be able to say so.
+    payload.has_login = Boolean(
+      await Coach.unscoped().count({ where: { id: coach.id, password_hash: { [Op.ne]: null } } }),
+    );
+    return success(res, 'Coach retrieved.', payload);
   } catch (err) { return error(res, err.message, 500); }
 };
 
-/** POST /admin/coaches — create (with optional profile_image upload) */
+/** POST /admin/coaches — create (with optional profile_image upload and password) */
 exports.createCoach = async (req, res) => {
   try {
-    const profile_picture = req.file ? req.file.publicUrl : req.body.profile_picture;
-    const coach = await Coach.create({ ...req.body, profile_picture });
+    if (!req.body.name) return error(res, 'Coach name is required.');
+
+    // Email is the login identity, and `coaches.email` carries no unique index
+    // (older rows share addresses), so duplicates are refused here instead.
+    if (req.body.email) {
+      const clash = await Coach.findOne({ where: { email: req.body.email } });
+      if (clash) return error(res, 'A coach with that email already exists.');
+    }
+
+    const patch = pickAdminCoachFields(req.body);
+    patch.name = req.body.name;
+    if (req.file) patch.profile_picture = req.file.publicUrl;
+    else if (req.body.profile_picture) patch.profile_picture = req.body.profile_picture;
+    if (req.body.password) {
+      patch.password_hash = await bcrypt.hash(req.body.password, SALT_ROUNDS);
+    }
+
+    const coach = await Coach.create(patch);
     return success(res, 'Coach created.', coach, 201);
   } catch (err) { return error(res, err.message, 500); }
 };
@@ -187,10 +246,19 @@ exports.updateCoach = async (req, res) => {
   try {
     const coach = await Coach.findByPk(req.params.id);
     if (!coach) return error(res, 'Coach not found.', 404);
-    const profile_picture = req.file
-      ? req.file.publicUrl
-      : (req.body.profile_picture || coach.profile_picture);
-    await coach.update({ ...req.body, profile_picture });
+
+    if (req.body.email && req.body.email !== coach.email) {
+      const clash = await Coach.findOne({
+        where: { email: req.body.email, id: { [Op.ne]: coach.id } },
+      });
+      if (clash) return error(res, 'A coach with that email already exists.');
+    }
+
+    const patch = pickAdminCoachFields(req.body);
+    if (req.file) patch.profile_picture = req.file.publicUrl;
+    else if (req.body.profile_picture) patch.profile_picture = req.body.profile_picture;
+
+    await coach.update(patch);
     return success(res, 'Coach updated.', coach);
   } catch (err) { return error(res, err.message, 500); }
 };
@@ -200,8 +268,70 @@ exports.approveCoach = async (req, res) => {
   try {
     const coach = await Coach.findByPk(req.params.id);
     if (!coach) return error(res, 'Coach not found.', 404);
-    await coach.update({ is_approved: true });
+    await coach.update({ is_approved: true, rejection_reason: null });
+
+    await notify({
+      recipientType: 'coach',
+      recipientId  : coach.id,
+      type         : 'coach_account_approved',
+      title        : 'Your coach account is approved',
+      message      : 'You can now set your price and availability, and register at grounds.',
+      referenceType: 'coach',
+      referenceId  : coach.id,
+      actionPath   : '/coach/dashboard',
+    });
+
     return success(res, 'Coach approved.', coach);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/** PATCH /admin/coaches/:id/reject — refuse an application, with a reason */
+exports.rejectCoach = async (req, res) => {
+  try {
+    const coach = await Coach.findByPk(req.params.id);
+    if (!coach) return error(res, 'Coach not found.', 404);
+    await coach.update({
+      is_approved     : false,
+      rejection_reason: req.body.reason || null,
+    });
+
+    await notify({
+      recipientType: 'coach',
+      recipientId  : coach.id,
+      type         : 'coach_account_rejected',
+      title        : 'Your coach application was not approved',
+      message      : req.body.reason || 'Please contact Playsher support for details.',
+      referenceType: 'coach',
+      referenceId  : coach.id,
+      actionPath   : '/coach/profile',
+    });
+
+    return success(res, 'Coach application rejected.', coach);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * PATCH /admin/coaches/:id/password — issue or reset a coach's login password.
+ *
+ * The coach's own sessions are revoked with it: whoever held the old password
+ * loses their refresh tokens too, which is the point of resetting one.
+ */
+exports.setCoachPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || String(password).length < 6) {
+      return error(res, 'Password must be at least 6 characters.');
+    }
+    const coach = await Coach.findByPk(req.params.id);
+    if (!coach) return error(res, 'Coach not found.', 404);
+    if (!coach.email) return error(res, 'Give this coach an email address first — it is their login.');
+
+    await coach.update({ password_hash: await bcrypt.hash(password, SALT_ROUNDS) });
+    await RefreshToken.update(
+      { is_revoked: true },
+      { where: { user_id: coach.id, user_type: 'coach', is_revoked: false } },
+    );
+    return success(res, 'Password set. The coach can sign in with their email.');
   } catch (err) { return error(res, err.message, 500); }
 };
 
@@ -210,8 +340,65 @@ exports.deleteCoach = async (req, res) => {
   try {
     const coach = await Coach.findByPk(req.params.id);
     if (!coach) return error(res, 'Coach not found.', 404);
+
+    const sessions = await CoachBooking.count({ where: { coach_id: coach.id } });
+    if (sessions > 0) {
+      // The foreign keys cascade, so deleting the row would take the sessions,
+      // their slots and the customers' history with it. Deactivating does not.
+      return error(res, 'This coach has sessions on record. Deactivate the account instead.', 409);
+    }
     await coach.destroy();
     return success(res, 'Coach deleted.');
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// ── Coaching sessions and ground registrations ────────────────────────────────
+
+/** GET /admin/coach-bookings — every coaching session on the platform */
+exports.listCoachBookings = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+    const where = {};
+    if (req.query.status)   where.status = req.query.status;
+    if (req.query.coach_id) where.coach_id = req.query.coach_id;
+    if (req.query.date)     where.session_date = req.query.date;
+
+    const { count, rows } = await CoachBooking.findAndCountAll({
+      where,
+      include: [
+        { model: Coach,  as: 'coach',  attributes: ['id', 'name', 'sport_name', 'mobile'] },
+        { model: User,   as: 'user',   attributes: ['id', 'name', 'mobile'] },
+        { model: Ground, as: 'ground', attributes: ['id', 'name', 'city'] },
+      ],
+      order: [['session_date', 'DESC'], ['time_from', 'DESC'], ['id', 'DESC']],
+      limit, offset, distinct: true,
+    });
+    return success(res, 'Coaching sessions retrieved.', rows, 200, paginationMeta(count, page, limit));
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/** GET /admin/coach-grounds — every coach ↔ ground registration and its state */
+exports.listCoachGrounds = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+    const where = {};
+    if (req.query.status)    where.status = req.query.status;
+    if (req.query.coach_id)  where.coach_id = req.query.coach_id;
+    if (req.query.ground_id) where.ground_id = req.query.ground_id;
+
+    const { count, rows } = await CoachGround.findAndCountAll({
+      where,
+      include: [
+        { model: Coach,  as: 'coach',  attributes: ['id', 'name', 'sport_name'] },
+        {
+          model: Ground, as: 'ground', attributes: ['id', 'name', 'city', 'owner_id'],
+          include: [{ model: GroundOwner, as: 'owner', attributes: ['id', 'name', 'email'] }],
+        },
+      ],
+      order: [['created_at', 'DESC']],
+      limit, offset, distinct: true,
+    });
+    return success(res, 'Coach registrations retrieved.', rows, 200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };
 

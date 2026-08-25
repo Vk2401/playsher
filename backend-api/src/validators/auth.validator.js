@@ -47,6 +47,26 @@ const loginGroundOwner = [
   body('password').notEmpty().withMessage('Password is required.'),
 ];
 
+const registerCoach = [
+  body('name').trim().notEmpty().withMessage('Name is required.'),
+  body('email').isEmail().withMessage('Valid email is required.'),
+  body('mobile')
+    .trim()
+    .notEmpty().withMessage('Mobile is required.')
+    .matches(/^\+?[0-9]{7,15}$/).withMessage('Invalid mobile number.'),
+  body('password')
+    .notEmpty().withMessage('Password is required.')
+    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters.'),
+  body('sport_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid sport.'),
+  body('experience_years').optional({ nullable: true }).isInt({ min: 0, max: 80 })
+    .withMessage('Experience must be a whole number of years.'),
+];
+
+const loginCoach = [
+  body('email').isEmail().withMessage('Valid email is required.'),
+  body('password').notEmpty().withMessage('Password is required.'),
+];
+
 const registerAdmin = [
   body('name').trim().notEmpty().withMessage('Name is required.'),
   body('email').isEmail().withMessage('Valid email is required.'),
@@ -97,6 +117,8 @@ module.exports = {
   loginUser,
   registerGroundOwner,
   loginGroundOwner,
+  registerCoach,
+  loginCoach,
   registerAdmin,
   loginAdmin,
   refreshToken,

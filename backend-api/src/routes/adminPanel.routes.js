@@ -528,13 +528,19 @@ router.delete('/amenities/:id',  ...admin, ap.deleteAmenity);
  * /admin/coaches:
  *   get:
  *     tags: [AdminPanel]
- *     summary: List all coaches (admin — includes unapproved)
+ *     summary: List all coaches (admin — includes unapproved, pending first)
  *     parameters:
  *       - in: query
- *         name: is_approved
- *         schema: { type: boolean }
+ *         name: status
+ *         schema: { type: string, enum: [pending, approved, inactive] }
  *       - in: query
  *         name: search
+ *         schema: { type: string }
+ *       - in: query
+ *         name: sport_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: city
  *         schema: { type: string }
  *       - in: query
  *         name: page
@@ -644,6 +650,102 @@ router.patch ('/coaches/:id/approve',  ...admin, ap.approveCoach);
  *       200: { description: Deleted }
  */
 router.delete('/coaches/:id',          ...admin, ap.deleteCoach);
+
+/**
+ * @swagger
+ * /admin/coaches/{id}/reject:
+ *   patch:
+ *     tags: [AdminPanel]
+ *     summary: Refuse a coach application, with a reason
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason: { type: string }
+ *     responses:
+ *       200: { description: Rejected — the coach is told why }
+ *       404: { description: Not found }
+ */
+router.patch ('/coaches/:id/reject',   ...admin, ap.rejectCoach);
+
+/**
+ * @swagger
+ * /admin/coaches/{id}/password:
+ *   patch:
+ *     tags: [AdminPanel]
+ *     summary: Issue or reset a coach's login password
+ *     description: Signs the coach out everywhere by revoking their refresh tokens.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password: { type: string, minLength: 6 }
+ *     responses:
+ *       200: { description: Password set }
+ *       400: { description: Password too short, or the coach has no email }
+ *       404: { description: Not found }
+ */
+router.patch ('/coaches/:id/password', ...admin, ap.setCoachPassword);
+
+// ── Coaching sessions and ground registrations ────────────────────────────────
+
+/**
+ * @swagger
+ * /admin/coach-bookings:
+ *   get:
+ *     tags: [AdminPanel]
+ *     summary: Every coaching session on the platform
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, confirmed, rejected, cancelled, completed] }
+ *       - in: query
+ *         name: coach_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: date
+ *         schema: { type: string, format: date }
+ *     responses:
+ *       200: { description: Coaching sessions }
+ */
+router.get   ('/coach-bookings',       ...admin, ap.listCoachBookings);
+
+/**
+ * @swagger
+ * /admin/coach-grounds:
+ *   get:
+ *     tags: [AdminPanel]
+ *     summary: Every coach registration at a ground, and where it stands
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, approved, rejected] }
+ *       - in: query
+ *         name: coach_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: ground_id
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Coach registrations with their ground and owner }
+ */
+router.get   ('/coach-grounds',        ...admin, ap.listCoachGrounds);
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 /**
