@@ -91,11 +91,15 @@ class CoachCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        coach.experienceLabel,
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 12,
+                      Flexible(
+                        child: Text(
+                          coach.experienceLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
@@ -127,7 +131,7 @@ class CoachCard extends StatelessWidget {
                           .toList(),
                     ),
                   ],
-                  if (coach.location != null) ...[
+                  if (coach.locality != null && coach.locality!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -136,7 +140,7 @@ class CoachCard extends StatelessWidget {
                         const SizedBox(width: 2),
                         Expanded(
                           child: Text(
-                            coach.location!,
+                            coach.locality!,
                             style: TextStyle(
                               color: colors.textSecondary,
                               fontSize: 11,
@@ -151,18 +155,42 @@ class CoachCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Price
-            Column(
-              children: [
-                Text(
-                  coach.formattedRate,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+            // Price. A coach who has not set one reads as "Price on request",
+            // never as ₹0 — which a customer reads as free.
+            //
+            // Width-capped because that copy is four times as wide as a ₹ figure
+            // and this column does not flex: uncapped it pushed the row past the
+            // card by 120px on a 412dp phone.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 96),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    coach.formattedRate,
+                    textAlign: TextAlign.end,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: coach.isBookable ? 14 : 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
+                  if (coach.isBookable)
+                    Text(
+                      coach.rateCaption,
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 10,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),

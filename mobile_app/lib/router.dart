@@ -25,6 +25,9 @@ import 'screens/game_detail_screen.dart';
 import 'screens/host_game_screen.dart';
 import 'screens/coaching_screen.dart';
 import 'screens/coach_detail_screen.dart';
+import 'screens/coach_booking_flow_screen.dart';
+import 'screens/coach_session_detail_screen.dart';
+import 'screens/coach_sessions_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/saved_turfs_screen.dart';
 import 'screens/notifications_screen.dart';
@@ -183,6 +186,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/coaching/:id',
         builder: (_, state) =>
             CoachDetailScreen(coachId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/coaching/:id/book',
+        builder: (_, state) =>
+            CoachBookingFlowScreen(coachId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/my-sessions',
+        builder: (_, __) => const CoachSessionsScreen(),
+      ),
+      // The booking flow lands here with pushReplacement, and it is also the
+      // path carried on a coaching notification.
+      GoRoute(
+        path: '/coach-sessions/:id',
+        builder: (_, state) =>
+            CoachSessionDetailScreen(sessionId: state.pathParameters['id']!),
       ),
 
       // ── Profile sub-routes ─────────────────────────────────────────────────

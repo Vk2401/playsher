@@ -496,11 +496,18 @@ class ApiClient {
   static Future<Map<String, dynamic>> getCoaches({
     int page = 1,
     String? sportName,
+    int? sportId,
+    String? city,
     String? search,
+    int? groundId,
   }) async {
     final res = await instance.get('/coaches', queryParameters: {
       'page': page,
       if (sportName != null) 'sport_name': sportName,
+      if (sportId != null) 'sport_id': sportId,
+      if (city != null) 'city': city,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (groundId != null) 'ground_id': groundId,
     });
     final raw = res.data as Map<String, dynamic>;
     return {'data': raw['data'] ?? []};
@@ -513,15 +520,92 @@ class ApiClient {
     return {'data': raw['data'] ?? {}};
   }
 
+  // GET /coaches/:id/slots?date=YYYY-MM-DD
+  // Only blocks the coach is actually free for — the server drops booked,
+  // blocked and already-passed ones.
+  static Future<Map<String, dynamic>> getCoachSlots(int id, String date) async {
+    final res = await instance
+        .get('/coaches/$id/slots', queryParameters: {'date': date});
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
+
+  // GET /coaches/:id/grounds — the venues whose owners approved this coach
+  static Future<Map<String, dynamic>> getCoachGrounds(int id) async {
+    final res = await instance.get('/coaches/$id/grounds');
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
+
+  // ── Coaching sessions ───────────────────────────────────────────────────
+  // POST /coach-bookings. The amount is computed by the server from the
+  // coach's price — never send one.
+  static Future<Map<String, dynamic>> createCoachBooking({
+    required int coachId,
+    required String sessionDate,
+    required List<int> slotIds,
+    int? groundId,
+    String? customerNote,
+  }) =>
+      _post('/coach-bookings', {
+        'coach_id': coachId,
+        'session_date': sessionDate,
+        'slot_ids': slotIds,
+        if (groundId != null) 'ground_id': groundId,
+        if (customerNote != null && customerNote.isNotEmpty)
+          'customer_note': customerNote,
+      });
+
+  // GET /coach-bookings
+  static Future<Map<String, dynamic>> getCoachBookings({String? status}) async {
+    final res = await instance.get('/coach-bookings', queryParameters: {
+      if (status != null) 'status': status,
+    });
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
+
+  // GET /coach-bookings/:id
+  static Future<Map<String, dynamic>> getCoachBooking(int id) async {
+    final res = await instance.get('/coach-bookings/$id');
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? {}};
+  }
+
+  // PATCH /coach-bookings/:id/cancel
+  static Future<Map<String, dynamic>> cancelCoachBooking(int id,
+      {String? reason}) async {
+    final res = await instance.patch('/coach-bookings/$id/cancel', data: {
+      if (reason != null && reason.isNotEmpty) 'cancellation_reason': reason,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
   // ── Notifications ──────────────────────────────────────────────────────
-  // Not available in playsher-api — stubs
-  static Future<Map<String, dynamic>> getNotifications() async => {'data': []};
+  // GET /notifications
+  static Future<Map<String, dynamic>> getNotifications() async {
+    final res = await instance.get('/notifications');
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
 
-  static Future<Map<String, dynamic>> markNotificationRead(int id) async =>
-      {'success': true};
+  // GET /notifications/unread-count
+  static Future<int> getUnreadNotificationCount() async {
+    final res = await instance.get('/notifications/unread-count');
+    final raw = res.data as Map<String, dynamic>;
+    final data = raw['data'] as Map<String, dynamic>?;
+    return data?['unread'] as int? ?? 0;
+  }
 
-  static Future<Map<String, dynamic>> markAllNotificationsRead() async =>
-      {'success': true};
+  static Future<Map<String, dynamic>> markNotificationRead(int id) async {
+    final res = await instance.patch('/notifications/$id/read');
+    return res.data as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> markAllNotificationsRead() async {
+    final res = await instance.patch('/notifications/read-all');
+    return res.data as Map<String, dynamic>;
+  }
 
   // ── Rewards ────────────────────────────────────────────────────────────
   // Not available in playsher-api — stubs

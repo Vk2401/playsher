@@ -12,9 +12,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:playsher_app/core/app_colors.dart';
 import 'package:playsher_app/core/theme.dart';
 import 'package:playsher_app/providers/favorites_provider.dart';
+import 'package:playsher_app/models/coach_model.dart';
 import 'package:playsher_app/models/ground_model.dart';
 import 'package:playsher_app/models/slot_model.dart';
 import 'package:playsher_app/widgets/booking_picker.dart';
+import 'package:playsher_app/widgets/coach_card.dart';
 import 'package:playsher_app/widgets/ground_card.dart';
 import 'package:playsher_app/widgets/slot_tile.dart';
 import 'package:playsher_app/widgets/status_badge.dart';
@@ -50,6 +52,35 @@ GroundModel _ground() => GroundModel.fromJson({
       'ground_sports': [],
       'images': [],
       'reviews': [],
+    });
+
+/// A coach whose every field is as long as it plausibly gets — the card puts
+/// a name, a rating row, expertise chips, a locality and a price in one
+/// unflexed Row, so this is where it gives way first.
+CoachModel _coach({String pricePerSlot = '1250.00'}) => CoachModel.fromJson({
+      'id': 1,
+      'name': 'Dr. Ramachandran Venkataraman Subramanian',
+      'sport_name': 'Cricket',
+      'experience_years': 18,
+      'price_per_slot': pricePerSlot,
+      'rating': '4.9',
+      'review_count': 214,
+      'qualities': 'Batting technique, Spin bowling, Match fitness',
+      'city': 'Thiruvananthapuram',
+      'groundLinks': [
+        {
+          'id': 1,
+          'ground_id': 1,
+          'status': 'approved',
+          'ground': {
+            'id': 1,
+            'name': 'Greenfield Sports Arena & Recreation Complex',
+            'area': 'Vasanth Nagar Main Road',
+            'city': 'Thiruvananthapuram District',
+            'images': [],
+          },
+        },
+      ],
     });
 
 SlotModel _slot() => SlotModel.fromJson({
@@ -209,6 +240,25 @@ void main() {
 
   // Seven day cells and two arrows across a 390dp phone, each cell carrying
   // three lines of type: the row that most easily overflows at 1.3x.
+  // The price column carries two lines now — the rate and "per 30 min" — beside
+  // a name and a locality that can both run long.
+  testWidgets('CoachCard does not overflow', (tester) async {
+    await everyCombination(
+      tester,
+      () => CoachCard(coach: _coach(), onTap: () {}),
+    );
+  });
+
+  // An unpriced coach shows "Price on request" instead of a short ₹ figure:
+  // the widest the price column ever gets.
+  testWidgets('CoachCard does not overflow with an unpriced coach',
+      (tester) async {
+    await everyCombination(
+      tester,
+      () => CoachCard(coach: _coach(pricePerSlot: '0.00'), onTap: () {}),
+    );
+  });
+
   testWidgets('DateStrip does not overflow', (tester) async {
     final today = DateTime.now();
     await everyCombination(

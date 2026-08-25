@@ -6,6 +6,10 @@ class NotificationModel {
   final bool isRead;
   final DateTime createdAt;
 
+  /// Where the app should go when this row is tapped, as a router path.
+  /// The server sends a path rather than a URL so each client prefixes its own.
+  final String? actionPath;
+
   const NotificationModel({
     required this.id,
     required this.title,
@@ -13,6 +17,7 @@ class NotificationModel {
     this.type = 'general',
     this.isRead = false,
     required this.createdAt,
+    this.actionPath,
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) =>
@@ -21,7 +26,10 @@ class NotificationModel {
         title: json['title'] as String? ?? '',
         message: json['message'] as String? ?? '',
         type: json['type'] as String? ?? 'general',
-        isRead: json['is_read'] as bool? ?? false,
+        // MySQL stores this as TINYINT(1); a driver that hands back 0/1
+        // rather than a bool must not silently mark everything unread.
+        isRead: json['is_read'] == true || json['is_read'] == 1,
+        actionPath: json['action_path'] as String?,
         createdAt: json['created_at'] != null
             ? DateTime.parse(json['created_at'].toString())
             : DateTime.now(),
@@ -38,6 +46,7 @@ class NotificationModel {
         type: type,
         isRead: isRead ?? this.isRead,
         createdAt: createdAt,
+        actionPath: actionPath,
       );
 
   String get timeAgo {
