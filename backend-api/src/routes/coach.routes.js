@@ -18,8 +18,34 @@ const { createCoach, updateCoach } = require('../validators/coach.validator');
  *     tags: [Coaches]
  *     summary: List approved coaches (public)
  *     security: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *       - in: query
+ *         name: sport_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: sport_name
+ *         schema: { type: string }
+ *       - in: query
+ *         name: city
+ *         schema: { type: string }
+ *       - in: query
+ *         name: level
+ *         schema: { type: string, enum: [beginner, intermediate, advanced, professional] }
+ *       - in: query
+ *         name: ground_id
+ *         schema: { type: integer }
+ *         description: Only coaches approved to coach at this ground
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
  *     responses:
- *       200: { description: Coaches list }
+ *       200: { description: Coaches list with rating, sport and approved grounds }
  */
 router.get('/', ctrl.list);
 
@@ -40,6 +66,46 @@ router.get('/', ctrl.list);
  *       404: { description: Not found }
  */
 router.get('/:id', ctrl.show);
+
+/**
+ * @swagger
+ * /coaches/{id}/slots:
+ *   get:
+ *     tags: [Coaches]
+ *     summary: A coach's bookable 30-minute blocks for one date (public)
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: date
+ *         schema: { type: string, format: date }
+ *         description: Defaults to today
+ *     responses:
+ *       200: { description: Slot list, each with is_available }
+ *       400: { description: Bad date }
+ *       404: { description: Coach not found }
+ */
+router.get('/:id/slots', ctrl.slots);
+
+/**
+ * @swagger
+ * /coaches/{id}/grounds:
+ *   get:
+ *     tags: [Coaches]
+ *     summary: The grounds whose owners have approved this coach (public)
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Ground list }
+ */
+router.get('/:id/grounds', ctrl.grounds);
 
 /**
  * @swagger

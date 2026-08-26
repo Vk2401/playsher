@@ -218,7 +218,8 @@
           "type": "enum",
           "values": [
             "ground_owner",
-            "user"
+            "user",
+            "coach"
           ],
           "nullable": true,
           "default": "ground_owner"
@@ -537,6 +538,533 @@
         }
       }
     },
+    "coach_availabilities": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "coach_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "day_of_week": {
+          "type": "tinyint",
+          "length": 3,
+          "unsigned": true,
+          "nullable": false
+        },
+        "start_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "end_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "is_closed": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": false,
+          "default": 0
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_coach_day": {
+          "columns": [
+            "coach_id",
+            "day_of_week"
+          ],
+          "unique": true
+        }
+      },
+      "foreignKeys": {
+        "coach_availabilities_ibfk_1": {
+          "columns": [
+            "coach_id"
+          ],
+          "references": {
+            "table": "coaches",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "coach_booking_slots": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "coach_booking_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "coach_slot_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_coach_booking_slot": {
+          "columns": [
+            "coach_booking_id",
+            "coach_slot_id"
+          ],
+          "unique": true
+        },
+        "idx_cbs_slot": {
+          "columns": [
+            "coach_slot_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "coach_booking_slots_ibfk_1": {
+          "columns": [
+            "coach_booking_id"
+          ],
+          "references": {
+            "table": "coach_bookings",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "coach_booking_slots_ibfk_2": {
+          "columns": [
+            "coach_slot_id"
+          ],
+          "references": {
+            "table": "coach_slots",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "coach_bookings": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "user_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "coach_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "ground_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "session_date": {
+          "type": "date",
+          "nullable": false
+        },
+        "time_from": {
+          "type": "time",
+          "nullable": false
+        },
+        "time_to": {
+          "type": "time",
+          "nullable": false
+        },
+        "total_amount": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false,
+          "default": 0
+        },
+        "advance_amount": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false,
+          "default": 0
+        },
+        "balance_due": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false,
+          "default": 0
+        },
+        "status": {
+          "type": "enum",
+          "values": [
+            "pending",
+            "confirmed",
+            "rejected",
+            "cancelled",
+            "completed"
+          ],
+          "nullable": false,
+          "default": "pending"
+        },
+        "payment_method": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": false,
+          "default": "pay_at_ground"
+        },
+        "payment_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "booking_reference": {
+          "type": "varchar",
+          "length": 50,
+          "nullable": true
+        },
+        "customer_note": {
+          "type": "text",
+          "nullable": true
+        },
+        "coach_note": {
+          "type": "text",
+          "nullable": true
+        },
+        "cancellation_reason": {
+          "type": "text",
+          "nullable": true
+        },
+        "hold_expires_at": {
+          "type": "datetime",
+          "nullable": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_coach_booking_reference": {
+          "columns": [
+            "booking_reference"
+          ],
+          "unique": true
+        },
+        "idx_coach_bookings_coach": {
+          "columns": [
+            "coach_id",
+            "session_date"
+          ],
+          "unique": false
+        },
+        "idx_coach_bookings_user": {
+          "columns": [
+            "user_id"
+          ],
+          "unique": false
+        },
+        "idx_coach_bookings_ground": {
+          "columns": [
+            "ground_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "coach_bookings_ibfk_1": {
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "coach_bookings_ibfk_2": {
+          "columns": [
+            "coach_id"
+          ],
+          "references": {
+            "table": "coaches",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "coach_bookings_ibfk_3": {
+          "columns": [
+            "ground_id"
+          ],
+          "references": {
+            "table": "grounds",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "coach_grounds": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "coach_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "ground_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "status": {
+          "type": "enum",
+          "values": [
+            "pending",
+            "approved",
+            "rejected"
+          ],
+          "nullable": false,
+          "default": "pending"
+        },
+        "request_note": {
+          "type": "text",
+          "nullable": true
+        },
+        "response_note": {
+          "type": "text",
+          "nullable": true
+        },
+        "requested_at": {
+          "type": "datetime",
+          "nullable": true
+        },
+        "responded_at": {
+          "type": "datetime",
+          "nullable": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_coach_ground": {
+          "columns": [
+            "coach_id",
+            "ground_id"
+          ],
+          "unique": true
+        },
+        "idx_coach_grounds_gid": {
+          "columns": [
+            "ground_id",
+            "status"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "coach_grounds_ibfk_1": {
+          "columns": [
+            "coach_id"
+          ],
+          "references": {
+            "table": "coaches",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "coach_grounds_ibfk_2": {
+          "columns": [
+            "ground_id"
+          ],
+          "references": {
+            "table": "grounds",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
+    "coach_slots": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "coach_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "slot_date": {
+          "type": "date",
+          "nullable": false
+        },
+        "slot_start_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "slot_end_time": {
+          "type": "time",
+          "nullable": false
+        },
+        "is_available": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": false,
+          "default": 1
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_coach_slot": {
+          "columns": [
+            "coach_id",
+            "slot_date",
+            "slot_start_time"
+          ],
+          "unique": true
+        },
+        "idx_coach_slot_date": {
+          "columns": [
+            "coach_id",
+            "slot_date"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "coach_slots_ibfk_1": {
+          "columns": [
+            "coach_id"
+          ],
+          "references": {
+            "table": "coaches",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
     "coaches": {
       "engine": "InnoDB",
       "charset": "utf8mb4",
@@ -633,6 +1161,37 @@
           "nullable": true,
           "default": 1
         },
+        "sport_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "city": {
+          "type": "varchar",
+          "length": 100,
+          "nullable": true
+        },
+        "password_hash": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "price_per_slot": {
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false,
+          "default": 0
+        },
+        "rejection_reason": {
+          "type": "text",
+          "nullable": true
+        },
+        "last_login_at": {
+          "type": "datetime",
+          "nullable": true
+        },
         "created_at": {
           "type": "datetime",
           "nullable": false
@@ -645,7 +1204,26 @@
       "primaryKey": [
         "id"
       ],
-      "indexes": {},
+      "indexes": {
+        "idx_coaches_email": {
+          "columns": [
+            "email"
+          ],
+          "unique": false
+        },
+        "idx_coaches_sport_id": {
+          "columns": [
+            "sport_id"
+          ],
+          "unique": false
+        },
+        "idx_coaches_city": {
+          "columns": [
+            "city"
+          ],
+          "unique": false
+        }
+      },
       "foreignKeys": {}
     },
     "favorites": {
@@ -1430,6 +2008,104 @@
         }
       }
     },
+    "notifications": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "recipient_type": {
+          "type": "enum",
+          "values": [
+            "user",
+            "ground_owner",
+            "coach",
+            "admin"
+          ],
+          "nullable": false
+        },
+        "recipient_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "type": {
+          "type": "varchar",
+          "length": 60,
+          "nullable": false,
+          "default": "general"
+        },
+        "title": {
+          "type": "varchar",
+          "length": 200,
+          "nullable": false
+        },
+        "message": {
+          "type": "text",
+          "nullable": true
+        },
+        "reference_type": {
+          "type": "varchar",
+          "length": 50,
+          "nullable": true
+        },
+        "reference_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true
+        },
+        "action_path": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": true
+        },
+        "is_read": {
+          "type": "tinyint",
+          "length": 1,
+          "nullable": false,
+          "default": 0
+        },
+        "read_at": {
+          "type": "datetime",
+          "nullable": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "idx_notifications_inbox": {
+          "columns": [
+            "recipient_type",
+            "recipient_id",
+            "is_read"
+          ],
+          "unique": false
+        },
+        "idx_notifications_created": {
+          "columns": [
+            "created_at"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {}
+    },
     "otps": {
       "engine": "InnoDB",
       "charset": "utf8mb4",
@@ -1699,7 +2375,8 @@
           "values": [
             "admin",
             "user",
-            "ground_owner"
+            "ground_owner",
+            "coach"
           ],
           "nullable": false
         },

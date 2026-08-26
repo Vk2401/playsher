@@ -173,17 +173,17 @@ class _VenueFilterSheetState extends ConsumerState<VenueFilterSheet> {
                   ),
                   GestureDetector(
                     onTap: _reset,
-                    child: Padding(
+                    child: const Padding(
                       // Floors the tap target at 44px without inflating the
                       // visible pill the design shows.
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.refresh_rounded,
+                          Icon(Icons.refresh_rounded,
                               size: 16, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          const Text(
+                          SizedBox(width: 4),
+                          Text(
                             'Reset',
                             style: TextStyle(
                               fontSize: 14,

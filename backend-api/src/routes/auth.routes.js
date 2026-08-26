@@ -165,6 +165,59 @@ router.post('/ground-owner/login', authLimiter, v.loginGroundOwner, validate, ct
 
 /**
  * @swagger
+ * /auth/coach/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Coach self-registration (awaits admin approval)
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, mobile, password]
+ *             properties:
+ *               name:             { type: string }
+ *               email:            { type: string, format: email }
+ *               mobile:           { type: string }
+ *               password:         { type: string, minLength: 6 }
+ *               sport_id:         { type: integer }
+ *               sport_name:       { type: string }
+ *               experience_years: { type: integer }
+ *               city:             { type: string }
+ *     responses:
+ *       201: { description: Registration submitted, pending admin approval }
+ *       400: { description: Validation error or duplicate email/mobile }
+ */
+router.post('/coach/register', authLimiter, v.registerCoach, validate, ctrl.coachRegister);
+
+/**
+ * @swagger
+ * /auth/coach/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Coach login (email + password)
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:    { type: string, format: email }
+ *               password: { type: string }
+ *     responses:
+ *       200: { description: Access + refresh tokens }
+ *       401: { description: Invalid credentials }
+ *       403: { description: Deactivated or pending approval }
+ */
+router.post('/coach/login', authLimiter, v.loginCoach, validate, ctrl.coachLogin);
+
+/**
+ * @swagger
  * /auth/refresh-token:
  *   post:
  *     tags: [Auth]

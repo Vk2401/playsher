@@ -1,14 +1,16 @@
 import React, { useState } from 'react'
 import {
   AppBar, Toolbar, Box, Typography, IconButton, Avatar,
-  Menu, MenuItem, ListItemIcon, Divider, Tooltip, alpha,
+  Menu, MenuItem, ListItemIcon, Divider, Tooltip, Badge, alpha,
 } from '@mui/material'
+import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '@mui/material/styles'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useThemeContext } from '../../contexts/ThemeContext.jsx'
 import { PALETTE_SWATCHES } from '../../theme/index.js'
 import InstallAppButton from '../ui/InstallAppButton.jsx'
+import { notificationsApi } from '../../api/notifications.js'
 
 import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
@@ -19,10 +21,26 @@ import MenuIcon from '@mui/icons-material/Menu'
 export default function Topbar({ onSidebarToggle }) {
   const theme = useTheme()
   const navigate = useNavigate()
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, isAdmin, isCoach } = useAuth()
   const { primaryColor, setPrimaryColor } = useThemeContext()
 
   const [anchorEl, setAnchorEl] = useState(null)
+
+  // The bell used to be decoration. It now shows the same inbox the panels
+  // read — a coach's "someone booked you" arrives here first.
+  const unread = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationsApi.unreadCount(),
+    select: (res) => res.data?.data?.unread ?? 0,
+    refetchInterval: 60_000,
+  })
+  const unreadCount = unread.data ?? 0
+
+  const notificationsPath = isCoach ? '/coach/notifications'
+    : isAdmin ? '/admin/dashboard'
+      : '/owner/dashboard'
+  const roleLabel = isAdmin ? 'Administrator' : isCoach ? 'Coach' : 'Ground Owner'
+  const profilePath = isAdmin ? '/admin/profile' : isCoach ? '/coach/profile' : '/owner/profile'
 
   const handleLogout = async () => {
     setAnchorEl(null)
@@ -92,9 +110,17 @@ export default function Topbar({ onSidebarToggle }) {
         {/* Notification bell */}
         <InstallAppButton variant="icon" />
 
-        <IconButton size="small" sx={{ color: 'text.secondary' }}>
-          <NotificationsNoneIcon />
-        </IconButton>
+        <Tooltip title={unreadCount > 0 ? `${unreadCount} unread` : 'Notifications'}>
+          <IconButton
+            size="small"
+            sx={{ color: 'text.secondary' }}
+            onClick={() => navigate(notificationsPath)}
+          >
+            <Badge badgeContent={unreadCount} color="error" max={99}>
+              <NotificationsNoneIcon />
+            </Badge>
+          </IconButton>
+        </Tooltip>
 
         {/* Avatar */}
         <Tooltip title={user?.name || user?.full_name || user?.email || 'Account'}>
@@ -125,11 +151,11 @@ export default function Topbar({ onSidebarToggle }) {
               {user?.name || user?.full_name || user?.email}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {isAdmin ? 'Administrator' : 'Ground Owner'}
+              {roleLabel}
             </Typography>
           </Box>
           <Divider />
-          <MenuItem onClick={() => { setAnchorEl(null); navigate(isAdmin ? '/admin/profile' : '/owner/profile') }}>
+          <MenuItem onClick={() => { setAnchorEl(null); navigate(profilePath) }}>
             <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
             Profile
           </MenuItem>

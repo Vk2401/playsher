@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const { Admin, User, GroundOwner, RefreshToken } = require('../models');
+const { Admin, User, GroundOwner, Coach, RefreshToken } = require('../models');
 const { generateAccessToken, generateRefreshToken, verifyToken } = require('../utils/jwt.utils');
 const { success, error } = require('../utils/response');
 const { REFRESH_EXPIRES_DAYS } = require('../config/jwt');
@@ -158,6 +158,71 @@ exports.groundOwnerLogin = async (req, res) => {
   }
 };
 
+// ── Coach ─────────────────────────────────────────────────────────────────────
+
+exports.coachRegister = async (req, res) => {
+  try {
+    const { name, email, mobile, password, sport_id, sport_name, experience_years, city } = req.body;
+
+    // `coaches.email` carries no unique index — the table began life as a
+    // directory of rows an admin typed in, and some of them share an address.
+    // Uniqueness is enforced here instead, because it is the login identity.
+    const exists = await Coach.findOne({ where: { [Op.or]: [{ email }, { mobile }] } });
+    if (exists) return error(res, 'Email or mobile already registered.');
+
+    const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+    const coach = await Coach.create({
+      name, email, mobile, password_hash,
+      sport_id: sport_id || null,
+      sport_name: sport_name || null,
+      experience_years: experience_years || null,
+      city: city || null,
+      is_approved: false,
+    });
+
+    // No token yet: an unapproved coach can do nothing, and handing one out
+    // would only produce a session that answers 403 to every call.
+    return success(
+      res,
+      'Registration submitted. Await admin approval.',
+      { id: coach.id, name: coach.name, is_approved: coach.is_approved },
+      201
+    );
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+exports.coachLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    // unscoped: the model hides password_hash from every other read.
+    const coach = await Coach.unscoped().findOne({ where: { email } });
+    if (!coach || !(await bcrypt.compare(password, coach.password_hash || ''))) {
+      return error(res, 'Invalid credentials.', 401);
+    }
+    if (!coach.is_active) return error(res, 'Account is deactivated.', 403);
+    if (!coach.is_approved) return error(res, 'Account pending admin approval.', 403);
+
+    const payload = { id: coach.id, role: 'coach' };
+    const accessToken = generateAccessToken(payload);
+    const refreshTokenStr = generateRefreshToken(payload);
+    await storeRefreshToken(coach.id, 'coach', refreshTokenStr);
+    await coach.update({ last_login_at: new Date() });
+
+    return success(res, 'Login successful.', {
+      access_token: accessToken,
+      refresh_token: refreshTokenStr,
+      user: {
+        id: coach.id, name: coach.name, email: coach.email,
+        mobile: coach.mobile, role: 'coach',
+      },
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
 // ── Token rotation ────────────────────────────────────────────────────────────
 
 // PATCH /auth/change-password
@@ -168,13 +233,15 @@ exports.changePassword = async (req, res) => {
   try {
     const { current_password, new_password } = req.body;
 
-    const models = { admin: Admin, ground_owner: GroundOwner };
+    const models = { admin: Admin, ground_owner: GroundOwner, coach: Coach };
     const Model = models[req.user.role];
     if (!Model) {
       return error(res, 'Your account signs in with an OTP and has no password.', 400);
     }
 
-    const account = await Model.findByPk(req.user.id);
+    // unscoped so a coach's password_hash is actually loaded — the Coach model
+    // hides it by default.
+    const account = await Model.unscoped().findByPk(req.user.id);
     if (!account) return error(res, 'Account not found.', 404);
 
     // Proving possession of the current password is what stops a stolen access

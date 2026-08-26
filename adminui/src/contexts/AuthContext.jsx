@@ -89,6 +89,30 @@ export function AuthProvider({ children }) {
     }
   }, [saveAuth])
 
+  const loginCoach = useCallback(async (email, password) => {
+    setLoading(true)
+    try {
+      const { data } = await apiClient.post('/auth/coach/login', { email, password })
+      saveAuth(data.data ?? data)
+      return data
+    } finally {
+      setLoading(false)
+    }
+  }, [saveAuth])
+
+  // Self-registration, which owners do not have: a coach signs up here and
+  // waits for an admin to approve them. No token comes back, so the caller
+  // shows the "pending approval" message rather than navigating into a panel.
+  const registerCoach = useCallback(async (payload) => {
+    setLoading(true)
+    try {
+      const { data } = await apiClient.post('/auth/coach/register', payload)
+      return data
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken)
@@ -104,12 +128,19 @@ export function AuthProvider({ children }) {
 
   const isAdmin = user?.role === 'admin'
   const isOwner = user?.role === 'ground_owner'
+  const isCoach = user?.role === 'coach'
   const isAuthenticated = Boolean(user && accessToken)
+
+  /** Where this account's panel starts. One place, so every redirect agrees. */
+  const homePath = isAdmin ? '/admin/dashboard'
+    : isOwner ? '/owner/dashboard'
+      : isCoach ? '/coach/dashboard'
+        : '/login'
 
   return (
     <AuthContext.Provider value={{
-      user, accessToken, loading, isAuthenticated, isAdmin, isOwner,
-      loginAdmin, loginOwner, logout, saveAuth, clearAuth,
+      user, accessToken, loading, isAuthenticated, isAdmin, isOwner, isCoach, homePath,
+      loginAdmin, loginOwner, loginCoach, registerCoach, logout, saveAuth, clearAuth,
     }}>
       {children}
     </AuthContext.Provider>

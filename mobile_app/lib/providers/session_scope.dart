@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'bookings_provider.dart';
 import 'city_provider.dart';
+import 'coach_bookings_provider.dart';
 import 'coaches_provider.dart';
 import 'favorites_provider.dart';
 import 'games_provider.dart';
@@ -48,6 +49,9 @@ final _userScoped = <ProviderOrFamily>[
   gameDetailProvider,
   coachesProvider,
   coachDetailProvider,
+  coachSlotsProvider,
+  coachBookingsProvider,
+  coachBookingDetailProvider,
 ];
 
 /// Drop every cached answer that belonged to the account that just signed out.

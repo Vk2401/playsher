@@ -20,10 +20,12 @@ Three codebases in this directory, one product:
 | -------------- | ----------------------------------------- | -------------------------------------------- |
 | `backend-api/` | REST API (`app.playsher.com`)             | Node 18+ · Express 4 · Sequelize 6 · MariaDB  |
 | `adminui/`     | Admin **and** Ground Owner panels (one SPA at `admin.playsher.com`) | React 18 · Vite 5 · MUI 6 · TanStack Query 5 |
-| `mobile_app/`  | Customer app (Android + iOS)              | Flutter 3.22 · Dart 3.4 · Riverpod · GoRouter |
+| `mobile_app/`  | Customer app (Android + iOS)              | Flutter 3.41 · Dart 3.11 · Riverpod · GoRouter |
 
-Three user roles exist end-to-end and the token payload role string is the contract:
-`user` (customer, OTP login) · `ground_owner` (email+password) · `admin` (email+password).
+Four user roles exist end-to-end and the token payload role string is the contract:
+`user` (customer, OTP login) · `ground_owner` (email+password) · `coach` (email+password) ·
+`admin` (email+password). The `adminui/` SPA serves the last three: `/admin/*`, `/owner/*`
+and `/coach/*`, each behind `ProtectedRoute requiredRole`.
 
 `admins.role` (`super_admin` | `admin`) is a **tier inside** the admin role, not a fourth role —
 every admin still authenticates as `admin` in the JWT. It gates only `/admin/admins*`, is read
@@ -82,6 +84,9 @@ refresh-token → retry → logout flow. Never construct a second client or set 
 - Admin UI: `npm run dev` (5173, proxies `/api` → localhost:3000), `npm run build`,
   `npm run lint` (`--max-warnings 0` — it must stay clean).
 - Flutter: `flutter analyze` must be clean; `flutter run`. `flutter_lints` is on.
+  The toolchain is pinned in CI (`.github/workflows/android-apk.yml`, `FLUTTER_VERSION`) —
+  match it locally, since the code uses APIs (`Color.withValues`, `Color.toARGB32`) that an
+  older SDK does not have and reports as hundreds of undefined-method errors.
 - Secrets live in `.env` (`backend-api/.env`, `adminui/.env`) and are **not** committed.
   Never hardcode a host, key, or credential — `AppConstants.baseUrl` and
   `VITE_API_BASE_URL` are the only places a backend URL may appear.
@@ -96,14 +101,19 @@ refresh-token → retry → logout flow. Never construct a second client or set 
 
 State them plainly if relevant; don't silently paper over them.
 
+- **Coaching sessions are pay-at-venue only.** `coach_bookings.payment_method` is fixed to
+  `pay_at_venue` and `POST /coach-bookings` refuses `online` with a clear message. Razorpay is
+  wired to `bookings` alone and has no live key (below), so taking an online coaching payment
+  would leave a session stuck unpaid. Wire the gateway before changing that.
 - OTP now lives in the `otps` table (`otp.controller.js`), so it survives restarts and works
   across multiple processes. `OTP_DEV_BYPASS=true` makes any 6-digit code valid for a correctly
   formatted Indian mobile — a demo-only setting that must be `false` in production.
 - Twilio, Razorpay live keys, Google Maps key and DLT registration are all **pending** —
   OTP prints to the server console until Twilio is configured.
-- Several Flutter `ApiClient` methods are **stubs returning empty data**: notifications,
-  coupons, rewards, cities, price filters, dashboard. Screens built on them show empty states,
-  not bugs. Implement the endpoint before "fixing" the screen.
+- Several Flutter `ApiClient` methods are **stubs returning empty data**: coupons, rewards,
+  cities, price filters, dashboard. Screens built on them show empty states, not bugs.
+  Implement the endpoint before "fixing" the screen. (Notifications are no longer among them —
+  see §9.)
 - Push notifications (FCM) are Phase 2 and not wired anywhere.
 - `sequelize.sync({ alter: false })` runs outside production only. It must never become
   `alter: true` — past runs are why `users`, `admins` and `ground_owners` each carry three or
@@ -238,7 +248,54 @@ The two whitelists are the enforcement. An owner's list deliberately excludes th
 flags (`is_approved`, `owner_id`); adding a field to one does not add it to the other, so a new
 pricing field has to be granted to each role on purpose.
 
-## 8. Skills
+## 8. Coaching — a coach is an account, not a directory row
+
+`coaches` began as rows an admin typed in. It is now a login: `coaches.password_hash`,
+`POST /auth/coach/register` (self-service, awaits admin approval) and `POST /auth/coach/login`,
+with the `coach` role in the JWT. `/coach/*` on the API and `/coach/*` in `adminui/` are that
+account's panel.
+
+Four rules hold the module together:
+
+1. **A coach prices themselves per 30-minute slot** — `coaches.price_per_slot`, exactly the unit
+   `grounds.price_per_slot` uses, and for the same reason. The server multiplies it by the slot
+   count inside the create transaction; a client never sends an amount. **A coach priced at 0
+   cannot be booked** — `POST /coach-bookings` answers 409 — and the app shows
+   "Price on request", never "₹0".
+2. **A coach's hours are a weekly template.** `coach_availabilities` (one row per weekday) is
+   generated into concrete `coach_slots` on demand by `utils/coachSlotGenerator.js`, the same
+   shape as `utils/slotGenerator.js`. Saving new hours drops the coach's *unbooked* future slots
+   so they regenerate; a booked slot is never touched, because narrowing your hours does not
+   cancel a commitment you already made.
+3. **A ground owner approves a coach onto their ground.** `coach_grounds` is
+   `pending → approved | rejected`, and only an `approved` row makes that venue selectable when a
+   customer books the coach. The create endpoint proves the link before it accepts a `ground_id`.
+4. **A session waits for the coach.** `coach_bookings` is created `pending` with its slots already
+   held, and the coach's `confirm` / `reject` is what settles it. Rejecting or cancelling releases
+   the slots through `releaseSessionSlots`, which only reopens a block nothing else still holds.
+
+Who may set what mirrors §7: `utils/coachFields.js` carries `COACH_SELF_FIELDS` (a coach may
+describe and price themselves) and `ADMIN_COACH_FIELDS` (that plus `email`, `is_active`,
+`is_approved`). `is_approved` is deliberately absent from the coach's own list.
+
+`coaches.email` carries a **non-unique** index: the table predates the login and some old rows
+share an address, so a unique index would fail to apply on a live database. Uniqueness is
+enforced in `auth.controller.coachRegister` and in the admin create/update instead — keep it
+there when adding another write path.
+
+## 9. Notifications — one inbox, every role
+
+`notifications` is polymorphic on `recipient_type` (`user` | `ground_owner` | `coach` | `admin`)
+plus `recipient_id`, and `GET/PATCH /notifications*` always reads the recipient from the token —
+there is no path that touches someone else's inbox. Write through `utils/notify.js`; it swallows
+its own failures on purpose, because a booking that succeeded must not be rolled back over a row
+in `notifications`. Pass the transaction when the notification must roll back with its cause.
+
+`action_path` is a **client route**, not a URL — `/coach/bookings/12` for the panel,
+`/coach-sessions/12` for the app — so each client prefixes its own base. The Flutter
+notifications screen and the panel's Topbar bell both follow it.
+
+## 10. Skills
 
 Load the matching skill before non-trivial work — each carries the concrete file-level patterns:
 

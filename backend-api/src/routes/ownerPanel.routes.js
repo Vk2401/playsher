@@ -549,4 +549,106 @@ router.patch ('/bookings/:id/cancel', ...owner, op.cancelBooking);
  */
 router.get('/games', ...owner, op.listGames);
 
+
+
+// ── Coaches at my grounds ─────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /ground-owner/coach-requests:
+ *   get:
+ *     tags: [OwnerPanel]
+ *     summary: Coaches asking to work at my grounds
+ *     description: Unanswered requests are listed first.
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, approved, rejected] }
+ *     responses:
+ *       200: { description: Coach registration requests }
+ */
+router.get   ('/coach-requests',              ...owner, op.listCoachRequests);
+
+/**
+ * @swagger
+ * /ground-owner/coach-requests/{id}/approve:
+ *   patch:
+ *     tags: [OwnerPanel]
+ *     summary: Let a coach work at my ground
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               response_note: { type: string }
+ *     responses:
+ *       200: { description: Approved — players can now book this coach here }
+ *       404: { description: Not a request on one of your grounds }
+ *       409: { description: Already approved }
+ */
+router.patch ('/coach-requests/:id/approve',  ...owner, op.approveCoachRequest);
+
+/**
+ * @swagger
+ * /ground-owner/coach-requests/{id}/reject:
+ *   patch:
+ *     tags: [OwnerPanel]
+ *     summary: Decline a coach's registration at my ground
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               response_note: { type: string }
+ *     responses:
+ *       200: { description: Declined }
+ *       404: { description: Not a request on one of your grounds }
+ *       409: { description: Already declined, or sessions still upcoming }
+ */
+router.patch ('/coach-requests/:id/reject',   ...owner, op.rejectCoachRequest);
+
+/**
+ * @swagger
+ * /ground-owner/coaches:
+ *   get:
+ *     tags: [OwnerPanel]
+ *     summary: Coaches approved to work at my grounds
+ *     responses:
+ *       200: { description: Approved coach registrations }
+ */
+router.get   ('/coaches',                     ...owner, op.listGroundCoaches);
+
+/**
+ * @swagger
+ * /ground-owner/coach-sessions:
+ *   get:
+ *     tags: [OwnerPanel]
+ *     summary: Coaching sessions taking place at my grounds
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, confirmed, rejected, cancelled, completed] }
+ *       - in: query
+ *         name: upcoming
+ *         schema: { type: string, enum: ['true'] }
+ *       - in: query
+ *         name: date
+ *         schema: { type: string, format: date }
+ *     responses:
+ *       200: { description: Coaching sessions on this owner's courts }
+ */
+router.get   ('/coach-sessions',              ...owner, op.listCoachSessions);
+
 module.exports = router;

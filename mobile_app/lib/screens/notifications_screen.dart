@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/notification_model.dart';
@@ -156,12 +157,24 @@ class _NotificationList extends ConsumerWidget {
         itemCount: items.length,
         itemBuilder: (_, i) => NotificationCard(
           notification: items[i],
-          onTap: () =>
-              ref.read(notificationsProvider.notifier).markAsRead(items[i].id),
+          // Marking it read is not the point of the tap — going where the
+          // notification points is. A row about a booking that opens nothing
+          // reads as broken.
+          onTap: () => _open(context, ref, items[i]),
           onDismiss: () =>
               ref.read(notificationsProvider.notifier).remove(items[i].id),
         ),
       ),
     );
   }
+}
+
+/// Mark it read, then follow it. The path is a router location the server
+/// chose, so an absent or unrecognised one simply does nothing rather than
+/// throwing on a route this build does not have.
+void _open(BuildContext context, WidgetRef ref, NotificationModel notification) {
+  ref.read(notificationsProvider.notifier).markAsRead(notification.id);
+  final path = notification.actionPath;
+  if (path == null || !path.startsWith('/')) return;
+  context.push(path);
 }

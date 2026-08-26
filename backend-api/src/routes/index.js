@@ -13,6 +13,8 @@ router.use('/bookings',      require('./booking.routes'));
 router.use('/payments',      require('./payment.routes'));
 router.use('/games',         require('./game.routes'));
 router.use('/coaches',       require('./coach.routes'));
+router.use('/coach-bookings', require('./coachBooking.routes'));
+router.use('/notifications', require('./notification.routes'));
 router.use('/reviews',       require('./review.routes'));
 router.use('/favorites',     require('./favorite.routes'));
 router.use('/app-version',   require('./appVersion.routes'));
@@ -28,5 +30,8 @@ router.use('/admin',         require('./adminPanel.routes'));
 
 // Ground owner panel (role-protected, all routes require ground_owner)
 router.use('/ground-owner',  require('./ownerPanel.routes'));
+
+// Coach panel (role-protected, all routes require coach)
+router.use('/coach',         require('./coachPanel.routes'));
 
 module.exports = router;

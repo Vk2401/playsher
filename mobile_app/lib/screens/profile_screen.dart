@@ -69,6 +69,13 @@ class ProfileScreen extends ConsumerWidget {
                       onTap: () => context.push('/my-bookings'),
                     ),
                     _MenuEntry(
+                      icon: Icons.sports_rounded,
+                      tint: AppColors.info,
+                      title: 'My Coaching',
+                      subtitle: 'Sessions booked with coaches',
+                      onTap: () => context.push('/my-sessions'),
+                    ),
+                    _MenuEntry(
                       icon: Icons.favorite_rounded,
                       tint: AppColors.error,
                       title: 'Saved Turfs',
