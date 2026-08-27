@@ -393,9 +393,21 @@ class ApiClient {
       });
 
   // ── Games ─────────────────────────────────────────────────────────────────
-  // GET /games
-  static Future<Map<String, dynamic>> getGames({int page = 1}) async {
-    final res = await instance.get('/games', queryParameters: {'page': page});
+  // GET /games — the Discover feed. `query` is built by GameFilters.toQuery(),
+  // which is the only place that knows the parameter names.
+  static Future<Map<String, dynamic>> getGames(
+      {Map<String, dynamic> query = const {}}) async {
+    final res = await instance.get('/games',
+        queryParameters: {'page': 1, ...query});
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? [], 'pagination': raw['pagination'] ?? {}};
+  }
+
+  // GET /games/mine — games I host and games I have joined, one list.
+  static Future<Map<String, dynamic>> getMyGames(
+      {String scope = 'upcoming', int page = 1}) async {
+    final res = await instance
+        .get('/games/mine', queryParameters: {'scope': scope, 'page': page});
     final raw = res.data as Map<String, dynamic>;
     return {'data': raw['data'] ?? [], 'pagination': raw['pagination'] ?? {}};
   }
@@ -411,13 +423,19 @@ class ApiClient {
   static Future<Map<String, dynamic>> createGame(Map<String, dynamic> data) =>
       _post('/games', data);
 
-  // POST /games/:id/join
+  // POST /games/:id/join — returns the game as it now stands, seat included.
   static Future<Map<String, dynamic>> joinGame(int id) =>
       _post('/games/$id/join', {});
 
   // DELETE /games/:id/leave
   static Future<Map<String, dynamic>> leaveGame(int id) async {
     final res = await instance.delete('/games/$id/leave');
+    return res.data as Map<String, dynamic>;
+  }
+
+  // PATCH /games/:id/cancel — the host calls the game off. The booking stays.
+  static Future<Map<String, dynamic>> cancelGame(int id) async {
+    final res = await instance.patch('/games/$id/cancel');
     return res.data as Map<String, dynamic>;
   }
 

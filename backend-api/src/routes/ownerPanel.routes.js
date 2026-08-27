@@ -539,11 +539,21 @@ router.patch ('/bookings/:id/cancel', ...owner, op.cancelBooking);
  * /ground-owner/games:
  *   get:
  *     tags: [OwnerPanel]
- *     summary: List games on own grounds
+ *     summary: List open games running at my grounds
+ *     description: >
+ *       Scoped by venue, not by who published the game — nearly every game is
+ *       opened by a customer on their own booking. Rows carry the venue, the
+ *       schedule, the seats taken and the derived status.
  *     parameters:
  *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: visibility
+ *         schema: { type: string, enum: [public, private] }
  *     responses:
  *       200: { description: Games list }
  */
