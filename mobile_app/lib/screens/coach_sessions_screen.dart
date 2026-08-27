@@ -6,6 +6,7 @@ import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/coach_booking_model.dart';
 import '../providers/coach_bookings_provider.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/error_view.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/status_badge.dart';
@@ -21,7 +22,13 @@ class CoachSessionsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(title: const Text('My coaching')),
+      appBar: AppBar(
+        // Reached with context.go from the session screen, which leaves nothing
+        // to pop — without an explicit fallback the arrow never appears and
+        // system back closes the app. Same fix as My Bookings.
+        leading: const AppBackButton(),
+        title: const Text('My coaching'),
+      ),
       body: RefreshIndicator(
         color: AppColors.primary,
         backgroundColor: colors.card,
