@@ -9,10 +9,11 @@
  *
  * Pure: no `req`, no `res`, no HTTP.
  */
+const { Op } = require('sequelize');
 const {
   Game, GameParticipant, Booking, GroundSport, Ground, Sport, User,
 } = require('../models');
-const { isPastSlot, isPastSlotEnd } = require('./appTime');
+const { appToday, isPastSlot, isPastSlotEnd } = require('./appTime');
 
 const GAME_LEVELS = [
   'newbie', 'beginner', 'intermediate', 'advanced', 'professional', 'ultra_professional',
@@ -164,6 +165,97 @@ function isJoinable(payload) {
 }
 
 
+// ── Query building ───────────────────────────────────────────────────────────
+
+/**
+ * Turn the feed's query string into a date window.
+ *
+ * `when` is the shorthand the app's date chips send; `date_from`/`date_to` are
+ * the explicit form. Everything is a wall-clock YYYY-MM-DD in the app timezone,
+ * never a UTC instant — a game at 21:00 IST must not roll into tomorrow's chip.
+ * Either end may come back `null`, meaning "open-ended on that side".
+ */
+function dateWindow(query) {
+  const today = appToday();
+  const shift = (days) => {
+    const d = new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+
+  if (query.date) return { from: query.date, to: query.date };
+
+  switch (String(query.when || '').toLowerCase()) {
+    case 'today':    return { from: today, to: today };
+    case 'tomorrow': return { from: shift(1), to: shift(1) };
+    case 'weekend': {
+      // Saturday and Sunday of the week we are currently in; once the weekend
+      // has started it means "the rest of this one", not the next.
+      const dow = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0=Sun … 6=Sat
+      const toSaturday = (6 - dow + 7) % 7;
+      return dow === 0
+        ? { from: today, to: today }
+        : { from: shift(toSaturday), to: shift(toSaturday + 1) };
+    }
+    case 'week': return { from: today, to: shift(6) };
+    default:
+      return {
+        // A caller that named only an upper bound is asking for history, so
+        // the lower bound stays open rather than snapping to today and
+        // returning nothing.
+        from: query.date_from || (query.date_to ? null : today),
+        to  : query.date_to || null,
+      };
+  }
+}
+
+/**
+ * The `where` for the booking join, given the feed's filters.
+ *
+ * Cancelled bookings never appear: the slot is gone, so the game on it is not
+ * a game any more. Past games are hidden unless the caller asks for them —
+ * Discover is somewhere to find a game to play, not an archive; "My games" is
+ * the archive.
+ */
+function bookingWhere(query) {
+  const where = { is_canceled: false, status: { [Op.ne]: 'cancelled' } };
+
+  const explicitDates = Boolean(query.date || query.when || query.date_from || query.date_to);
+  if (String(query.include_past) === 'true' && !explicitDates) return where;
+
+  const { from, to } = dateWindow(query);
+  if (from && to) where.slot_date = { [Op.between]: [from, to] };
+  else if (from) where.slot_date = { [Op.gte]: from };
+  else if (to) where.slot_date = { [Op.lte]: to };
+
+  return where;
+}
+
+
+/**
+ * What the host of a game may change about it.
+ *
+ * The same rule `utils/groundFields.js` and `utils/coachFields.js` hold their
+ * owners to. `PUT /games/:id` used to spread `req.body` straight into
+ * `Game.update`, so a host could re-point their game at somebody else's
+ * `booking_id`, hand it to another `hosted_by_user_id`, or flip `is_active`
+ * back on after it was cancelled — all of them columns on the model and none
+ * of them theirs to set. Cancelling has its own endpoint, which notifies the
+ * players; that is why `is_active` is deliberately absent here.
+ */
+const GAME_HOST_FIELDS = [
+  'game_name', 'description', 'image', 'max_participants', 'game_level', 'visibility',
+];
+
+/** Take only the whitelisted keys that were actually sent. */
+function pickGameFields(body, allowed = GAME_HOST_FIELDS) {
+  const patch = {};
+  for (const key of allowed) {
+    if (body[key] !== undefined) patch[key] = body[key];
+  }
+  return patch;
+}
+
 /** Load one game with everything a payload needs. */
 function findGameWhole(id, options = {}) {
   return Game.findByPk(id, {
@@ -174,6 +266,10 @@ function findGameWhole(id, options = {}) {
 
 module.exports = {
   GAME_LEVELS,
+  dateWindow,
+  bookingWhere,
+  GAME_HOST_FIELDS,
+  pickGameFields,
   SEATED,
   BOOKING_INCLUDE,
   HOST_INCLUDE,

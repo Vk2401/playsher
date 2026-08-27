@@ -167,6 +167,10 @@ router.post('/', verifyToken, requireRole('user', 'ground_owner'), createGame, v
  *   put:
  *     tags: [Games]
  *     summary: Update a game (host | admin)
+ *     description: >
+ *       Only the fields below are accepted. `booking_id`, the host columns and
+ *       `is_active` are not editable here — cancelling has its own endpoint,
+ *       which notifies the players who joined.
  *     parameters:
  *       - in: path
  *         name: id

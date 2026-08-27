@@ -30,75 +30,11 @@ const { getPagination, paginationMeta } = require('../utils/helpers');
 const { appToday, isPastSlot } = require('../utils/appTime');
 const { notify } = require('../utils/notify');
 const {
-  GAME_LEVELS, SEATED, BOOKING_INCLUDE, PARTICIPANTS_INCLUDE,
-  GAME_INCLUDES, serialize, isJoinable, findGameWhole,
+  GAME_LEVELS, SEATED, BOOKING_INCLUDE, PARTICIPANTS_INCLUDE, GAME_INCLUDES,
+  serialize, isJoinable, findGameWhole, pickGameFields, bookingWhere,
 } = require('../utils/gameView');
 
 // ── Query building ────────────────────────────────────────────────────────────
-
-/**
- * Turn the feed's query string into a date window.
- *
- * `when` is the shorthand the app's date chips send; `date_from`/`date_to` are
- * the explicit form. Everything is a wall-clock YYYY-MM-DD in the app timezone,
- * never a UTC instant — a game at 21:00 IST must not roll into tomorrow's chip.
- * Either end may come back `null`, meaning "open-ended on that side".
- */
-function dateWindow(query) {
-  const today = appToday();
-  const shift = (days) => {
-    const d = new Date(`${today}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + days);
-    return d.toISOString().slice(0, 10);
-  };
-
-  if (query.date) return { from: query.date, to: query.date };
-
-  switch (String(query.when || '').toLowerCase()) {
-    case 'today':    return { from: today, to: today };
-    case 'tomorrow': return { from: shift(1), to: shift(1) };
-    case 'weekend': {
-      // Saturday and Sunday of the week we are currently in; once the weekend
-      // has started it means "the rest of this one", not the next.
-      const dow = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0=Sun … 6=Sat
-      const toSaturday = (6 - dow + 7) % 7;
-      return dow === 0
-        ? { from: today, to: today }
-        : { from: shift(toSaturday), to: shift(toSaturday + 1) };
-    }
-    case 'week': return { from: today, to: shift(6) };
-    default:
-      return {
-        // A caller that named only an upper bound is asking for history, so
-        // the lower bound stays open rather than snapping to today and
-        // returning nothing.
-        from: query.date_from || (query.date_to ? null : today),
-        to  : query.date_to || null,
-      };
-  }
-}
-
-/**
- * The `where` for the booking join, given the feed's filters.
- *
- * Cancelled bookings never appear: the slot is gone, so the game on it is not
- * a game any more. Past games are hidden unless the caller asks for them —
- * Discover is somewhere to find a game to play, not an archive; "My games" is
- * the archive.
- */
-function bookingWhere(query) {
-  const where = { is_canceled: false, status: { [Op.ne]: 'cancelled' } };
-
-  const explicitDates = Boolean(query.date || query.when || query.date_from || query.date_to);
-  if (String(query.include_past) === 'true' && !explicitDates) return where;
-
-  const { from, to } = dateWindow(query);
-  if (from && to) where.slot_date = { [Op.between]: [from, to] };
-  else if (from) where.slot_date = { [Op.gte]: from };
-  else if (to) where.slot_date = { [Op.lte]: to };
-
-  return where;
-}
 
 /**
  * Fetch a page of games matching the feed's filters.
@@ -427,18 +363,26 @@ exports.update = async (req, res) => {
     if (!game) return error(res, 'Game not found.', 404);
     if (!isHostOf(game, req.user) && req.user.role !== 'admin') return error(res, 'Forbidden.', 403);
 
+    // Whitelisted, never spread: `booking_id`, `hosted_by_user_id` and
+    // `is_active` are all columns on this model and none of them are the
+    // host's to move.
+    const patch = pickGameFields(req.body);
+    if (Object.keys(patch).length === 0) {
+      return error(res, 'Nothing to update.');
+    }
+
     // Shrinking a game below the seats already taken would put it permanently
     // over capacity — the people who joined are not being removed.
-    if (req.body.max_participants != null) {
+    if (patch.max_participants != null) {
       const seated = await GameParticipant.count({
         where: { game_id: game.id, status: { [Op.in]: SEATED } },
       });
-      if (Number(req.body.max_participants) < seated) {
+      if (Number(patch.max_participants) < seated) {
         return error(res, `${seated} players have already joined. You cannot set the limit below that.`, 409);
       }
     }
 
-    await game.update(req.body);
+    await game.update(patch);
 
     const full = await findGameWhole(game.id);
     return success(res, 'Game updated.', serialize(full, req.user.role === 'user' ? req.user.id : null));
