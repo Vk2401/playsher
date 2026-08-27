@@ -7,6 +7,7 @@ import '../models/coach_model.dart';
 import '../models/slot_model.dart';
 import '../providers/coach_bookings_provider.dart';
 import '../providers/coaches_provider.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/error_view.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/slot_tile.dart';
@@ -126,7 +127,10 @@ class _CoachBookingFlowScreenState
     if (id == null) {
       return Scaffold(
         backgroundColor: colors.background,
-        appBar: AppBar(title: const Text('Book a coach')),
+        appBar: AppBar(
+          leading: const AppBackButton(fallbackRoute: '/coaching'),
+          title: const Text('Book a coach'),
+        ),
         body: const ErrorView(message: 'That coach link is not valid'),
       );
     }
@@ -136,7 +140,10 @@ class _CoachBookingFlowScreenState
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(title: const Text('Book a coach')),
+      appBar: AppBar(
+        leading: const AppBackButton(fallbackRoute: '/coaching'),
+        title: const Text('Book a coach'),
+      ),
       body: Stack(
         children: [
           coachAsync.when(

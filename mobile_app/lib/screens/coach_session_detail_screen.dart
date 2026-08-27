@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/coach_booking_model.dart';
 import '../providers/coach_bookings_provider.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/error_view.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/status_badge.dart';
@@ -25,7 +25,10 @@ class CoachSessionDetailScreen extends ConsumerWidget {
     if (id == null) {
       return Scaffold(
         backgroundColor: colors.background,
-        appBar: AppBar(title: const Text('Session')),
+        appBar: AppBar(
+          leading: const AppBackButton(fallbackRoute: '/my-sessions'),
+          title: const Text('Session'),
+        ),
         body: const ErrorView(message: 'That session link is not valid'),
       );
     }
@@ -37,13 +40,12 @@ class CoachSessionDetailScreen extends ConsumerWidget {
       backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Coaching session'),
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          tooltip: 'Close',
-          // The flow reaches here with pushReplacement, so there is nothing
-          // behind it to pop to — go, not pop.
-          onPressed: () => context.go('/my-sessions'),
-        ),
+        // Pops when it can. The booking flow reaches here with
+        // pushReplacement, which swaps only the top route — the coach's page
+        // underneath is still on the stack, so back belongs there rather than
+        // at a hardcoded destination. `context.go` here was what emptied the
+        // stack and left My Coaching with no way out.
+        leading: const AppBackButton(fallbackRoute: '/my-sessions'),
       ),
       body: sessionAsync.when(
         loading: () => const Padding(

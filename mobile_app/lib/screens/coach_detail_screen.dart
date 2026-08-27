@@ -6,6 +6,7 @@ import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/coach_model.dart';
 import '../providers/coaches_provider.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/error_view.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/stat_grid.dart';
@@ -21,8 +22,13 @@ class CoachDetailScreen extends ConsumerWidget {
     final colors = context.colors;
     final id = int.tryParse(coachId);
     if (id == null) {
+      // A bare ErrorView here was a dead end: no app bar, so no way back off a
+      // bad deep link except closing the app.
       return Scaffold(
         backgroundColor: colors.background,
+        appBar: AppBar(
+          leading: const AppBackButton(fallbackRoute: '/coaching'),
+        ),
         body: const ErrorView(message: 'That coach link is not valid'),
       );
     }
@@ -74,6 +80,10 @@ class _Body extends StatelessWidget {
         SliverAppBar(
           expandedHeight: 220,
           pinned: true,
+          // Explicit rather than automatic: a coach opened from a notification
+          // deep link has nothing to pop, and the automatic leading simply
+          // would not be there.
+          leading: const AppBackButton(fallbackRoute: '/coaching'),
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
               decoration: BoxDecoration(
