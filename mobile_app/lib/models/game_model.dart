@@ -123,11 +123,12 @@ class GameModel {
       currentPlayers: json['joined_count'] as int? ??
           json['current_players'] as int? ??
           joined,
-      // Server-computed share of the booking total. Money is never derived here.
-      entryFee: double.tryParse(json['price_per_player']?.toString() ?? '') ??
-          double.tryParse(json['entry_fee']?.toString() ?? ''),
-      totalAmount: double.tryParse(json['total_amount']?.toString() ?? '') ??
-          double.tryParse(booking?['total_amount']?.toString() ?? ''),
+      // Server-computed share of the booking total. Money is never derived
+      // here — only read, and only when it is a real figure: the API sends 0
+      // for a game whose booking carries no total, and 0 is not a price.
+      entryFee: _price(json['price_per_player']) ?? _price(json['entry_fee']),
+      totalAmount: _price(json['total_amount']) ??
+          _price(booking?['total_amount']),
       status: json['status'] as String? ??
           ((json['is_active'] as bool? ?? true) ? 'open' : 'cancelled'),
       sportName: json['sport_name'] as String? ?? sport?['name'] as String?,
@@ -294,12 +295,23 @@ class GameModel {
   String get levelLabel =>
       gameLevel == null ? '' : GameLevel.labelFor(gameLevel!);
 
-  /// Per-player share, or a dash when the booking carried no total — never
+  /// A share the API actually quoted, or null.
+  ///
+  /// Zero is not a price. A ground priced at 0 cannot be booked at all (the
+  /// create endpoint answers 409), so a game whose booking totals nothing is a
+  /// game nobody has priced — and §7 of CLAUDE.md is explicit that the app says
+  /// "Price on request" there rather than "₹0", which reads as free.
+  static double? _price(Object? raw) {
+    final value = double.tryParse(raw?.toString() ?? '');
+    if (value == null || value <= 0) return null;
+    return value;
+  }
+
+  /// Per-player share, or a dash when nobody has priced the slot — never
   /// "Free", which would be a claim the API did not make.
   String get formattedFee {
     final fee = entryFee;
     if (fee == null) return '—';
-    if (fee <= 0) return 'Free';
     return '₹${fee.toStringAsFixed(0)}';
   }
 

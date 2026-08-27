@@ -45,10 +45,24 @@ const {
  * miscounts the page. So the first query picks the page's IDs using only
  * single-row joins, and the second loads those rows in full.
  */
-async function findGamesPage({ where, query, order, page, limit, offset }) {
+async function findGamesPage({
+  where, query, order, page, limit, offset, publicVenuesOnly = false,
+}) {
   const groundWhere = {};
   if (query.city) groundWhere.city = query.city;
   if (query.ground_id) groundWhere.id = query.ground_id;
+
+  // The public feed shows only venues the public catalogue shows — the same
+  // three flags `GET /grounds` filters on. Advertising a game at a ground that
+  // was deactivated, un-approved or soft-deleted sends a stranger to a venue
+  // the platform has taken down.
+  //
+  // Deliberately not applied to /games/mine, the detail screen or the panels:
+  // a player who already holds a seat must keep seeing their game, and having
+  // it vanish because the venue was suspended is worse than the suspension.
+  if (publicVenuesOnly) {
+    Object.assign(groundWhere, { is_approved: true, is_active: true, deleted_at: null });
+  }
 
   const sportWhere = query.sport_id ? { id: query.sport_id } : null;
 
@@ -137,7 +151,9 @@ exports.list = async (req, res) => {
     // A private feed is only ever the viewer's own — there is no path that
     // lists somebody else's invite-only games.
     if (where.visibility === 'private') {
-      if (!viewerId) return error(res, 'Sign in to see your private games.', 401);
+      if (!viewerId) {
+        return error(res, 'Private games are only listed for the player who hosts them.', 403);
+      }
       where.hosted_by_user_id = viewerId;
     }
 
@@ -145,12 +161,17 @@ exports.list = async (req, res) => {
       where,
       query : req.query,
       order : orderFor(req.query.sort),
+      publicVenuesOnly: true,
       page, limit, offset,
     });
 
     let payload = games.map((g) => serialize(g, viewerId));
 
-    // Applied after serialisation because both are derived, not stored.
+    // Applied after serialisation because both are derived, not stored, so
+    // neither can be pushed into SQL. That means a filtered page can come back
+    // shorter than `limit` while `pagination.total` still counts the unfiltered
+    // matches — documented on the route, so a client pages on `total` rather
+    // than on how many rows it got.
     if (String(req.query.only_open) === 'true') {
       payload = payload.filter((g) => g.status === 'open');
     }

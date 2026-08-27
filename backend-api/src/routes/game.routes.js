@@ -22,7 +22,14 @@ const {
  *     description: >
  *       Public, but answers better with a token: when one is sent the payload
  *       marks `is_host`, `is_joined` and `my_participant_status` for the caller.
- *       Past games are hidden unless `include_past=true`.
+ *       Past games, cancelled games and games at venues the public catalogue
+ *       hides are all out of this feed.
+ *
+ *
+ *       `only_open` and `exclude_mine` filter derived values, so they are
+ *       applied after the page is fetched: a page can come back shorter than
+ *       `limit` while `pagination.total` still counts the unfiltered matches.
+ *       Page on `total`, not on the number of rows returned.
  *     security: []
  *     parameters:
  *       - in: query

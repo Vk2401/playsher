@@ -85,6 +85,21 @@ void main() {
     expect(GameModel.fromJson(row).formattedFee, '—');
   });
 
+  test('a zero share is unpriced, not free', () {
+    // The API sends 0 for a game whose booking carries no total, and a ground
+    // priced at 0 cannot be booked at all — so "₹0"/"Free" would be a claim
+    // nobody made. §7 of CLAUDE.md: "Price on request".
+    final row = apiGame()
+      ..['price_per_player'] = 0
+      ..['total_amount'] = 0;
+    (row['booking'] as Map<String, dynamic>)['total_amount'] = '0.00';
+
+    final g = GameModel.fromJson(row);
+    expect(g.entryFee, isNull);
+    expect(g.totalAmount, isNull);
+    expect(g.formattedFee, '—');
+  });
+
   test('derives status from is_active when none is sent', () {
     expect(GameModel.fromJson(apiGame()).status, 'open');
     // The API's own vocabulary — an inactive game is one the host called off.

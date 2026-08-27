@@ -98,7 +98,10 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
             Expanded(
               // IndexedStack, not a rebuild: switching tabs keeps each list's
               // scroll position, and the two are separate scrollables rather
-              // than one nested in the other.
+              // than one nested in the other. Both children build, so "My
+              // games" is fetched once when this tab is first opened — a
+              // deliberate prefetch, since the shell keeps this branch alive
+              // for the rest of the session rather than rebuilding it.
               child: IndexedStack(
                 index: _tab,
                 children: [
