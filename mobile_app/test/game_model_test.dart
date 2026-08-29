@@ -85,9 +85,150 @@ void main() {
     expect(GameModel.fromJson(row).formattedFee, '—');
   });
 
+  test('a zero share is unpriced, not free', () {
+    // The API sends 0 for a game whose booking carries no total, and a ground
+    // priced at 0 cannot be booked at all — so "₹0"/"Free" would be a claim
+    // nobody made. §7 of CLAUDE.md: "Price on request".
+    final row = apiGame()
+      ..['price_per_player'] = 0
+      ..['total_amount'] = 0;
+    (row['booking'] as Map<String, dynamic>)['total_amount'] = '0.00';
+
+    final g = GameModel.fromJson(row);
+    expect(g.entryFee, isNull);
+    expect(g.totalAmount, isNull);
+    expect(g.formattedFee, '—');
+  });
+
   test('derives status from is_active when none is sent', () {
     expect(GameModel.fromJson(apiGame()).status, 'open');
+    // The API's own vocabulary — an inactive game is one the host called off.
     final closed = apiGame()..['is_active'] = false;
-    expect(GameModel.fromJson(closed).status, 'closed');
+    expect(GameModel.fromJson(closed).status, 'cancelled');
+  });
+
+  // ── The server is the authority on state and seats ──────────────────────────
+
+  test('takes the status the server derived, never recomputing it', () {
+    // A game whose seats all look free but which the server says is over must
+    // read as over: the card and the endpoint that refuses the join have to
+    // agree.
+    final played = apiGame(participants: [])..['status'] = 'completed';
+    final g = GameModel.fromJson(played);
+    expect(g.status, 'completed');
+    expect(g.isOpen, isFalse);
+    expect(g.canJoin, isFalse);
+    expect(g.statusLabel, 'Played');
+  });
+
+  test('prefers the server seat count over counting participants', () {
+    // GET /games sends `joined_count`; the participant array on a list row may
+    // be trimmed. The count is the one the fill bar must show.
+    final row = apiGame(seats: 10, participants: [
+      {'id': 1, 'user_id': 3, 'status': 'accepted'},
+    ])
+      ..['joined_count'] = 7;
+    final g = GameModel.fromJson(row);
+    expect(g.currentPlayers, 7);
+    expect(g.spotsLeft, 3);
+  });
+
+  test('reads the viewer flags the API attaches', () {
+    final row = apiGame()
+      ..['is_host'] = true
+      ..['is_joined'] = true;
+    final g = GameModel.fromJson(row);
+    expect(g.isHost, isTrue);
+    expect(g.isJoined, isTrue);
+    // Hosting already holds a seat — there is nothing left to join.
+    expect(g.canJoin, isFalse);
+  });
+
+  test('a full game cannot be joined even when the status says open', () {
+    final g = GameModel.fromJson(apiGame(seats: 2, participants: [
+      {'id': 1, 'user_id': 3, 'status': 'joined'},
+      {'id': 2, 'user_id': 4, 'status': 'joined'},
+    ]));
+    expect(g.isFull, isTrue);
+    expect(g.spotsLeft, 0);
+    expect(g.spotsLabel, 'Full');
+  });
+
+  test('spotsLeft never goes negative when the host shrank the game', () {
+    final g = GameModel.fromJson(apiGame(seats: 2)..['joined_count'] = 5);
+    expect(g.spotsLeft, 0);
+    expect(g.isFull, isTrue);
+  });
+
+  // ── The flattened payload ───────────────────────────────────────────────────
+
+  test('reads the flattened keys the API now sends', () {
+    final row = apiGame()
+      ..['ground_name'] = 'Flat Arena'
+      ..['ground_area'] = 'Adyar'
+      ..['ground_city'] = 'Chennai'
+      ..['sport_name'] = 'Cricket'
+      ..['slot_date'] = '2026-09-20';
+    final g = GameModel.fromJson(row);
+    expect(g.groundName, 'Flat Arena');
+    expect(g.sportName, 'Cricket');
+    expect(g.gameDate, '2026-09-20');
+    expect(g.locationLabel, 'Adyar, Chennai');
+  });
+
+  test('falls back to the nested booking when the flat keys are absent', () {
+    final g = GameModel.fromJson(apiGame());
+    expect(g.groundName, 'Greenfield Arena');
+    expect(g.sportName, 'Football');
+  });
+
+  // ── Labels ──────────────────────────────────────────────────────────────────
+
+  test('formats the slot times as a readable range', () {
+    expect(GameModel.fromJson(apiGame()).timeLabel, '6:00 PM – 7:00 PM');
+  });
+
+  test('names today and tomorrow rather than printing a date', () {
+    String two(int v) => v.toString().padLeft(2, '0');
+    String iso(DateTime d) => '${d.year}-${two(d.month)}-${two(d.day)}';
+    final now = DateTime.now();
+
+    final today = apiGame();
+    (today['booking'] as Map<String, dynamic>)['slot_date'] = iso(now);
+    expect(GameModel.fromJson(today).dayLabel, 'Today');
+
+    final tomorrow = apiGame();
+    (tomorrow['booking'] as Map<String, dynamic>)['slot_date'] =
+        iso(now.add(const Duration(days: 1)));
+    expect(GameModel.fromJson(tomorrow).dayLabel, 'Tomorrow');
+  });
+
+  test('titles a nameless game after its sport and venue', () {
+    final row = apiGame()..remove('game_name');
+    expect(GameModel.fromJson(row).displayTitle,
+        'Football at Greenfield Arena');
+  });
+
+  test('shows the level with the label the host picked it by', () {
+    expect(GameModel.fromJson(apiGame()).levelLabel, 'Intermediate');
+    final ultra = apiGame()..['game_level'] = 'ultra_professional';
+    expect(GameModel.fromJson(ultra).levelLabel, 'Ultra pro');
+  });
+
+  test('flags a game down to its last seats as filling fast', () {
+    final tight = GameModel.fromJson(apiGame(seats: 8)..['joined_count'] = 7);
+    expect(tight.isFillingFast, isTrue);
+    expect(tight.spotsLabel, 'Last spot');
+
+    final roomy = GameModel.fromJson(apiGame(seats: 8)..['joined_count'] = 2);
+    expect(roomy.isFillingFast, isFalse);
+    expect(roomy.spotsLabel, '6 spots left');
+  });
+
+  test('a played game is never "filling fast"', () {
+    final row = apiGame(seats: 8)
+      ..['joined_count'] = 7
+      ..['status'] = 'completed';
+    expect(GameModel.fromJson(row).isFillingFast, isFalse);
   });
 }

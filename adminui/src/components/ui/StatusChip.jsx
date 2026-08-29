@@ -21,6 +21,14 @@ const STATUS_CONFIG = {
   closed:    { label: 'Closed',    color: 'default' },
   full:      { label: 'Full',      color: 'warning' },
 
+  // Games — the API derives these from the booking's schedule and the seats
+  // taken, so they arrive as `status` on every game row.
+  in_progress: { label: 'Playing now', color: 'info' },
+  invited:     { label: 'Invited',     color: 'default' },
+  joined:      { label: 'Joined',      color: 'success' },
+  accepted:    { label: 'Accepted',    color: 'success' },
+  declined:    { label: 'Declined',    color: 'error' },
+
   // Venue
   'covered':  { label: 'Covered',  color: 'info' },
   'open-air': { label: 'Open-air', color: 'default' },

@@ -8,7 +8,7 @@ const { Op } = require('sequelize');
 const {
   Ground, GroundOwner, GroundImage, GroundSport,
   Sport, Amenity, Coach, Review, User, Booking,
-  Payment, Game, GameParticipant, RefreshToken,
+  Payment, Game, RefreshToken,
   CoachGround, CoachBooking, CoachAvailability,
 } = require('../models');
 const { success, error } = require('../utils/response');
@@ -16,6 +16,9 @@ const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { pickAdminCoachFields } = require('../utils/coachFields');
 const { notify } = require('../utils/notify');
+const {
+  GAME_INCLUDES, serialize: serializeGame, findGameWhole,
+} = require('../utils/gameView');
 
 const SALT_ROUNDS = 12;
 
@@ -446,33 +449,40 @@ exports.deleteReview = async (req, res) => {
 
 // ── Games ─────────────────────────────────────────────────────────────────────
 
-/** GET /admin/games — ALL games */
+/**
+ * GET /admin/games — every game on the platform.
+ *
+ * Serialised through `utils/gameView` for the same reason the app's feed is:
+ * seats taken, the per-player share and the derived status are one calculation,
+ * and a panel that reimplements them shows a different game from the one the
+ * customer sees. The table needs the venue and the schedule, both of which live
+ * on the booking, so the rows come back whole rather than as bare `games` rows.
+ */
 exports.listGames = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
+
+    const where = {};
+    if (req.query.visibility) where.visibility = req.query.visibility;
+    if (req.query.is_active != null) where.is_active = String(req.query.is_active) === 'true';
+
     const { count, rows } = await Game.findAndCountAll({
-      include: [
-        { model: User, as: 'hostedByUser', attributes: ['id', 'name'], required: false },
-        { model: GameParticipant, as: 'participants', attributes: ['id', 'status'] },
-      ],
+      where,
+      include: GAME_INCLUDES,
       limit, offset, distinct: true,
       order: [['created_at', 'DESC']],
     });
-    return success(res, 'Games retrieved.', rows, 200, paginationMeta(count, page, limit));
+    return success(res, 'Games retrieved.', rows.map((g) => serializeGame(g)), 200,
+      paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };
 
 /** GET /admin/games/:id */
 exports.getGame = async (req, res) => {
   try {
-    const game = await Game.findByPk(req.params.id, {
-      include: [
-        { model: User, as: 'hostedByUser', attributes: ['id', 'name'] },
-        { model: GameParticipant, as: 'participants' },
-      ],
-    });
+    const game = await findGameWhole(req.params.id);
     if (!game) return error(res, 'Game not found.', 404);
-    return success(res, 'Game retrieved.', game);
+    return success(res, 'Game retrieved.', serializeGame(game));
   } catch (err) { return error(res, err.message, 500); }
 };
 

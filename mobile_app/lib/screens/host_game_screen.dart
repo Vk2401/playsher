@@ -5,6 +5,7 @@ import '../core/api_client.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../models/booking_model.dart';
+import '../models/game_filters.dart';
 import '../providers/bookings_provider.dart';
 import '../providers/games_provider.dart';
 import '../widgets/error_view.dart';
@@ -27,26 +28,18 @@ class HostGameScreen extends ConsumerStatefulWidget {
 
 class _HostGameScreenState extends ConsumerState<HostGameScreen> {
   final _nameCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
 
   BookingModel? _booking;
   int _maxPlayers = 10;
-  String _level = 'intermediate';
+  GameLevel _level = GameLevel.intermediate;
   bool _isPublic = true;
   bool _submitting = false;
-
-  // Values the API accepts for `game_level`.
-  static const _levels = <String, String>{
-    'newbie': 'Newbie',
-    'beginner': 'Beginner',
-    'intermediate': 'Intermediate',
-    'advanced': 'Advanced',
-    'professional': 'Professional',
-    'ultra_professional': 'Ultra professional',
-  };
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _noteCtrl.dispose();
     super.dispose();
   }
 
@@ -61,12 +54,14 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
 
     setState(() => _submitting = true);
     try {
+      final note = _noteCtrl.text.trim();
       await ApiClient.createGame({
         'game_name': name,
         'booking_id': _booking!.id,
         'max_participants': _maxPlayers,
-        'game_level': _level,
+        'game_level': _level.query,
         'visibility': _isPublic ? 'public' : 'private',
+        if (note.isNotEmpty) 'description': note,
       });
 
       ref.invalidate(gamesProvider);
@@ -78,7 +73,11 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
       context.pushReplacement('/games');
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('"$name" is live.')));
+        ..showSnackBar(SnackBar(
+          content: Text(_isPublic
+              ? '"$name" is live in Discover.'
+              : '"$name" is ready — invite the players you want.'),
+        ));
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -174,22 +173,47 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
               ),
               const SizedBox(height: 24),
               _Label('Skill level', colors: colors),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _level,
-                dropdownColor: colors.card,
-                items: _levels.entries
-                    .map((e) =>
-                        DropdownMenuItem(value: e.key, child: Text(e.value)))
+              const SizedBox(height: 4),
+              Text(
+                'Players filter Discover by this, so pitch it honestly.',
+                style: TextStyle(fontSize: 13, color: colors.textSecondary),
+              ),
+              const SizedBox(height: 10),
+              // Chips rather than a dropdown: six values that all matter to
+              // who turns up, on a screen with the room to show them.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: GameLevel.values
+                    .map((l) => _LevelChip(
+                          label: l.label,
+                          selected: _level == l,
+                          onTap: _submitting
+                              ? null
+                              : () => setState(() => _level = l),
+                        ))
                     .toList(),
-                onChanged: _submitting
-                    ? null
-                    : (v) {
-                        if (v != null) setState(() => _level = v);
-                      },
-                decoration: const InputDecoration(),
               ),
               const SizedBox(height: 24),
+              _Label('Anything players should know?', colors: colors),
+              const SizedBox(height: 4),
+              Text(
+                'Optional — bring bibs, we play 7-a-side, parking is round the '
+                'back.',
+                style: TextStyle(fontSize: 13, color: colors.textSecondary),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _noteCtrl,
+                enabled: !_submitting,
+                maxLines: 3,
+                maxLength: 2000,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  hintText: 'Friendly game, all welcome.',
+                ),
+              ),
+              const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -207,19 +231,25 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
                             _isPublic ? 'Public game' : 'Private game',
                             style: TextStyle(
                               color: colors.textPrimary,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
-                            _isPublic ? 'Anyone can join' : 'Invite only',
+                            _isPublic
+                                ? 'Shows up in Discover — anyone can take a seat.'
+                                : 'Hidden from Discover — only players you '
+                                    'invite can join.',
                             style: TextStyle(
                               color: colors.textSecondary,
                               fontSize: 12,
+                              height: 1.4,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Switch(
                       value: _isPublic,
                       onChanged: _submitting
@@ -230,6 +260,8 @@ class _HostGameScreenState extends ConsumerState<HostGameScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              _SplitNote(booking: _booking, seats: _maxPlayers),
               const SizedBox(height: 20),
             ],
           );
@@ -285,6 +317,122 @@ class _NoBookings extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A selectable skill-level pill, 44px tall so it is hittable.
+class _LevelChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  const _LevelChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: onTap != null,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.12)
+                : colors.card,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: selected ? AppColors.primary : colors.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Never state-by-colour alone.
+              if (selected) ...[
+                Icon(Icons.check_rounded, size: 15, color: colors.brandText),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? colors.brandText : colors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What each player ends up paying, worked out from the booking the host
+/// picked and the number of seats they opened.
+///
+/// Shown because the split is the whole reason a stranger joins, and a host
+/// setting the seat count blind is choosing a price without being told. The
+/// figure is the same arithmetic the API does on the way out — the server is
+/// still the only thing that decides what anyone owes.
+class _SplitNote extends StatelessWidget {
+  final BookingModel? booking;
+  final int seats;
+
+  const _SplitNote({required this.booking, required this.seats});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final b = booking;
+    if (b == null || seats <= 0) return const SizedBox.shrink();
+
+    final total = b.totalAmount;
+    final share = total > 0 ? total / seats : 0;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.pie_chart_outline_rounded,
+              size: 18, color: colors.brandText),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              total > 0
+                  ? '₹${total.toStringAsFixed(0)} split $seats ways — '
+                      'about ₹${share.toStringAsFixed(0)} per player, '
+                      'settled at the ground.'
+                  : 'This booking has no price on it yet, so players will see '
+                      '"price on request".',
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                color: colors.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

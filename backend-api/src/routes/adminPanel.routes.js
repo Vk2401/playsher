@@ -890,6 +890,10 @@ router.patch ('/payments/:id/status', ...admin, ap.updatePaymentStatus);
  *         name: visibility
  *         schema: { type: string, enum: [public, private] }
  *       - in: query
+ *         name: is_active
+ *         description: '`false` lists games the host has called off'
+ *         schema: { type: boolean }
+ *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
  *       - in: query

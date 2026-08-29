@@ -321,8 +321,8 @@ class BookingCardShimmer extends StatelessWidget {
   }
 }
 
-/// Skeleton shaped like a `GameCard`: header row, meta lines and the fill
-/// `ProgressBar` along the bottom.
+/// Skeleton shaped like a `GameCard`: the tinted header rail, the title and
+/// two meta lines, the squad rail, and the price/CTA footer under a divider.
 class GameCardShimmer extends StatelessWidget {
   const GameCardShimmer({super.key});
 
@@ -334,45 +334,76 @@ class GameCardShimmer extends StatelessWidget {
       highlightColor: colors.border,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: colors.card,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: colors.border),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: colors.input,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // Header rail
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: colors.border)),
+              ),
+              child: Row(
+                children: [
+                  Container(height: 12, width: 90, color: colors.input),
+                  const Spacer(),
+                  Container(height: 18, width: 62, color: colors.input),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                      height: 16,
+                      color: colors.input,
+                      margin: const EdgeInsets.only(right: 60)),
+                  const SizedBox(height: 10),
+                  Container(height: 11, width: 170, color: colors.input),
+                  const SizedBox(height: 6),
+                  Container(height: 11, width: 140, color: colors.input),
+                  const SizedBox(height: 14),
+                  // Squad rail: four faces and the fill bar beside them.
+                  Row(
                     children: [
-                      Container(
-                          height: 14,
-                          color: colors.input,
-                          margin: const EdgeInsets.only(bottom: 6, right: 40)),
-                      Container(height: 11, width: 110, color: colors.input),
+                      for (var i = 0; i < 4; i++)
+                        Container(
+                          width: 32,
+                          height: 32,
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            color: colors.input,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(height: 8, color: colors.input),
+                      ),
                     ],
                   ),
-                ),
-                Container(height: 20, width: 60, color: colors.input),
-              ],
+                  const SizedBox(height: 16),
+                  Container(height: 1, color: colors.input),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Container(height: 20, width: 70, color: colors.input),
+                      const Spacer(),
+                      Container(height: 40, width: 88, color: colors.input),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
-            Container(height: 8, color: colors.input),
-            const SizedBox(height: 10),
-            Container(height: 11, width: 130, color: colors.input),
           ],
         ),
       ),

@@ -5,7 +5,7 @@
 const { Op, literal } = require('sequelize');
 const {
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
-  Sport, Amenity, Slot, Booking, BookedSlot, User, Game, GameParticipant, Payment,
+  Sport, Amenity, Slot, Booking, BookedSlot, User, Game, Payment,
   Coach, CoachGround, CoachBooking,
 } = require('../models');
 const { success, error } = require('../utils/response');
@@ -16,6 +16,9 @@ const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { notify } = require('../utils/notify');
 const { appToday } = require('../utils/appTime');
+const {
+  BOOKING_INCLUDE, HOST_INCLUDE, PARTICIPANTS_INCLUDE, serialize: serializeGame,
+} = require('../utils/gameView');
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
 
@@ -424,17 +427,46 @@ exports.cancelBooking = async (req, res) => {
 
 // ── Games ─────────────────────────────────────────────────────────────────────
 
-/** GET /ground-owner/games */
+/**
+ * GET /ground-owner/games — every open game running at my grounds.
+ *
+ * Scoped by the *venue*, not by who published it. The endpoint used to list
+ * only `hosted_by_ground_owner_id = me`, which is the rare case: almost every
+ * game is opened by a customer on their own booking, so an owner's list was
+ * empty while strangers were being invited onto their pitch. What an owner
+ * needs to see is who is turning up at their ground.
+ */
 exports.listGames = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
+    const groundIds = await ownedGroundIds(req.user.id);
+    if (groundIds.length === 0) {
+      return success(res, 'Games retrieved.', [], 200, paginationMeta(0, page, limit));
+    }
+
+    const where = {};
+    if (req.query.visibility) where.visibility = req.query.visibility;
+
+    // The venue filter lives two joins down, on the booking's ground.
+    const scopedBooking = {
+      ...BOOKING_INCLUDE,
+      include: [{
+        ...BOOKING_INCLUDE.include[0],
+        include: [
+          { ...BOOKING_INCLUDE.include[0].include[0], where: { id: { [Op.in]: groundIds } } },
+          BOOKING_INCLUDE.include[0].include[1],
+        ],
+      }],
+    };
+
     const { count, rows } = await Game.findAndCountAll({
-      where: { hosted_by_ground_owner_id: req.user.id },
-      include: [{ model: GameParticipant, as: 'participants', attributes: ['id', 'status'] }],
+      where,
+      include : [HOST_INCLUDE, PARTICIPANTS_INCLUDE, scopedBooking],
       limit, offset, distinct: true,
-      order: [['created_at', 'DESC']],
+      order   : [[{ model: Booking, as: 'booking' }, 'slot_date', 'DESC'], ['id', 'DESC']],
     });
-    return success(res, 'Games retrieved.', rows, 200, paginationMeta(count, page, limit));
+    return success(res, 'Games retrieved.', rows.map((g) => serializeGame(g)), 200,
+      paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };
 
