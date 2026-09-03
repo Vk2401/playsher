@@ -10,6 +10,10 @@ name: iOS IPA
 #
 # THREE MODES, chosen automatically by which secrets exist:
 #
+# TOOLCHAIN: the build needs a Swift compiler that defines the
+# `$NonescapableTypes` feature (Swift 6.x). Razorpay's frameworks hide part of
+# their API behind it, and an older compiler silently cannot see that API.
+#
 #   Nothing set  -> an UNSIGNED .ipa. Builds today with zero setup. Useful for
 #                   size checks and for proving the iOS build is not broken. It
 #                   will NOT install on a device and TestFlight rejects it.
@@ -112,12 +116,33 @@ env:
 jobs:
   build:
     name: Build IPA
-    runs-on: macos-14         # Apple silicon; ships Xcode 15+
+    # macos-latest, not a pinned image, because the Swift version is
+    # load-bearing here — see "Select the newest Xcode" below. Pin it again
+    # once a known-good image is confirmed from that step's output.
+    runs-on: macos-latest
     timeout-minutes: 60
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # razorpay-core-pod ships a .swiftinterface built by Swift 6.2.4 in which
+      # twelve declarations — subscribeToAnalyticsEvents among them — sit behind
+      # `#if compiler(>=5.3) && $NonescapableTypes`. A compiler that does not
+      # define that feature skips the block, so the declarations do not exist
+      # and razorpay_flutter fails to compile against its own dependency with
+      # "Value of type 'RazorpayCheckout' has no member". Nothing about the pod
+      # versions causes it and no pin can fix it: it is purely the Swift version
+      # doing the reading. Take the newest Xcode the image has, and print what
+      # that turned out to be.
+      - name: Select the newest Xcode
+        run: |
+          set -euo pipefail
+          latest="$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)"
+          sudo xcode-select -s "$latest/Contents/Developer"
+          echo "Using $latest"
+          xcodebuild -version
+          swift --version
 
       - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
         uses: subosito/flutter-action@v2
