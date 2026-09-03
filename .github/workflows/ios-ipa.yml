@@ -179,22 +179,6 @@ jobs:
         working-directory: mobile_app
         run: flutter analyze --no-fatal-infos
 
-      # No restore-keys: a prefix fallback would happily restore a Pods tree
-      # built against different dependency versions, which is how a stale
-      # native SDK survives a Podfile change. Exact key or nothing.
-      #
-      # Pods are installed by `flutter build`, not by a `pod install` step of
-      # our own. Flutter runs its project migrations first — among them the
-      # iOS deployment target — and the Podfile here declares no `platform`,
-      # so CocoaPods invoked directly assumes 12.0 and cannot satisfy the
-      # Flutter pod: "they required a higher minimum deployment target".
-      # The resolved pod versions still appear in the build log.
-      - name: Cache CocoaPods
-        uses: actions/cache@v4
-        with:
-          path: mobile_app/ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('mobile_app/ios/Podfile', 'mobile_app/pubspec.lock') }}
-
       # ── Signing assets ─────────────────────────────────────────────────────
       # A venv rather than the system interpreter: the runner's Python is
       # externally managed and refuses a plain `pip install`.
@@ -361,6 +345,19 @@ jobs:
           flutter build ipa --release \
             --build-number ${{ github.run_number }} \
             --export-options-plist "$RUNNER_TEMP/ExportOptions.plist"
+
+      # The build is the only thing that runs `pod install`, and it prints no
+      # versions. Without this a wrong native SDK is invisible: the failure
+      # surfaces as a Swift error in plugin source and says nothing about
+      # which pod produced it.
+      - name: Report the resolved pods
+        if: always() && steps.mode.outputs.signed == 'true'
+        working-directory: mobile_app/ios
+        run: |
+          echo "── Podfile platform and pins ──"
+          grep -nE "^\s*(platform|pod) " Podfile || echo "  (none declared)"
+          echo "── Podfile.lock: razorpay ──"
+          grep -nE "razorpay" Podfile.lock 2>/dev/null || echo "  no Podfile.lock, or no razorpay in it"
 
       # ── Unsigned path ──────────────────────────────────────────────────────
       # `flutter build ipa` cannot export without a signing identity, so build
