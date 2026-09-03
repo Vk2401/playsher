@@ -30,6 +30,18 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
 
+  # razorpay_flutter's podspec asks for `razorpay-pod` with no version bound, so
+  # CocoaPods takes whatever is newest when the build runs. That is not safe here:
+  # Razorpay split the SDK at 1.5.0 (Razorpay.xcframework became
+  # RazorpayStandard.xcframework plus a new razorpay-core-pod), while the plugin's
+  # Swift still does `import Razorpay` — so RazorpayCheckout resolves to the core
+  # pod's copy, and the build compiles only where that copy still carries
+  # subscribeToAnalyticsEvents. razorpay-pod 1.5.8 pulls razorpay-core-pod 1.0.9,
+  # which does. 1.5.1 and 1.5.2 pull 1.0.3, which does not, and fail with
+  # "Value of type 'RazorpayCheckout' has no member 'subscribeToAnalyticsEvents'".
+  # Pin it until the plugin declares its own bound.
+  pod 'razorpay-pod', '1.5.8'
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths
