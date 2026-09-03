@@ -9,3 +9,4 @@
 *.csr
 *.mobileprovision
 secrets-to-paste/
+__pycache__/

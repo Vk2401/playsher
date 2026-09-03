@@ -1,30 +1,62 @@
 name: iOS IPA
 
-# Builds an IPA for the Flutter customer app.
+# Builds an IPA for the Flutter customer app and, when asked, ships it to
+# TestFlight.
 #
 # Repo layout assumed: this file lives at the repository root, and the Flutter
 # project is in `mobile_app/`. If you push ONLY `mobile_app/` as the repository,
 # move this file to `mobile_app/.github/workflows/` and delete every
 # `working-directory: mobile_app` line and the `mobile_app/` path prefixes below.
 #
-# TWO MODES, chosen automatically by whether the signing secrets exist:
+# THREE MODES, chosen automatically by which secrets exist:
 #
-#   No secrets  -> an UNSIGNED .ipa. Builds today with zero setup. Useful for
-#                  size checks, for re-signing with your own tooling, and for
-#                  proving the iOS build is not broken. It will NOT install on a
-#                  device as-is and TestFlight will reject it.
+#   Nothing set  -> an UNSIGNED .ipa. Builds today with zero setup. Useful for
+#                   size checks and for proving the iOS build is not broken. It
+#                   will NOT install on a device and TestFlight rejects it.
 #
-#   Secrets set -> a SIGNED .ipa, ready for TestFlight or ad-hoc install.
-#                  Required secrets are listed under "Signing" below.
+#   API key set  -> a SIGNED .ipa, and no Mac needed anywhere. The certificate
+#                   and provisioning profile are minted through the App Store
+#                   Connect API at the start of the run and revoked at the end.
+#                   THIS IS THE PATH TO USE. Three secrets, all obtainable from
+#                   a phone browser — see "Signing without a Mac" below.
+#
+#   .p12 set     -> a SIGNED .ipa from a certificate you exported yourself on a
+#                   Mac. Kept for anyone who already has one, and the only way
+#                   to get an `ad-hoc` or `development` build. See "Signing with
+#                   your own certificate" below.
 #
 # COST: macOS runners bill at 10x the Linux rate, so the free tier's 2000
 # minutes is about 200 macOS minutes — roughly a dozen iOS builds a month. That
 # is why this does not run on every commit the way android-apk.yml does. Widen
 # the triggers below if you have the minutes.
 #
-# ── Signing ──────────────────────────────────────────────────────────────────
-# Add these repository secrets to get a signed build
+# ── Signing without a Mac ────────────────────────────────────────────────────
+# Add these three repository secrets
 # (Settings -> Secrets and variables -> Actions):
+#
+#   APPSTORE_API_KEY_ID          the 10-character Key ID
+#   APPSTORE_API_ISSUER_ID       the issuer UUID (same for every key in the team)
+#   APPSTORE_API_PRIVATE_KEY     the whole AuthKey_XXXXXXXXXX.p8 file, pasted
+#                                  verbatim including the BEGIN/END lines.
+#                                  Apple lets you download it exactly once.
+#
+# App Store Connect -> Users and Access -> Integrations -> App Store Connect
+# API -> Team Keys, with the **Admin** role. App Manager cannot create
+# certificates, so a key issued with it fails at the first step.
+#
+# Two things must already exist in Apple's portals, both doable in a phone
+# browser: the App ID `com.playsher.app` under Certificates, Identifiers &
+# Profiles, and the app record in App Store Connect (My Apps -> +). Apple
+# rejects an upload for an app it has no record of.
+#
+# The certificate is created per run and revoked in cleanup. That is
+# deliberate: an account may hold only three distribution certificates, and a
+# private key that never outlives the job cannot leak. Revoking one does not
+# disturb builds already delivered — Apple re-signs everything it accepts — so
+# a TestFlight build stays installable afterwards.
+#
+# ── Signing with your own certificate ────────────────────────────────────────
+# If these are set they win, and the API key is used only for the upload:
 #
 #   IOS_CERTIFICATE_BASE64       base64 of your Apple distribution .p12
 #                                  base64 -i cert.p12 | pbcopy
@@ -32,35 +64,42 @@ name: iOS IPA
 #   IOS_PROVISIONING_PROFILE_BASE64
 #                                base64 of the matching .mobileprovision
 #                                  base64 -i profile.mobileprovision | pbcopy
-#   IOS_TEAM_ID                  10-character Apple Team ID
-#   IOS_EXPORT_METHOD            optional: app-store | ad-hoc | development
-#                                  defaults to app-store
+#   IOS_TEAM_ID                  optional; read out of the profile if omitted
 #
-# The profile's name and UUID are read out of the profile itself, so they do
-# not need to be secrets.
+# The bundle identifier is `com.playsher.app` and the profile must be issued
+# against that exact id. The profile's name and UUID are read out of the file,
+# so they never need to be secrets.
 #
-# NOTE: the bundle identifier is currently `com.example.playsherApp`. Apple
-# rejects `com.example.*`, so it must be changed in Xcode (and the provisioning
-# profile issued against the new id) before a signed build can be distributed.
+# ── Build numbers ────────────────────────────────────────────────────────────
+# The build number is `github.run_number`, which only ever increases. Apple
+# permanently rejects a build number it has already accepted for the same
+# version string, so a failed upload is re-run rather than retried by hand.
+# The version string itself comes from `mobile_app/pubspec.yaml`.
 
 on:
-  # The normal way to get an IPA: run it by hand from the Actions tab.
+  # The normal way to get a build to testers: run it by hand from the Actions tab.
   workflow_dispatch:
     inputs:
+      upload_testflight:
+        description: 'Upload the signed build to TestFlight'
+        required: false
+        default: true
+        type: boolean
       export_method:
-        description: 'Export method (signed builds only)'
+        description: 'Export method (app-store is the only one the API path can sign)'
         required: false
         default: 'app-store'
         type: choice
         options: [app-store, ad-hoc, development]
 
-  # Release tags always build.
+  # Release tags always build, and always upload.
   push:
     tags: ['v*']
     branches: [main, master]
     paths:
       - 'mobile_app/**'
       - '.github/workflows/ios-ipa.yml'
+      - '.github/scripts/asc_provision.py'
 
 concurrency:
   group: ios-ipa-${{ github.ref }}
@@ -68,6 +107,7 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.41.7'   # keep in step with android-apk.yml
+  BUNDLE_ID: com.playsher.app
 
 jobs:
   build:
@@ -86,24 +126,48 @@ jobs:
           channel: stable
           cache: true
 
-      # Decide the mode once, here, so later steps just read the flag. Secrets
-      # are unavailable to pull_request runs from forks, which lands on the
-      # unsigned path rather than failing.
+      # Decide the mode once, here, so every later step just reads the flags.
+      # Secrets are unavailable to pull_request runs from forks, which lands on
+      # the unsigned path rather than failing.
       - name: Determine signing mode
         id: mode
         env:
           CERT: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-          TEAM: ${{ secrets.IOS_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          METHOD: ${{ inputs.export_method || 'app-store' }}
         run: |
           set -euo pipefail
-          if [ -n "$CERT" ] && [ -n "$PROFILE" ] && [ -n "$TEAM" ]; then
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-            echo "Signing secrets present — building a signed IPA."
+          api=false
+          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$PRIVATE_KEY" ]; then
+            api=true
+          fi
+
+          if [ -n "$CERT" ] && [ -n "$PROFILE" ]; then
+            source=secrets
+            echo "Signing with the certificate from IOS_CERTIFICATE_BASE64."
+          elif [ "$api" = true ]; then
+            source=api
+            # The API mints an IOS_APP_STORE profile; nothing else it can issue
+            # would match an ad-hoc or development export.
+            if [ "$METHOD" != "app-store" ]; then
+              echo "::error::Export method '$METHOD' needs your own .p12 — the App Store Connect API path can only produce an app-store profile."
+              exit 1
+            fi
+            echo "Minting a certificate and profile through the App Store Connect API."
           else
-            echo "signed=false" >> "$GITHUB_OUTPUT"
+            source=none
             echo "::notice::No iOS signing secrets set; building an UNSIGNED IPA. See the header of .github/workflows/ios-ipa.yml for what to add."
           fi
+
+          if [ "$source" = none ]; then signed=false; else signed=true; fi
+          {
+            echo "signed=$signed"
+            echo "source=$source"
+            echo "api=$api"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Resolve dependencies
         working-directory: mobile_app
@@ -122,31 +186,68 @@ jobs:
           key: pods-${{ runner.os }}-${{ hashFiles('mobile_app/ios/Podfile', 'mobile_app/pubspec.lock') }}
           restore-keys: pods-${{ runner.os }}-
 
-      # ── Signed path ────────────────────────────────────────────────────────
-      - name: Install certificate and provisioning profile
+      # ── Signing assets ─────────────────────────────────────────────────────
+      # A venv rather than the system interpreter: the runner's Python is
+      # externally managed and refuses a plain `pip install`.
+      - name: Mint a certificate and profile
+        if: steps.mode.outputs.source == 'api'
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check \
+            cryptography pyjwt
+          "$RUNNER_TEMP/venv/bin/python" .github/scripts/asc_provision.py \
+            provision "$RUNNER_TEMP/signing" "$BUNDLE_ID" "Playsher CI ${{ github.run_id }}"
+
+      - name: Install the certificate and profile
         if: steps.mode.outputs.signed == 'true'
         env:
+          SOURCE: ${{ steps.mode.outputs.source }}
           CERT_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          SECRET_CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          SECRET_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           set -euo pipefail
           CERT_PATH="$RUNNER_TEMP/cert.p12"
           PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+
+          if [ "$SOURCE" = api ]; then
+            # The API hands back a PEM key and a DER certificate; `security`
+            # wants them bundled. -legacy picks the PKCS#12 encryption macOS
+            # accepts, and is absent from the LibreSSL that ships as `openssl`
+            # here — whose default output is already that older format.
+            CERT_PASSWORD="$(uuidgen)"
+            openssl x509 -inform DER -in "$RUNNER_TEMP/signing/signing.cer" \
+              -out "$RUNNER_TEMP/signing/signing.pem"
+            openssl pkcs12 -export -legacy \
+              -inkey "$RUNNER_TEMP/signing/signing.key" -in "$RUNNER_TEMP/signing/signing.pem" \
+              -passout "pass:$CERT_PASSWORD" -out "$CERT_PATH" 2>/dev/null \
+            || openssl pkcs12 -export \
+              -inkey "$RUNNER_TEMP/signing/signing.key" -in "$RUNNER_TEMP/signing/signing.pem" \
+              -passout "pass:$CERT_PASSWORD" -out "$CERT_PATH"
+            cp "$RUNNER_TEMP/signing/profile.mobileprovision" "$PROFILE_PATH"
+          else
+            CERT_PASSWORD="$SECRET_CERT_PASSWORD"
+            # openssl rather than base64(1): GNU wants -d, BSD wants -D, and the
+            # -o flag only exists on BSD. openssl is identical everywhere.
+            printf %s "$CERT_BASE64" | openssl base64 -d -A > "$CERT_PATH"
+            printf %s "$PROFILE_BASE64" | openssl base64 -d -A > "$PROFILE_PATH"
+          fi
+
           KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
           # Ephemeral: the keychain lives only for this run and is deleted below.
           KEYCHAIN_PASSWORD="$(uuidgen)"
-
-          # openssl rather than base64(1): GNU wants -d, BSD wants -D, and the
-          # -o flag only exists on BSD. openssl is identical everywhere.
-          printf %s "$CERT_BASE64" | openssl base64 -d -A > "$CERT_PATH"
-          printf %s "$PROFILE_BASE64" | openssl base64 -d -A > "$PROFILE_PATH"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security import "$CERT_PATH" -P "$CERT_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+            -A -f pkcs12 -k "$KEYCHAIN"
           # Lets codesign use the key without an interactive prompt.
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
@@ -156,30 +257,72 @@ jobs:
           PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$PROFILE_DIR"
 
-          # Read the name/UUID out of the profile rather than asking for two
-          # more secrets that could drift from the file they describe.
+          # Read the name, UUID and team out of the profile rather than asking
+          # for more secrets that could drift from the file they describe.
           security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
           UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")"
           NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")"
+          TEAM="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")"
           APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/profile.plist")"
           # application-identifier is "TEAMID.com.your.bundle" — drop the team.
-          BUNDLE_ID="${APP_ID#*.}"
+          BUNDLE="${APP_ID#*.}"
+
+          if [ "$BUNDLE" != "$BUNDLE_ID" ]; then
+            echo "::error::The profile is issued for '$BUNDLE' but the app builds as '$BUNDLE_ID'."
+            exit 1
+          fi
+
+          # The identity name is read back out of the keychain rather than
+          # hard-coded: "Apple Distribution" and "Apple Development" sign
+          # different export methods, and this is always whichever certificate
+          # was actually supplied. Empty means the .p12 carried no usable
+          # private key, which otherwise surfaces much later as an opaque
+          # codesign failure.
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | sed -n 's/.*"\(.*\)".*/\1/p' | head -n 1)"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No codesigning identity in the certificate. If you exported the .p12 yourself, re-export it from Keychain Access with its private key included."
+            exit 1
+          fi
 
           cp "$PROFILE_PATH" "$PROFILE_DIR/$UUID.mobileprovision"
 
           {
             echo "PROFILE_NAME=$NAME"
-            echo "PROFILE_BUNDLE_ID=$BUNDLE_ID"
             echo "BUILD_KEYCHAIN=$KEYCHAIN"
+            echo "SIGNING_IDENTITY=$IDENTITY"
+            # The secret wins if set; otherwise the profile is authoritative.
+            echo "TEAM_ID=${SECRET_TEAM_ID:-$TEAM}"
           } >> "$GITHUB_ENV"
-          echo "Installed profile '$NAME' for $BUNDLE_ID"
+          echo "Installed profile '$NAME' for $BUNDLE, signing as '$IDENTITY'"
+
+      # The Runner target declares no CODE_SIGN_STYLE, so Xcode assumes
+      # automatic signing and an archive dies with "requires a development
+      # team" on a runner with no Apple ID. Release.xcconfig is the target's
+      # base configuration, which outranks the project-level defaults, so
+      # writing the manual settings here switches the archive over without
+      # touching project.pbxproj — local `flutter run` keeps using Debug and
+      # automatic signing exactly as before.
+      - name: Point the Release build at the manual signing settings
+        if: steps.mode.outputs.signed == 'true'
+        working-directory: mobile_app
+        run: |
+          set -euo pipefail
+          cat >> ios/Flutter/Release.xcconfig <<CONF
+
+          // Appended by .github/workflows/ios-ipa.yml — CI only, never committed.
+          CODE_SIGN_STYLE = Manual
+          DEVELOPMENT_TEAM = ${TEAM_ID}
+          PROVISIONING_PROFILE_SPECIFIER = ${PROFILE_NAME}
+          CODE_SIGN_IDENTITY = ${SIGNING_IDENTITY}
+          CODE_SIGN_IDENTITY[sdk=iphoneos*] = ${SIGNING_IDENTITY}
+          CONF
+          tail -n 6 ios/Flutter/Release.xcconfig
 
       - name: Write ExportOptions.plist
         if: steps.mode.outputs.signed == 'true'
         env:
-          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-          # The manual-run choice wins; otherwise the secret; otherwise app-store.
-          METHOD: ${{ inputs.export_method || secrets.IOS_EXPORT_METHOD || 'app-store' }}
+          METHOD: ${{ inputs.export_method || 'app-store' }}
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
@@ -195,7 +338,7 @@ jobs:
             <key>uploadSymbols</key><true/>
             <key>provisioningProfiles</key>
             <dict>
-              <key>${PROFILE_BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
+              <key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
             </dict>
           </dict>
           </plist>
@@ -275,8 +418,84 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      # Runs even when the build failed, so a signing identity is never left
-      # behind on the runner.
+      # ── TestFlight ─────────────────────────────────────────────────────────
+      # Decided in its own step so the reason for a skip is written into the
+      # log rather than hidden inside a compound `if:` on the upload itself.
+      - name: Determine TestFlight upload
+        id: tf
+        if: steps.mode.outputs.signed == 'true'
+        env:
+          REQUESTED: ${{ inputs.upload_testflight }}
+          API: ${{ steps.mode.outputs.api }}
+          METHOD: ${{ inputs.export_method || 'app-store' }}
+        run: |
+          set -euo pipefail
+          upload=false
+          if [ "$REQUESTED" = "false" ]; then
+            echo "Upload turned off for this run."
+          elif [ "$REQUESTED" != "true" ] && [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            echo "Not requested — tick 'Upload to TestFlight' on a manual run, or push a v* tag."
+          elif [ "$METHOD" != "app-store" ]; then
+            echo "::notice::Export method is '$METHOD'; only an app-store build can go to TestFlight."
+          elif [ "$API" != "true" ]; then
+            echo "::warning::TestFlight upload needs the App Store Connect API secrets. See the header of .github/workflows/ios-ipa.yml."
+          else
+            upload=true
+            echo "Uploading to TestFlight."
+          fi
+          echo "upload=$upload" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to TestFlight
+        if: steps.tf.outputs.upload == 'true'
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          IPA: artifacts/${{ steps.ipa.outputs.name }}
+        run: |
+          set -euo pipefail
+
+          # altool looks for the key by name in a fixed set of directories;
+          # this is the one it checks last and the only one we can be sure is
+          # otherwise empty. The trap removes it however the step ends.
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          KEY_FILE="$KEY_DIR/AuthKey_${KEY_ID}.p8"
+          mkdir -p "$KEY_DIR"
+          trap 'rm -rf "$KEY_DIR"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+
+          # Validate first: the same checks Apple runs on receipt, but they
+          # fail here in a minute instead of arriving as an email an hour later.
+          xcrun altool --validate-app \
+            --type ios --file "$IPA" \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
+
+          xcrun altool --upload-app \
+            --type ios --file "$IPA" \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
+
+          {
+            echo ""
+            echo "Uploaded to TestFlight as build **${{ github.run_number }}**."
+            echo "Apple processes it for 5–30 minutes, then it appears under TestFlight in App Store Connect."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Cleanup ────────────────────────────────────────────────────────────
+      # Both run even when the build failed, so neither a signing identity on
+      # the runner nor a certificate against the account is left behind.
+      - name: Revoke the minted certificate and profile
+        if: always() && steps.mode.outputs.source == 'api'
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+        run: |
+          if [ -x "$RUNNER_TEMP/venv/bin/python" ]; then
+            "$RUNNER_TEMP/venv/bin/python" .github/scripts/asc_provision.py cleanup || true
+          fi
+          rm -rf "$RUNNER_TEMP/signing"
+
       - name: Remove the temporary keychain
         if: always() && steps.mode.outputs.signed == 'true'
         run: |
