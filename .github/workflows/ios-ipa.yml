@@ -37,11 +37,30 @@ name: iOS IPA
 #                                  defaults to app-store
 #
 # The profile's name and UUID are read out of the profile itself, so they do
-# not need to be secrets.
+# not need to be secrets. The bundle identifier is `com.playsher.app`; the
+# profile must be issued against that exact id.
 #
-# NOTE: the bundle identifier is currently `com.example.playsherApp`. Apple
-# rejects `com.example.*`, so it must be changed in Xcode (and the provisioning
-# profile issued against the new id) before a signed build can be distributed.
+# ── TestFlight ───────────────────────────────────────────────────────────────
+# With three more secrets the signed IPA is shipped straight to TestFlight.
+# These are App Store Connect API credentials — a key, not an Apple ID — so
+# there is no password and no two-factor prompt to get stuck behind:
+#
+#   APPSTORE_API_KEY_ID          the 10-character Key ID
+#   APPSTORE_API_ISSUER_ID       the issuer UUID (same for every key in the team)
+#   APPSTORE_API_PRIVATE_KEY     the whole AuthKey_XXXXXXXXXX.p8 file, pasted
+#                                  verbatim including the BEGIN/END lines.
+#                                  Apple lets you download it exactly once.
+#
+# App Store Connect → Users and Access → Integrations → App Store Connect API,
+# with the App Manager role.
+#
+# The upload runs when the export method is `app-store` AND either the tag push
+# triggered the build or you ticked "Upload to TestFlight" on a manual run.
+# Without the three secrets the build still produces the IPA and simply skips
+# the upload.
+#
+# The build number is `github.run_number`, which only ever increases — Apple
+# rejects a build number it has already seen for the same version string.
 
 on:
   # The normal way to get an IPA: run it by hand from the Actions tab.
@@ -53,6 +72,11 @@ on:
         default: 'app-store'
         type: choice
         options: [app-store, ad-hoc, development]
+      upload_testflight:
+        description: 'Upload the signed build to TestFlight'
+        required: false
+        default: false
+        type: boolean
 
   # Release tags always build.
   push:
@@ -274,6 +298,69 @@ jobs:
           path: artifacts/${{ steps.ipa.outputs.name }}
           retention-days: 30
           if-no-files-found: error
+
+      # ── TestFlight ─────────────────────────────────────────────────────────
+      # Decided in its own step so the reason for a skip is written into the
+      # log rather than hidden inside a compound `if:` on the upload itself.
+      - name: Determine TestFlight upload
+        id: tf
+        if: steps.mode.outputs.signed == 'true'
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          REQUESTED: ${{ inputs.upload_testflight }}
+          METHOD: ${{ inputs.export_method || secrets.IOS_EXPORT_METHOD || 'app-store' }}
+        run: |
+          set -euo pipefail
+          upload=false
+          if [ "$REQUESTED" != "true" ] && [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            echo "Not requested — tick 'Upload to TestFlight' on a manual run, or push a v* tag."
+          elif [ "$METHOD" != "app-store" ]; then
+            echo "::notice::Export method is '$METHOD'; only an app-store build can go to TestFlight."
+          elif [ -z "$KEY_ID" ] || [ -z "$ISSUER_ID" ] || [ -z "$PRIVATE_KEY" ]; then
+            echo "::warning::TestFlight upload was requested but the App Store Connect API secrets are missing. See the header of .github/workflows/ios-ipa.yml."
+          else
+            upload=true
+            echo "Uploading to TestFlight."
+          fi
+          echo "upload=$upload" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to TestFlight
+        if: steps.tf.outputs.upload == 'true'
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          IPA: artifacts/${{ steps.ipa.outputs.name }}
+        run: |
+          set -euo pipefail
+
+          # altool looks for the key by name in a fixed set of directories;
+          # this is the one it checks last and the only one we can be sure is
+          # otherwise empty. The trap removes it however the step ends.
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          KEY_FILE="$KEY_DIR/AuthKey_${KEY_ID}.p8"
+          mkdir -p "$KEY_DIR"
+          trap 'rm -rf "$KEY_DIR"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+
+          # Validate first: the same checks Apple runs on receipt, but they
+          # fail here in a minute instead of arriving as an email an hour later.
+          xcrun altool --validate-app \
+            --type ios --file "$IPA" \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
+
+          xcrun altool --upload-app \
+            --type ios --file "$IPA" \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
+
+          {
+            echo ""
+            echo "Uploaded to TestFlight as build **${{ github.run_number }}**."
+            echo "Apple processes it for 5–30 minutes before it appears in App Store Connect."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Runs even when the build failed, so a signing identity is never left
       # behind on the runner.
