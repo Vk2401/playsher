@@ -179,12 +179,24 @@ jobs:
         working-directory: mobile_app
         run: flutter analyze --no-fatal-infos
 
+      # No restore-keys: a prefix fallback would happily restore a Pods tree
+      # built against different dependency versions, which is how a stale
+      # native SDK survives a Podfile change. Exact key or nothing.
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:
           path: mobile_app/ios/Pods
           key: pods-${{ runner.os }}-${{ hashFiles('mobile_app/ios/Podfile', 'mobile_app/pubspec.lock') }}
-          restore-keys: pods-${{ runner.os }}-
+
+      # Resolve pods explicitly rather than letting `flutter build` do it
+      # silently. --repo-update refreshes the spec metadata: the runner image
+      # ships a pre-warmed CocoaPods cache, and against a stale one an
+      # unpinned pod quietly resolves to an old version. Doing it here also
+      # puts the resolved versions in the log, and fails in seconds rather
+      # than midway through an archive.
+      - name: Install pods
+        working-directory: mobile_app/ios
+        run: pod install --repo-update
 
       # ── Signing assets ─────────────────────────────────────────────────────
       # A venv rather than the system interpreter: the runner's Python is
