@@ -191,12 +191,51 @@ jobs:
 
           cp "$PROFILE_PATH" "$PROFILE_DIR/$UUID.mobileprovision"
 
+          # The identity name is read back out of the keychain rather than
+          # hard-coded: "Apple Distribution" and "Apple Development" sign
+          # different export methods, and this is always whichever cert was
+          # actually supplied. Empty means the .p12 carried no usable private
+          # key, which otherwise surfaces much later as an opaque codesign
+          # failure.
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | sed -n 's/.*"\(.*\)".*/\1/p' | head -n 1)"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No codesigning identity in the imported certificate. Re-export the .p12 from Keychain Access with its private key included."
+            exit 1
+          fi
+
           {
             echo "PROFILE_NAME=$NAME"
             echo "PROFILE_BUNDLE_ID=$BUNDLE_ID"
             echo "BUILD_KEYCHAIN=$KEYCHAIN"
+            echo "SIGNING_IDENTITY=$IDENTITY"
           } >> "$GITHUB_ENV"
-          echo "Installed profile '$NAME' for $BUNDLE_ID"
+          echo "Installed profile '$NAME' for $BUNDLE_ID, signing as '$IDENTITY'"
+
+      # The Runner target declares no CODE_SIGN_STYLE, so Xcode assumes
+      # automatic signing and an archive dies with "requires a development
+      # team" on a runner with no Apple ID. Release.xcconfig is the target's
+      # base configuration, which outranks the project-level defaults, so
+      # writing the manual settings here switches the archive over without
+      # touching project.pbxproj — local `flutter run` keeps using Debug and
+      # automatic signing exactly as before.
+      - name: Point the Release build at the manual signing settings
+        if: steps.mode.outputs.signed == 'true'
+        working-directory: mobile_app
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          cat >> ios/Flutter/Release.xcconfig <<CONF
+
+          // Appended by .github/workflows/ios-ipa.yml — CI only, never committed.
+          CODE_SIGN_STYLE = Manual
+          DEVELOPMENT_TEAM = ${TEAM_ID}
+          PROVISIONING_PROFILE_SPECIFIER = ${PROFILE_NAME}
+          CODE_SIGN_IDENTITY = ${SIGNING_IDENTITY}
+          CODE_SIGN_IDENTITY[sdk=iphoneos*] = ${SIGNING_IDENTITY}
+          CONF
+          tail -n 6 ios/Flutter/Release.xcconfig
 
       - name: Write ExportOptions.plist
         if: steps.mode.outputs.signed == 'true'
