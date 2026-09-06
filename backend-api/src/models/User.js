@@ -6,6 +6,12 @@ module.exports = (sequelize) => {
     {
       id:                { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
       name:              { type: DataTypes.STRING(150), allowNull: false },
+      // The handle a player is found and invited by. Nullable only because the
+      // unique index had to be applied to a live table — every account gets one
+      // at registration, and an older row is backfilled on its first profile
+      // read. Always stored lowercase; see utils/username.js.
+      username:          { type: DataTypes.STRING(30), unique: true },
+      bio:               { type: DataTypes.STRING(160) },
       mobile:            { type: DataTypes.STRING(20), allowNull: false, unique: true },
       email:             { type: DataTypes.STRING(191), unique: true },
       password_hash:     { type: DataTypes.STRING(255) },

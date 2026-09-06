@@ -26,6 +26,7 @@ const Notification     = require('./Notification')(sequelize);
 const Review           = require('./Review')(sequelize);
 const Favorite         = require('./Favorite')(sequelize);
 const UserSportPreference = require('./UserSportPreference')(sequelize);
+const UserFollow       = require('./UserFollow')(sequelize);
 const RefreshToken     = require('./RefreshToken')(sequelize);
 const Otp              = require('./Otp')(sequelize);
 const BankDetails      = require('./BankDetails')(sequelize);
@@ -162,6 +163,29 @@ Favorite.belongsTo(Ground, { foreignKey: 'ground_id', as: 'ground' });
 // UserSportPreferences
 User.hasMany(UserSportPreference, { foreignKey: 'user_id', as: 'sportPreferences' });
 UserSportPreference.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+// ── Follow graph ─────────────────────────────────────────────────────────────
+// Self-referencing and directed. `following` is who I follow; `followers` is
+// who follows me. Naming them from the row owner's point of view is what keeps
+// the two straight at every call site — the foreign keys read backwards
+// (my `following` list joins on follower_id being me) and getting that pair the
+// wrong way round is the classic bug in a follow graph.
+User.belongsToMany(User, {
+  through   : UserFollow,
+  as        : 'following',
+  foreignKey: 'follower_id',
+  otherKey  : 'following_id',
+});
+User.belongsToMany(User, {
+  through   : UserFollow,
+  as        : 'followers',
+  foreignKey: 'following_id',
+  otherKey  : 'follower_id',
+});
+UserFollow.belongsTo(User, { foreignKey: 'follower_id', as: 'follower' });
+UserFollow.belongsTo(User, { foreignKey: 'following_id', as: 'followed' });
+User.hasMany(UserFollow, { foreignKey: 'follower_id', as: 'followingLinks' });
+User.hasMany(UserFollow, { foreignKey: 'following_id', as: 'followerLinks' });
 Sport.hasMany(UserSportPreference, { foreignKey: 'sport_id', as: 'userPreferences' });
 UserSportPreference.belongsTo(Sport, { foreignKey: 'sport_id', as: 'sport' });
 
@@ -199,6 +223,7 @@ module.exports = {
   Review,
   Favorite,
   UserSportPreference,
+  UserFollow,
   RefreshToken,
   Otp,
   BankDetails,

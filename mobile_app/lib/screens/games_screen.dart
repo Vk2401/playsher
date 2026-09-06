@@ -116,6 +116,8 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
                         : _filters.copyWith(sportId: id, page: 1)),
                     onWhenChanged: (w) =>
                         setState(() => _filters = _filters.copyWith(when: w, page: 1)),
+                    onFollowingChanged: (on) => setState(() =>
+                        _filters = _filters.copyWith(followingOnly: on, page: 1)),
                   ),
                   _MyGamesTab(
                     scope: _scope,
@@ -284,6 +286,7 @@ class _DiscoverTab extends ConsumerWidget {
   final VoidCallback onClearFilters;
   final ValueChanged<int?> onSportChanged;
   final ValueChanged<GameWhen> onWhenChanged;
+  final ValueChanged<bool> onFollowingChanged;
 
   const _DiscoverTab({
     required this.filters,
@@ -293,6 +296,7 @@ class _DiscoverTab extends ConsumerWidget {
     required this.onClearFilters,
     required this.onSportChanged,
     required this.onWhenChanged,
+    required this.onFollowingChanged,
   });
 
   @override
@@ -308,6 +312,9 @@ class _DiscoverTab extends ConsumerWidget {
       child: CustomScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
+          // Invitations first: somebody asked you a question, and a question
+          // buried under a feed is a question nobody answers.
+          const SliverToBoxAdapter(child: _InvitesBanner()),
           SliverToBoxAdapter(
             child: _SearchRow(
               controller: searchController,
@@ -320,6 +327,8 @@ class _DiscoverTab extends ConsumerWidget {
             child: _WhenStrip(
               selected: filters.when,
               onChanged: onWhenChanged,
+              followingOnly: filters.followingOnly,
+              onFollowingChanged: onFollowingChanged,
             ),
           ),
           SliverToBoxAdapter(
@@ -341,6 +350,7 @@ class _DiscoverTab extends ConsumerWidget {
                     hasScrollBody: false,
                     child: _NoGames(
                       filtered: !filters.isClean,
+                      followingOnly: filters.followingOnly,
                       onClear: onClearFilters,
                     ),
                   )
@@ -539,20 +549,38 @@ class _SearchRow extends StatelessWidget {
 class _WhenStrip extends StatelessWidget {
   final GameWhen selected;
   final ValueChanged<GameWhen> onChanged;
+  final bool followingOnly;
+  final ValueChanged<bool> onFollowingChanged;
 
-  const _WhenStrip({required this.selected, required this.onChanged});
+  const _WhenStrip({
+    required this.selected,
+    required this.onChanged,
+    required this.followingOnly,
+    required this.onFollowingChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // "Following" leads, because a game hosted by somebody you know is a
+    // different proposition from a game hosted by a stranger — it is the one
+    // filter that changes what the feed *is*, not just how much of it you see.
     return SizedBox(
       height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: GameWhen.values.length,
+        itemCount: GameWhen.values.length + 1,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
-          final w = GameWhen.values[i];
+          if (i == 0) {
+            return _Pill(
+              label: 'Following',
+              icon: Icons.people_alt_rounded,
+              selected: followingOnly,
+              onTap: () => onFollowingChanged(!followingOnly),
+            );
+          }
+          final w = GameWhen.values[i - 1];
           return _Pill(
             label: w.label,
             selected: w == selected,
@@ -560,6 +588,100 @@ class _WhenStrip extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// Pending invitations, above everything else on the feed.
+class _InvitesBanner extends ConsumerWidget {
+  const _InvitesBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final invites = ref.watch(gameInvitesProvider);
+
+    // No invitations is the ordinary case, and a banner explaining that there
+    // are none would be noise on every visit.
+    return invites.maybeWhen(
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        final first = list.first;
+        final more = list.length - 1;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: Semantics(
+            button: true,
+            label: more > 0
+                ? '${list.length} game invitations. Open the first.'
+                : 'You were invited to ${first.displayTitle}',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => context.push('/games/${first.id}'),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.30)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Icon(Icons.mark_email_unread_rounded,
+                          size: 19, color: colors.brandText),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            more > 0
+                                ? '${list.length} invitations waiting'
+                                : "You're invited",
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            more > 0
+                                ? '${first.displayTitle} and $more more'
+                                : '${first.displayTitle} · ${first.whenLabel}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 20, color: colors.textSecondary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      // A failed or pending invitations call must not hold up the feed.
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }
@@ -817,19 +939,32 @@ class _MyGameTile extends StatelessWidget {
 
 class _NoGames extends StatelessWidget {
   final bool filtered;
+  final bool followingOnly;
   final VoidCallback onClear;
 
-  const _NoGames({required this.filtered, required this.onClear});
+  const _NoGames({
+    required this.filtered,
+    required this.followingOnly,
+    required this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
     return _Empty(
       icon: filtered ? Icons.search_off_rounded : Icons.sports_soccer_rounded,
-      title: filtered ? 'No games match that' : 'No open games right now',
-      body: filtered
-          ? 'Try a different day or sport — or clear the filters to see everything.'
-          : 'Be the one who starts it. Book a slot, open it to players, and '
-              'split the cost.',
+      title: followingOnly
+          ? 'Nothing from the players you follow'
+          : filtered
+              ? 'No games match that'
+              : 'No open games right now',
+      body: followingOnly
+          ? 'Turn off Following to see every open game near you, or follow more '
+              'players from a game you join.'
+          : filtered
+              ? 'Try a different day or sport — or clear the filters to see '
+                  'everything.'
+              : 'Be the one who starts it. Book a slot, open it to players, and '
+                  'split the cost.',
       actionLabel: filtered ? 'Clear filters' : 'Host a game',
       onAction: filtered ? onClear : () => context.push('/host-game'),
     );
@@ -937,10 +1072,15 @@ class _Pill extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// A glyph in front of the label, so a pill that is not a date still reads
+  /// as something different at a glance.
+  final IconData? icon;
+
   const _Pill({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.icon,
   });
 
   @override
@@ -965,13 +1105,26 @@ class _Pill extends StatelessWidget {
               color: selected ? AppColors.primary : colors.border,
             ),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? AppColors.onPrimary : colors.textPrimary,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 15,
+                  color: selected ? AppColors.onPrimary : colors.textSecondary,
+                ),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? AppColors.onPrimary : colors.textPrimary,
+                ),
+              ),
+            ],
           ),
         ),
       ),

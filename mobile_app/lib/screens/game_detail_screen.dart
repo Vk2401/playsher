@@ -7,6 +7,7 @@ import '../core/map_links.dart';
 import '../models/game_model.dart';
 import '../models/participant_model.dart';
 import '../providers/games_provider.dart';
+import '../widgets/invite_players_sheet.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/error_view.dart';
 import '../widgets/shimmer_loader.dart';
@@ -432,8 +433,16 @@ class _HostRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final name = game.hostName ?? 'A Playsher player';
+    // The host is a person you can look up before deciding to spend an evening
+    // with them. Only linkable when the API gave us something to link by.
+    final handle = game.hostUsername ?? game.hostUserId?.toString();
 
-    return Row(
+    return InkWell(
+      onTap: handle == null ? null : () => context.push('/players/$handle'),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
       children: [
         CircleAvatar(
           radius: 20,
@@ -467,13 +476,21 @@ class _HostRow extends StatelessWidget {
                 ),
               ),
               Text(
-                'Hosting this game',
+                game.hostUsername == null
+                    ? 'Hosting this game'
+                    : '@${game.hostUsername} · hosting this game',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
               ),
             ],
           ),
         ),
+        if (handle != null)
+          Icon(Icons.chevron_right_rounded, size: 20, color: colors.textSecondary),
       ],
+      ),
+      ),
     );
   }
 }
@@ -496,9 +513,21 @@ class _Squad extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Section(
-          title: 'Squad',
-          trailing: '${game.currentPlayers}/${game.maxPlayers}',
+        Row(
+          children: [
+            Expanded(
+              child: _Section(
+                title: 'Squad',
+                trailing: '${game.currentPlayers}/${game.maxPlayers}',
+              ),
+            ),
+            // Only the host can invite, and only while there is still a game
+            // to invite anyone to.
+            if (game.isHost && !game.isPast) ...[
+              const SizedBox(width: 8),
+              _InviteButton(game: game),
+            ],
+          ],
         ),
         const SizedBox(height: 12),
         if (seated.isEmpty && empties == 0)
@@ -511,7 +540,13 @@ class _Squad extends StatelessWidget {
             spacing: 14,
             runSpacing: 14,
             children: [
-              ...seated.map((p) => _Seat(player: p, isHost: p.isHost)),
+              ...seated.map((p) => _Seat(
+                    player: p,
+                    isHost: p.isHost,
+                    onTap: p.handle == null
+                        ? null
+                        : () => context.push('/players/${p.handle}'),
+                  )),
               ...List.generate(empties, (_) => const _Seat()),
             ],
           ),
@@ -523,8 +558,9 @@ class _Squad extends StatelessWidget {
 class _Seat extends StatelessWidget {
   final ParticipantModel? player;
   final bool isHost;
+  final VoidCallback? onTap;
 
-  const _Seat({this.player, this.isHost = false});
+  const _Seat({this.player, this.isHost = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -557,7 +593,14 @@ class _Seat extends StatelessWidget {
       );
     }
 
-    return SizedBox(
+    return Semantics(
+      button: onTap != null,
+      label: '${p.name}${isHost ? ', host' : ''}',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
       width: 56,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -615,6 +658,65 @@ class _Seat extends StatelessWidget {
             style: TextStyle(fontSize: 10.5, color: colors.textSecondary),
           ),
         ],
+      ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the invite sheet. Host-only, and it hands the sheet the ids that are
+/// already spoken for so nobody is offered twice.
+class _InviteButton extends StatelessWidget {
+  final GameModel game;
+
+  const _InviteButton({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Semantics(
+      button: true,
+      label: 'Invite players',
+      child: GestureDetector(
+        onTap: () => InvitePlayersSheet.show(
+          context,
+          gameId: game.id,
+          gameName: game.displayTitle,
+          alreadyInvolved: {
+            for (final p in game.participants)
+              if (p.userId != null) p.userId!,
+            if (game.hostUserId != null) game.hostUserId!,
+          },
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.person_add_alt_1_rounded,
+                  size: 16, color: colors.brandText),
+              const SizedBox(width: 6),
+              Text(
+                'Invite',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colors.brandText,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -889,7 +991,9 @@ class _GameBottomBar extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  game.entryFee == null ? 'Your share' : 'Per player',
+                  game.isInvited
+                      ? 'Invited · per player'
+                      : (game.entryFee == null ? 'Your share' : 'Per player'),
                   style: TextStyle(fontSize: 11, color: colors.textSecondary),
                 ),
                 Text(
@@ -972,6 +1076,41 @@ class _Cta extends ConsumerWidget {
 
     if (!game.isOpen) return _Static(label: game.statusLabel);
 
+    // An invitation is a question somebody asked. Answering it needs both
+    // answers on screen — a single "Join" would leave declining to a back
+    // button, which is not an answer the host ever hears.
+    if (game.isInvited) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 52,
+            child: OutlinedButton(
+              onPressed: busy ? null : () => _respond(context, ref, 'declined'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(88, 52)),
+              child: const Text('Decline'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              onPressed: busy ? null : () => _respond(context, ref, 'accepted'),
+              style: ElevatedButton.styleFrom(minimumSize: const Size(96, 52)),
+              child: busy
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.onPrimary),
+                    )
+                  : const Text('Accept'),
+            ),
+          ),
+        ],
+      );
+    }
+
     return SizedBox(
       height: 52,
       child: ElevatedButton(
@@ -1004,6 +1143,36 @@ class _Cta extends ConsumerWidget {
         ..showSnackBar(SnackBar(
           content: Text(apiErrorMessage(e,
               fallback: 'Could not join this game. Please try again.')),
+          backgroundColor: AppColors.error,
+        ));
+    }
+  }
+
+  /// Answer an invitation. Accepting goes through the same capacity gate as
+  /// joining, so a game that filled up while the invitation sat unread says so
+  /// rather than silently failing.
+  Future<void> _respond(
+      BuildContext context, WidgetRef ref, String status) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (ref.read(gameActionsProvider).isBusy) return;
+    try {
+      await ref.read(gameActionsProvider.notifier).respondToInvite(
+            game.id,
+            status: status,
+          );
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(status == 'accepted'
+              ? "You're in. See you at the ground."
+              : 'Invitation declined.'),
+        ));
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(apiErrorMessage(e,
+              fallback: 'Could not answer that invitation. Please try again.')),
           backgroundColor: AppColors.error,
         ));
     }

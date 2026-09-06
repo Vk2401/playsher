@@ -8,6 +8,7 @@ import 'favorites_provider.dart';
 import 'games_provider.dart';
 import 'grounds_provider.dart';
 import 'notifications_provider.dart';
+import 'players_provider.dart';
 import 'profile_provider.dart';
 
 /// Everything the app holds *for the signed-in account*.
@@ -47,6 +48,18 @@ final _userScoped = <ProviderOrFamily>[
   reviewEligibilityProvider,
   gamesProvider,
   gameDetailProvider,
+  gameInvitesProvider,
+
+  // The social graph is personalised end to end: every one of these carries
+  // an `is_following` or an `is_self` computed for the signed-in account, so
+  // leaving them cached would show the next user the previous one's
+  // relationships.
+  playerProfileProvider,
+  playerGamesProvider,
+  playerSearchProvider,
+  teammatesProvider,
+  followersProvider,
+  followingProvider,
   coachesProvider,
   coachDetailProvider,
   coachSlotsProvider,

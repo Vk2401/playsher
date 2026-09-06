@@ -11,6 +11,8 @@ const updateUser = [
 const updateProfile = [
   body('name').optional().trim().notEmpty(),
   body('email').optional().isEmail().withMessage('Invalid email.'),
+  body('bio').optional({ nullable: true }).trim().isLength({ max: 160 })
+    .withMessage('Keep your bio under 160 characters.'),
   body('current_latitude').optional().isFloat({ min: -90, max: 90 }),
   body('current_longitude').optional().isFloat({ min: -180, max: 180 }),
 ];

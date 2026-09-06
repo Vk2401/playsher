@@ -17,7 +17,7 @@ const { getPagination, paginationMeta } = require('../utils/helpers');
 const { notify } = require('../utils/notify');
 const { appToday } = require('../utils/appTime');
 const {
-  BOOKING_INCLUDE, HOST_INCLUDE, PARTICIPANTS_INCLUDE, serialize: serializeGame,
+  BOOKING_INCLUDE, serialize: serializeGame, findGamesByIds,
 } = require('../utils/gameView');
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
@@ -459,14 +459,23 @@ exports.listGames = async (req, res) => {
       }],
     };
 
+    // Two phases, per `findGamesByIds`. Phase one carries only the booking
+    // chain — every join in it is single-row, so it can filter and paginate
+    // safely; adding the participants `hasMany` here is what breaks it.
+    const order = [[{ model: Booking, as: 'booking' }, 'slot_date', 'DESC'], ['id', 'DESC']];
     const { count, rows } = await Game.findAndCountAll({
       where,
-      include : [HOST_INCLUDE, PARTICIPANTS_INCLUDE, scopedBooking],
-      limit, offset, distinct: true,
-      order   : [[{ model: Booking, as: 'booking' }, 'slot_date', 'DESC'], ['id', 'DESC']],
+      include   : [scopedBooking],
+      attributes: ['id'],
+      order,
+      limit, offset,
+      subQuery  : false,
+      distinct  : true,
     });
-    return success(res, 'Games retrieved.', rows.map((g) => serializeGame(g)), 200,
-      paginationMeta(count, page, limit));
+
+    const games = await findGamesByIds(rows.map((r) => r.id), order);
+    return success(res, 'Games retrieved.', games.map((g) => serializeGame(g)), 200,
+      paginationMeta(typeof count === 'number' ? count : rows.length, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };
 

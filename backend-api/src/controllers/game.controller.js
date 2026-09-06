@@ -23,15 +23,15 @@
  */
 const { Op } = require('sequelize');
 const {
-  sequelize, Game, GameParticipant, Booking, GroundSport, Ground, User,
+  sequelize, Game, GameParticipant, Booking, GroundSport, Ground, User, UserFollow,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { appToday, isPastSlot } = require('../utils/appTime');
 const { notify } = require('../utils/notify');
 const {
-  GAME_LEVELS, SEATED, BOOKING_INCLUDE, PARTICIPANTS_INCLUDE, GAME_INCLUDES,
-  serialize, isJoinable, findGameWhole, pickGameFields, bookingWhere,
+  GAME_LEVELS, SEATED, BOOKING_INCLUDE, PARTICIPANTS_INCLUDE,
+  serialize, isJoinable, findGameWhole, findGamesByIds, pickGameFields, bookingWhere,
 } = require('../utils/gameView');
 
 // ── Query building ────────────────────────────────────────────────────────────
@@ -107,12 +107,7 @@ async function findGamesPage({
 
   if (rows.length === 0) return { count: typeof count === 'number' ? count : 0, games: [] };
 
-  // Ordered again: `IN (…)` does not preserve the page's order.
-  const games = await Game.findAll({
-    where  : { id: rows.map((r) => r.id) },
-    include: GAME_INCLUDES,
-    order,
-  });
+  const games = await findGamesByIds(rows.map((r) => r.id), order);
 
   return { count: typeof count === 'number' ? count : rows.length, games, page, limit, offset };
 }
@@ -155,6 +150,20 @@ exports.list = async (req, res) => {
         return error(res, 'Private games are only listed for the player who hosts them.', 403);
       }
       where.hosted_by_user_id = viewerId;
+    }
+
+    // "Games from people I follow" — the payoff of the follow graph, and the
+    // one filter that turns a city-wide feed into a feed of games you actually
+    // want. Following nobody yields nothing rather than silently falling back
+    // to everything, which would make the filter look broken.
+    if (String(req.query.following_only) === 'true') {
+      if (!viewerId) {
+        return error(res, 'Sign in to see games from players you follow.', 403);
+      }
+      const links = await UserFollow.findAll({
+        where: { follower_id: viewerId }, attributes: ['following_id'],
+      });
+      where.hosted_by_user_id = { [Op.in]: links.map((l) => l.following_id) };
     }
 
     const { count, games } = await findGamesPage({
@@ -237,6 +246,42 @@ exports.mine = async (req, res) => {
       .map((g) => ({ ...g, relation: g.is_host ? 'hosting' : 'playing' }));
 
     return success(res, 'Your games retrieved.', payload, 200, paginationMeta(count, page, limit));
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+/**
+ * GET /games/invites — games I have been invited to and not yet answered.
+ *
+ * Its own list rather than a corner of "My games": an invitation is a question
+ * somebody asked you, and a question buried in a list of games you are already
+ * in is a question nobody answers. A private game is visible here even though
+ * it is invisible in Discover — being invited is exactly what grants that.
+ */
+exports.invites = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+    const viewerId = req.user.id;
+
+    const pending = await GameParticipant.findAll({
+      where     : { user_id: viewerId, status: 'invited' },
+      attributes: ['game_id'],
+    });
+    const ids = pending.map((p) => p.game_id);
+    if (ids.length === 0) {
+      return success(res, 'Invitations retrieved.', [], 200, paginationMeta(0, page, limit));
+    }
+
+    const { count, games } = await findGamesPage({
+      where: { id: { [Op.in]: ids }, is_active: true },
+      query: req.query,
+      order: orderFor('soonest'),
+      page, limit, offset,
+    });
+
+    return success(res, 'Invitations retrieved.', games.map((g) => serialize(g, viewerId)), 200,
+      paginationMeta(count, page, limit));
   } catch (err) {
     return error(res, err.message, 500);
   }
@@ -589,7 +634,42 @@ exports.invite = async (req, res) => {
     if (!game) return error(res, 'Game not found.', 404);
     if (!isHostOf(game, req.user)) return error(res, 'Only the host can invite players.', 403);
 
-    const { user_ids } = req.body;
+    // A game that has been played, is being played, or was called off cannot
+    // take anyone new. `full` is deliberately still invitable — a seat can open
+    // up before kick-off, and an invitation is a question, not a booking.
+    const payload = serialize(game, req.user.id);
+    const closed = {
+      in_progress: 'This game has already started.',
+      completed  : 'This game has already been played.',
+      cancelled  : 'This game was cancelled.',
+    }[payload.status];
+    if (closed) return error(res, closed, 409);
+
+    // Invitations that could not mean anything are dropped rather than written:
+    // the host themselves, somebody who already holds a seat, and anyone
+    // already invited. Without this the host can spam a player who has already
+    // joined with an invitation to a game they are standing in.
+    const existing = await GameParticipant.findAll({
+      where     : { game_id: game.id },
+      attributes: ['user_id', 'status'],
+    });
+    const alreadyThere = new Set(existing.map((p) => p.user_id));
+    if (game.hosted_by_user_id) alreadyThere.add(game.hosted_by_user_id);
+
+    // Deduped, and only accounts that actually exist and are reachable.
+    const requested = [...new Set(req.body.user_ids)].filter((id) => !alreadyThere.has(id));
+    const reachable = await User.findAll({
+      where     : { id: { [Op.in]: requested.length ? requested : [0] }, deleted_at: null, is_active: true },
+      attributes: ['id'],
+    });
+    const user_ids = reachable.map((u) => u.id);
+
+    if (user_ids.length === 0) {
+      return success(res, 'Everyone you picked is already in this game.', {
+        invited: 0, skipped: [...new Set(req.body.user_ids)].length,
+      });
+    }
+
     const records = user_ids.map((uid) => ({ game_id: game.id, user_id: uid, status: 'invited' }));
     await GameParticipant.bulkCreate(records, { ignoreDuplicates: true });
 
@@ -605,7 +685,14 @@ exports.invite = async (req, res) => {
       actionPath   : `/games/${game.id}`,
     })));
 
-    return success(res, 'Invitations sent.');
+    const skipped = [...new Set(req.body.user_ids)].length - user_ids.length;
+    return success(
+      res,
+      skipped > 0
+        ? `${user_ids.length} invited. ${skipped} already in the game.`
+        : `${user_ids.length} ${user_ids.length === 1 ? 'player' : 'players'} invited.`,
+      { invited: user_ids.length, skipped },
+    );
   } catch (err) {
     return error(res, err.message, 500);
   }

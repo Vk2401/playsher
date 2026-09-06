@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +29,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _email;
+  late final TextEditingController _username;
+  late final TextEditingController _bio;
+
+  /// The handle the account already has, so an untouched field is not saved
+  /// again — and so the availability line knows to stay quiet.
+  String _originalUsername = '';
+
+  Timer? _usernameDebounce;
+  bool _checkingUsername = false;
+
+  /// What the server said about the handle currently typed: null while nothing
+  /// has been checked, otherwise available plus the reason when it is not.
+  ({bool available, String? reason})? _usernameCheck;
 
   bool _saving = false;
 
@@ -36,13 +51,62 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final user = ref.read(authProvider).user;
     _name = TextEditingController(text: user?.name ?? '');
     _email = TextEditingController(text: user?.email ?? '');
+    _originalUsername = user?.username ?? '';
+    _username = TextEditingController(text: _originalUsername);
+    _bio = TextEditingController(text: user?.bio ?? '');
   }
 
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
     _name.dispose();
     _email.dispose();
+    _username.dispose();
+    _bio.dispose();
     super.dispose();
+  }
+
+  /// The handle as the API stores it: trimmed, lowercased, no leading `@`.
+  String get _typedUsername =>
+      _username.text.trim().replaceAll(RegExp(r'^@+'), '').toLowerCase();
+
+  bool get _usernameChanged =>
+      _typedUsername.isNotEmpty && _typedUsername != _originalUsername;
+
+  /// Ask the server whether the typed handle is free.
+  ///
+  /// Debounced, because every keystroke would otherwise be a request. Advisory
+  /// only — the save still handles a 409, since somebody can claim the name in
+  /// the moment between this answer and the write.
+  void _onUsernameChanged(String _) {
+    _usernameDebounce?.cancel();
+    setState(() => _usernameCheck = null);
+    if (!_usernameChanged) return;
+
+    _usernameDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final candidate = _typedUsername;
+      if (!mounted || candidate.isEmpty) return;
+      setState(() => _checkingUsername = true);
+      try {
+        final res = await ApiClient.checkUsername(candidate);
+        if (!mounted || _typedUsername != candidate) return;
+        setState(() {
+          _checkingUsername = false;
+          _usernameCheck = (
+            available: res['available'] as bool? ?? false,
+            reason: res['reason'] as String?,
+          );
+        });
+      } catch (_) {
+        if (!mounted) return;
+        // A failed check is not a verdict — the field stays neutral and the
+        // save is what finally decides.
+        setState(() {
+          _checkingUsername = false;
+          _usernameCheck = null;
+        });
+      }
+    });
   }
 
   Future<void> _save() async {
@@ -51,10 +115,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     setState(() => _saving = true);
     try {
+      // The handle has its own endpoint and its own failure — do it first, so
+      // a name that was taken in the last second stops the save with the right
+      // message rather than half-applying the form.
+      if (_usernameChanged) {
+        await ApiClient.setUsername(_typedUsername);
+        _originalUsername = _typedUsername;
+      }
+
       final email = _email.text.trim();
+      final bio = _bio.text.trim();
       await ApiClient.updateProfile({
         'name': _name.text.trim(),
         'email': email.isEmpty ? null : email,
+        'bio': bio.isEmpty ? null : bio,
       });
       await ref.read(authProvider.notifier).refreshUser();
 
@@ -137,6 +211,71 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
+                _Label('Username', colors: colors),
+                const SizedBox(height: 4),
+                Text(
+                  'How other players find and invite you.',
+                  style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _username,
+                  enabled: !_saving,
+                  autocorrect: false,
+                  textInputAction: TextInputAction.next,
+                  onChanged: _onUsernameChanged,
+                  decoration: InputDecoration(
+                    hintText: 'ravi_99',
+                    prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
+                    suffixIcon: _UsernameStatus(
+                      checking: _checkingUsername,
+                      changed: _usernameChanged,
+                      check: _usernameCheck,
+                    ),
+                  ),
+                  validator: (_) {
+                    if (!_usernameChanged) return null;
+                    final check = _usernameCheck;
+                    if (check != null && !check.available) {
+                      return check.reason ?? 'Pick a different username.';
+                    }
+                    return null;
+                  },
+                ),
+                if (_usernameChanged &&
+                    _usernameCheck != null &&
+                    _usernameCheck!.available) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle_rounded,
+                          size: 15, color: colors.successText),
+                      const SizedBox(width: 6),
+                      Text(
+                        '@$_typedUsername is available',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.successText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 20),
+                _Label('Bio (optional)', colors: colors),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _bio,
+                  enabled: !_saving,
+                  maxLines: 2,
+                  maxLength: 160,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Left wing. Plays most Sundays.',
+                  ),
+                ),
+                const SizedBox(height: 4),
                 _Label('Email (optional)', colors: colors),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -218,4 +357,48 @@ class _Label extends StatelessWidget {
           color: colors.textPrimary,
         ),
       );
+}
+
+/// The live verdict inside the username field.
+///
+/// Deliberately silent until the handle actually differs from the one the
+/// account already has — telling somebody their own username is taken is the
+/// classic bug in this control.
+class _UsernameStatus extends StatelessWidget {
+  final bool checking;
+  final bool changed;
+  final ({bool available, String? reason})? check;
+
+  const _UsernameStatus({
+    required this.checking,
+    required this.changed,
+    required this.check,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    if (!changed) return const SizedBox.shrink();
+    if (checking) {
+      return const Padding(
+        padding: EdgeInsets.all(14),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    final result = check;
+    if (result == null) return const SizedBox.shrink();
+
+    // Paired with an icon, never signalled by colour alone.
+    return Icon(
+      result.available ? Icons.check_circle_rounded : Icons.cancel_rounded,
+      size: 20,
+      color: result.available ? colors.successText : AppColors.error,
+    );
+  }
 }

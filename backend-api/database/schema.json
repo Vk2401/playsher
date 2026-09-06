@@ -2886,6 +2886,85 @@
       "indexes": {},
       "foreignKeys": {}
     },
+    "user_follows": {
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "follower_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "following_id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uq_user_follow": {
+          "columns": [
+            "follower_id",
+            "following_id"
+          ],
+          "unique": true
+        },
+        "idx_user_follows_following": {
+          "columns": [
+            "following_id"
+          ],
+          "unique": false
+        }
+      },
+      "foreignKeys": {
+        "fk_user_follows_follower": {
+          "columns": [
+            "follower_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        },
+        "fk_user_follows_following": {
+          "columns": [
+            "following_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "CASCADE"
+        }
+      }
+    },
     "user_sport_preferences": {
       "engine": "InnoDB",
       "charset": "utf8mb4",
@@ -2977,6 +3056,16 @@
           "length": 150,
           "nullable": false
         },
+        "username": {
+          "type": "varchar",
+          "length": 30,
+          "nullable": true
+        },
+        "bio": {
+          "type": "varchar",
+          "length": 160,
+          "nullable": true
+        },
         "mobile": {
           "type": "varchar",
           "length": 20,
@@ -3046,6 +3135,12 @@
         "mobile": {
           "columns": [
             "mobile"
+          ],
+          "unique": true
+        },
+        "uq_users_username": {
+          "columns": [
+            "username"
           ],
           "unique": true
         }

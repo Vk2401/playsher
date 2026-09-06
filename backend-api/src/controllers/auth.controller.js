@@ -4,6 +4,7 @@ const { Admin, User, GroundOwner, Coach, RefreshToken } = require('../models');
 const { generateAccessToken, generateRefreshToken, verifyToken } = require('../utils/jwt.utils');
 const { success, error } = require('../utils/response');
 const { REFRESH_EXPIRES_DAYS } = require('../config/jwt');
+const { generateUniqueUsername, isUsernameConflict } = require('../utils/username');
 
 const SALT_ROUNDS = 12;
 
@@ -77,7 +78,22 @@ exports.userRegister = async (req, res) => {
     });
     if (exists) return error(res, 'Mobile or email already registered.');
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await User.create({ name, mobile, email, password_hash });
+
+    // Every account is findable from the moment it exists — see the OTP path
+    // for why, and utils/username.js for the collision rule.
+    let user;
+    try {
+      user = await User.create({
+        name, mobile, email, password_hash,
+        username: await generateUniqueUsername(User),
+      });
+    } catch (err) {
+      if (!isUsernameConflict(err)) throw err;
+      user = await User.create({
+        name, mobile, email, password_hash,
+        username: await generateUniqueUsername(User),
+      });
+    }
     const payload = { id: user.id, role: 'user' };
     const accessToken = generateAccessToken(payload);
     const refreshTokenStr = generateRefreshToken(payload);
@@ -85,7 +101,11 @@ exports.userRegister = async (req, res) => {
     return success(
       res,
       'Registration successful.',
-      { access_token: accessToken, refresh_token: refreshTokenStr, user: { id: user.id, name: user.name, mobile: user.mobile } },
+      {
+        access_token: accessToken,
+        refresh_token: refreshTokenStr,
+        user: { id: user.id, name: user.name, username: user.username, mobile: user.mobile },
+      },
       201
     );
   } catch (err) {
