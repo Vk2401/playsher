@@ -32,6 +32,7 @@ import 'screens/settings_screen.dart';
 import 'screens/saved_turfs_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/player_profile_screen.dart';
+import 'screens/find_players_screen.dart';
 import 'screens/follow_list_screen.dart';
 
 // ── Bridge: notifies GoRouter when auth state changes ─────────────────────────
@@ -184,6 +185,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ── Players ────────────────────────────────────────────────────────────
+      // The front door to the follow graph. Declared before `/players/:handle`
+      // for readability; the two paths are distinct, so order does not decide
+      // the match.
+      GoRoute(
+        path: '/players',
+        builder: (_, __) => const FindPlayersScreen(),
+      ),
       // `:handle` is a username or a numeric id — a shared link carries the
       // first, a notification the second, and the API resolves both.
       GoRoute(
