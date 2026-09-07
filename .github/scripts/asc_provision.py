@@ -18,6 +18,21 @@ certificate does not disturb builds already delivered — App Store Connect
 re-signs everything it accepts — so a TestFlight build stays installable
 long after the certificate that produced it is gone.
 
+Per-run minting has one failure mode, and it is not rare: if a run is
+cancelled or the runner dies between minting and cleanup, the certificate is
+orphaned, and Apple then answers every later mint with
+
+    409 You already have a current iOS Distribution certificate or a
+        pending certificate request.
+
+which wedges the pipeline until somebody logs into the developer portal. The
+workflow's own `cancel-in-progress` concurrency makes that cancellation
+routine — pushing twice in quick succession is enough. `provision` therefore
+reclaims stale certificates this CI created before it mints, matching on the
+`Playsher CI` name it gives them. It will never revoke a certificate it does
+not recognise as its own: a developer's hand-made distribution certificate is
+somebody's working setup, and the run fails with an explanation instead.
+
 Everything it needs is three values from
 App Store Connect -> Users and Access -> Integrations.
 """
@@ -102,8 +117,78 @@ def make_csr(common_name: str) -> tuple[bytes, bytes]:
     return key_pem, csr.public_bytes(serialization.Encoding.PEM)
 
 
+# Everything this script creates is named with this prefix, and it is the only
+# thing that makes a certificate safe to revoke automatically.
+CI_MARKER = "Playsher CI"
+
+
+def describe(cert: dict) -> str:
+    a = cert.get("attributes", {})
+    return (f"{cert.get('id')}  {a.get('name') or '(unnamed)'!r}"
+            f"  displayName={a.get('displayName')!r}"
+            f"  serial={a.get('serialNumber')}"
+            f"  expires={a.get('expirationDate')}")
+
+
+def is_ours(cert: dict) -> bool:
+    """Did this CI create it?
+
+    Matched on the name Apple derives from our CSR's common name, and on
+    displayName as a fallback because which of the two carries it has moved
+    between API versions. Anything else is treated as somebody's real
+    certificate and left alone.
+    """
+    a = cert.get("attributes", {})
+    return any(
+        CI_MARKER in str(a.get(field) or "")
+        for field in ("name", "displayName")
+    )
+
+
+def reclaim_stale_certificates() -> None:
+    """Revoke distribution certificates this CI leaked in an earlier run.
+
+    Apple permits one current iOS Distribution certificate, so a single
+    orphan blocks every build. Listing them all into the log matters as much
+    as the revoking: when the blocker turns out to be a human's certificate,
+    the reader needs to know exactly which one to deal with.
+    """
+    certificates = call(
+        "GET", "/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=200"
+    ).get("data", [])
+
+    if not certificates:
+        return
+
+    print(f"Existing iOS Distribution certificates ({len(certificates)}):")
+    for cert in certificates:
+        print(f"  {describe(cert)}{'   <- this CI' if is_ours(cert) else ''}")
+
+    ours = [c for c in certificates if is_ours(c)]
+    for cert in ours:
+        call("DELETE", f"/certificates/{cert['id']}")
+        print(f"Reclaimed leaked CI certificate {cert['id']}.")
+
+    theirs = [c for c in certificates if not is_ours(c)]
+    if theirs and not ours:
+        # Nothing of ours to clear, and Apple will refuse the mint below. Say
+        # so here rather than letting the POST fail with a 409 the reader has
+        # to interpret.
+        sys.exit(
+            "::error::An iOS Distribution certificate already exists and this "
+            f"CI did not create it, so it will not be revoked automatically:\n"
+            + "\n".join(f"  {describe(c)}" for c in theirs)
+            + "\n  Revoke it at developer.apple.com -> Certificates, Identifiers "
+              "& Profiles -> Certificates, or export it and use the "
+              "IOS_CERTIFICATE_BASE64 path instead."
+        )
+
+
 def provision(out_dir: str, bundle_id: str, profile_name: str) -> None:
-    key_pem, csr_pem = make_csr(f"Playsher CI ({profile_name})")
+    # A leak from a cancelled run would otherwise make every future build fail.
+    reclaim_stale_certificates()
+
+    key_pem, csr_pem = make_csr(f"{CI_MARKER} ({profile_name})")
 
     certificate = call("POST", "/certificates", {
         "data": {
@@ -180,6 +265,11 @@ if __name__ == "__main__":
         provision(sys.argv[2], sys.argv[3], sys.argv[4])
     elif command == "cleanup":
         cleanup()
+    elif command == "reclaim":
+        # Runnable on its own to unwedge an account by hand, and to see what
+        # Apple currently holds without minting anything.
+        reclaim_stale_certificates()
     else:
         sys.exit("usage: asc_provision.py provision <out-dir> <bundle-id> <profile-name>\n"
-                 "       asc_provision.py cleanup")
+                 "       asc_provision.py cleanup\n"
+                 "       asc_provision.py reclaim")
