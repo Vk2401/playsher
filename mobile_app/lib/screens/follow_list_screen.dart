@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
+import '../providers/auth_provider.dart';
 import '../providers/players_provider.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/error_view.dart';
@@ -47,14 +48,46 @@ class FollowListScreen extends ConsumerWidget {
           ),
           data: (list) {
             if (list.isEmpty) {
+              // "You follow nobody" is the one empty state with an obvious
+              // next step, so it offers it rather than just stating the fact.
+              //
+              // Answered from the signed-in account rather than by reading the
+              // profile provider: the handle in the path is either my username
+              // or my id, and asking the account costs nothing where fetching a
+              // profile just to decide a button would.
+              final me = ref.watch(authProvider).user;
+              final mine = me != null &&
+                  (handle == me.username || handle == '${me.id}');
               return ListView(
                 children: [
-                  SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
+                  SizedBox(height: MediaQuery.sizeOf(context).height * 0.16),
                   ErrorView(
                     message: followers
-                        ? 'Nobody follows this player yet.'
-                        : 'This player does not follow anyone yet.',
+                        ? (mine
+                            ? 'Nobody follows you yet.'
+                            : 'Nobody follows this player yet.')
+                        : (mine
+                            ? 'You are not following anyone yet.'
+                            : 'This player does not follow anyone yet.'),
                   ),
+                  if (mine && !followers)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: SizedBox(
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: () => context.push('/players'),
+                            icon: const Icon(Icons.person_search_rounded,
+                                size: 18),
+                            label: const Text('Find players'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(200, 52),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               );
             }

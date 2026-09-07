@@ -87,7 +87,10 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onHost: () => context.push('/host-game')),
+            _Header(
+              onHost: () => context.push('/host-game'),
+              onFindPlayers: () => context.push('/players'),
+            ),
             const SizedBox(height: 14),
             _Segmented(
               index: _tab,
@@ -137,8 +140,9 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
 
 class _Header extends StatelessWidget {
   final VoidCallback onHost;
+  final VoidCallback onFindPlayers;
 
-  const _Header({required this.onHost});
+  const _Header({required this.onHost, required this.onFindPlayers});
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +174,30 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+          // Finding people belongs next to finding games: this is the screen
+          // where the intent to play with somebody actually arises, and the
+          // follow graph is what makes the Following filter above worth having.
+          Semantics(
+            button: true,
+            label: 'Find players',
+            child: GestureDetector(
+              onTap: onFindPlayers,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colors.input,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.border),
+                ),
+                child: Icon(Icons.person_search_rounded,
+                    size: 20, color: colors.textSecondary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           // The one thing that makes the feed exist. A labelled pill rather
           // than a bare `+`: "host a game" is not an obvious icon.
           Semantics(

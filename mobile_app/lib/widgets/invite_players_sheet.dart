@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
@@ -9,6 +7,7 @@ import '../models/player_model.dart';
 import '../providers/games_provider.dart';
 import '../providers/players_provider.dart';
 import 'error_view.dart';
+import 'player_search.dart';
 import 'player_tile.dart';
 
 /// Pick the players to invite to a game.
@@ -60,27 +59,10 @@ class InvitePlayersSheet extends ConsumerStatefulWidget {
 }
 
 class _InvitePlayersSheetState extends ConsumerState<InvitePlayersSheet> {
-  final _search = TextEditingController();
   final _selected = <int, PlayerCard>{};
 
   String _query = '';
-  Timer? _debounce;
   bool _sending = false;
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _search.dispose();
-    super.dispose();
-  }
-
-  void _onQueryChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      if (!mounted || value.trim() == _query) return;
-      setState(() => _query = value.trim());
-    });
-  }
 
   void _toggle(PlayerCard player) {
     setState(() {
@@ -185,17 +167,9 @@ class _InvitePlayersSheetState extends ConsumerState<InvitePlayersSheet> {
                           TextStyle(fontSize: 13, color: colors.textSecondary),
                     ),
                     const SizedBox(height: 14),
-                    TextField(
-                      controller: _search,
-                      onChanged: _onQueryChanged,
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: 'Username, name or full mobile number',
-                        prefixIcon: Icon(Icons.search_rounded,
-                            size: 20, color: colors.textSecondary),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
+                    PlayerSearchField(
+                      enabled: !_sending,
+                      onChanged: (q) => setState(() => _query = q),
                     ),
                   ],
                 ),
@@ -206,17 +180,8 @@ class _InvitePlayersSheetState extends ConsumerState<InvitePlayersSheet> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    searching ? 'Results' : 'People you play with',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.3,
-                      color: colors.textSecondary,
-                    ),
-                  ),
+                child: PlayerListLabel(
+                  searching ? 'Results' : 'People you play with',
                 ),
               ),
               Flexible(
@@ -237,7 +202,15 @@ class _InvitePlayersSheetState extends ConsumerState<InvitePlayersSheet> {
                   ),
                   data: (players) {
                     if (players.isEmpty) {
-                      return _Empty(searching: searching, query: _query);
+                      return PlayerSearchEmpty(
+                        searching: searching,
+                        query: _query,
+                        idleTitle: 'No teammates yet',
+                        idleBody:
+                            'Once you have played a game together, your '
+                            'teammates show up here. Until then, search for '
+                            'them by username or number.',
+                      );
                     }
                     return ListView.builder(
                       shrinkWrap: true,
@@ -407,67 +380,6 @@ class _InGamePill extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: colors.textSecondary,
         ),
-      ),
-    );
-  }
-}
-
-class _Empty extends StatelessWidget {
-  final bool searching;
-  final String query;
-
-  const _Empty({required this.searching, required this.query});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    // A number that is nearly complete matches nothing — say why, rather than
-    // letting it read as "your friend isn't on Playsher".
-    final partialNumber =
-        searching && RegExp(r'^\+?\d[\d\s-]*$').hasMatch(query) &&
-            query.replaceAll(RegExp(r'\D'), '').length < 10;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            searching ? Icons.person_search_rounded : Icons.groups_2_rounded,
-            size: 44,
-            color: colors.textSecondary,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            !searching
-                ? 'No teammates yet'
-                : partialNumber
-                    ? 'Enter the full 10-digit number'
-                    : 'Nobody matched that',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            !searching
-                ? 'Once you have played a game together, your teammates show up '
-                    'here. Until then, search for them by username or number.'
-                : partialNumber
-                    ? 'A mobile number has to be complete to match — a partial '
-                        'one finds nobody.'
-                    : 'Check the username, or try their full mobile number.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.45,
-              color: colors.textSecondary,
-            ),
-          ),
-        ],
       ),
     );
   }

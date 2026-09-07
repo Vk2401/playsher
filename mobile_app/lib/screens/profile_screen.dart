@@ -89,6 +89,13 @@ class ProfileScreen extends ConsumerWidget {
                       subtitle: 'Booking and game updates',
                       onTap: () => context.push('/notifications'),
                     ),
+                    _MenuEntry(
+                      icon: Icons.person_search_rounded,
+                      tint: AppColors.success,
+                      title: 'Find Players',
+                      subtitle: 'Search by username or number, and follow',
+                      onTap: () => context.push('/players'),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 22),
