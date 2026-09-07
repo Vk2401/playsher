@@ -36,6 +36,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   /// again — and so the availability line knows to stay quiet.
   String _originalUsername = '';
 
+  /// What every field held when the screen opened.
+  ///
+  /// "Has anything changed?" has to be answered against the values the person
+  /// arrived with, not against whether they typed — typing a character and
+  /// deleting it again leaves nothing to discard, and warning about it would
+  /// train people to dismiss the warning.
+  late final Map<String, String> _original;
+
   Timer? _usernameDebounce;
   bool _checkingUsername = false;
 
@@ -44,6 +52,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   ({bool available, String? reason})? _usernameCheck;
 
   bool _saving = false;
+
+  /// Mirrors [_isDirty] so the button and the guard rebuild with it.
+  bool _dirty = false;
 
   @override
   void initState() {
@@ -54,11 +65,39 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _originalUsername = user?.username ?? '';
     _username = TextEditingController(text: _originalUsername);
     _bio = TextEditingController(text: user?.bio ?? '');
+
+    _original = {
+      'name': _name.text,
+      'email': _email.text,
+      'username': _username.text,
+      'bio': _bio.text,
+    };
+
+    // Every field drives the same "is anything different?" question, so the
+    // bar's enabled state and the leave guard cannot disagree about it.
+    for (final c in [_name, _email, _username, _bio]) {
+      c.addListener(_onAnyFieldChanged);
+    }
   }
+
+  void _onAnyFieldChanged() {
+    final dirty = _isDirty;
+    if (dirty != _dirty && mounted) setState(() => _dirty = dirty);
+  }
+
+  /// Does the form hold anything the account does not?
+  bool get _isDirty =>
+      _name.text.trim() != _original['name']!.trim() ||
+      _email.text.trim() != _original['email']!.trim() ||
+      _bio.text.trim() != _original['bio']!.trim() ||
+      _typedUsername != _originalUsername;
 
   @override
   void dispose() {
     _usernameDebounce?.cancel();
+    for (final c in [_name, _email, _username, _bio]) {
+      c.removeListener(_onAnyFieldChanged);
+    }
     _name.dispose();
     _email.dispose();
     _username.dispose();
@@ -109,6 +148,51 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     });
   }
 
+  /// May the screen close?
+  ///
+  /// True when nothing has changed, or when the person confirms they are happy
+  /// to lose it. A save in flight is never interrupted — the request is already
+  /// on its way, so leaving mid-write would leave the person unsure whether it
+  /// landed.
+  Future<bool> _confirmLeave() async {
+    if (_saving) return false;
+    if (!_isDirty) return true;
+
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final colors = ctx.colors;
+        return AlertDialog(
+          title: const Text('Discard your changes?'),
+          content: Text(
+            'You have edits you have not saved yet. If you leave now they '
+            'will be lost.',
+            style: TextStyle(color: colors.textSecondary, height: 1.45),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Keep editing'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Discard'),
+            ),
+          ],
+        );
+      },
+    );
+    return discard ?? false;
+  }
+
+  /// The back control, and the only way out other than saving.
+  Future<void> _leave() async {
+    if (!await _confirmLeave()) return;
+    if (!mounted) return;
+    context.pop();
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     if (!_form.currentState!.validate()) return;
@@ -133,7 +217,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       await ref.read(authProvider.notifier).refreshUser();
 
       if (!mounted) return;
-      setState(() => _saving = false);
+      // Saved is the new baseline: leaving now has nothing to discard, and the
+      // guard must not ask about changes that are already persisted.
+      _original
+        ..['name'] = _name.text
+        ..['email'] = _email.text
+        ..['username'] = _username.text
+        ..['bio'] = _bio.text;
+      setState(() {
+        _saving = false;
+        _dirty = false;
+      });
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(content: Text('Profile updated')));
@@ -158,14 +252,23 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final colors = context.colors;
     final user = ref.watch(authProvider).user;
 
-    return Scaffold(
+    return PopScope(
+      // The system back gesture and the hardware button go through the same
+      // guard as the arrow in the app bar — a screen that only protects one of
+      // them protects nothing, because people leave whichever way is nearest.
+      canPop: !_dirty && !_saving,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmLeave() && context.mounted) context.pop();
+      },
+      child: Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Edit Profile'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           tooltip: 'Back',
-          onPressed: _saving ? null : () => context.pop(),
+          onPressed: _saving ? null : _leave,
         ),
       ),
       body: SafeArea(
@@ -337,7 +440,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       bottomNavigationBar: StickyBottomBar(
         buttonText: 'Save changes',
         isLoading: _saving,
-        onPressed: _save,
+        // Disabled until something has actually changed. The label stays put:
+        // swapping it to "Saved" when the screen opens would claim a save that
+        // never happened.
+        onPressed: _dirty ? _save : null,
+      ),
       ),
     );
   }
