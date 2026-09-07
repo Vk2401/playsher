@@ -160,27 +160,43 @@ def reclaim_stale_certificates() -> None:
     if not certificates:
         return
 
-    print(f"Existing iOS Distribution certificates ({len(certificates)}):")
-    for cert in certificates:
-        print(f"  {describe(cert)}{'   <- this CI' if is_ours(cert) else ''}")
-
     ours = [c for c in certificates if is_ours(c)]
+    theirs = [c for c in certificates if not is_ours(c)]
+
+    # To stderr, and flushed: `sys.exit` below writes to stderr unbuffered, so
+    # a buffered stdout listing would be printed *after* the error that refers
+    # to it and the log would read backwards.
+    print(f"Existing iOS Distribution certificates ({len(certificates)}):",
+          file=sys.stderr, flush=True)
+    for cert in certificates:
+        marker = "   <- this CI, reclaiming" if is_ours(cert) else "   <- not ours, leaving alone"
+        print(f"  {describe(cert)}{marker}", file=sys.stderr, flush=True)
+
     for cert in ours:
         call("DELETE", f"/certificates/{cert['id']}")
-        print(f"Reclaimed leaked CI certificate {cert['id']}.")
+        print(f"Reclaimed leaked CI certificate {cert['id']}.",
+              file=sys.stderr, flush=True)
 
-    theirs = [c for c in certificates if not is_ours(c)]
     if theirs and not ours:
-        # Nothing of ours to clear, and Apple will refuse the mint below. Say
-        # so here rather than letting the POST fail with a 409 the reader has
-        # to interpret.
+        # Nothing of ours to clear, and Apple will refuse the mint below. Say so
+        # here rather than letting the POST fail with a 409 the reader then has
+        # to interpret. The certificates themselves were just listed above, so
+        # this names how many rather than repeating all of them — printing them
+        # twice reads as twice as many certificates.
+        count = len(theirs)
         sys.exit(
-            "::error::An iOS Distribution certificate already exists and this "
-            f"CI did not create it, so it will not be revoked automatically:\n"
-            + "\n".join(f"  {describe(c)}" for c in theirs)
-            + "\n  Revoke it at developer.apple.com -> Certificates, Identifiers "
-              "& Profiles -> Certificates, or export it and use the "
-              "IOS_CERTIFICATE_BASE64 path instead."
+            f"::error::{count} iOS Distribution "
+            f"certificate{'s' if count > 1 else ''} already "
+            f"exist{'' if count > 1 else 's'} and this CI did not create "
+            f"{'them' if count > 1 else 'it'}, so "
+            f"{'they were' if count > 1 else 'it was'} left alone — see the "
+            "listing above. Apple permits one current distribution "
+            "certificate, so the mint below would be refused.\n"
+            "  Either revoke it at developer.apple.com -> Certificates, "
+            "Identifiers & Profiles -> Certificates (this breaks local signing "
+            "for whoever holds its private key), or export that certificate as "
+            "a .p12 and set IOS_CERTIFICATE_BASE64 / IOS_CERTIFICATE_PASSWORD / "
+            "IOS_PROVISIONING_PROFILE_BASE64 to sign with it instead."
         )
 
 
