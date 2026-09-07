@@ -412,6 +412,29 @@ class ApiClient {
     return {'data': raw['data'] ?? [], 'pagination': raw['pagination'] ?? {}};
   }
 
+  // GET /games/invites — games I have been invited to and not yet answered.
+  static Future<Map<String, dynamic>> getGameInvites({int page = 1}) async {
+    final res =
+        await instance.get('/games/invites', queryParameters: {'page': page});
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? [], 'pagination': raw['pagination'] ?? {}};
+  }
+
+  // POST /games/:id/invite  { user_ids }
+  static Future<Map<String, dynamic>> inviteToGame(
+          int id, List<int> userIds) =>
+      _post('/games/$id/invite', {'user_ids': userIds});
+
+  // PATCH /games/:id/invite/:userId/respond  { status }
+  static Future<Map<String, dynamic>> respondToGameInvite(
+      int gameId, int userId, String status) async {
+    final res = await instance.patch(
+      '/games/$gameId/invite/$userId/respond',
+      data: {'status': status},
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
   // GET /games/:id
   static Future<Map<String, dynamic>> getGame(int id) async {
     final res = await instance.get('/games/$id');
@@ -436,6 +459,86 @@ class ApiClient {
   // PATCH /games/:id/cancel — the host calls the game off. The booking stays.
   static Future<Map<String, dynamic>> cancelGame(int id) async {
     final res = await instance.patch('/games/$id/cancel');
+    return res.data as Map<String, dynamic>;
+  }
+
+  // ── Players ───────────────────────────────────────────────────────────────
+  // GET /players/search?q= — a username, a display name, or a FULL mobile
+  // number. A partial number matches nothing by design, so the endpoint cannot
+  // be walked to enumerate accounts.
+  static Future<Map<String, dynamic>> searchPlayers(String query,
+      {int page = 1}) async {
+    final res = await instance.get('/players/search',
+        queryParameters: {'q': query, 'page': page});
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? [], 'pagination': raw['pagination'] ?? {}};
+  }
+
+  // GET /players/teammates — people I have shared a game with, most-played
+  // first. The default list in the invite sheet.
+  static Future<Map<String, dynamic>> getTeammates({int page = 1}) async {
+    final res = await instance
+        .get('/players/teammates', queryParameters: {'page': page});
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
+
+  // GET /players/:handle — a username or a numeric id; the API resolves both.
+  static Future<Map<String, dynamic>> getPlayer(String handle) async {
+    final res = await instance.get('/players/$handle');
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? {}};
+  }
+
+  // GET /players/:handle/games — their public games only.
+  static Future<Map<String, dynamic>> getPlayerGames(String handle) async {
+    final res = await instance.get('/players/$handle/games');
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
+
+  // GET /players/:handle/followers
+  static Future<Map<String, dynamic>> getFollowers(String handle,
+      {int page = 1}) async {
+    final res = await instance
+        .get('/players/$handle/followers', queryParameters: {'page': page});
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
+
+  // GET /players/:handle/following
+  static Future<Map<String, dynamic>> getFollowing(String handle,
+      {int page = 1}) async {
+    final res = await instance
+        .get('/players/$handle/following', queryParameters: {'page': page});
+    final raw = res.data as Map<String, dynamic>;
+    return {'data': raw['data'] ?? []};
+  }
+
+  // POST /players/:id/follow — idempotent.
+  static Future<Map<String, dynamic>> followPlayer(int id) =>
+      _post('/players/$id/follow', {});
+
+  // DELETE /players/:id/follow — idempotent.
+  static Future<Map<String, dynamic>> unfollowPlayer(int id) async {
+    final res = await instance.delete('/players/$id/follow');
+    return res.data as Map<String, dynamic>;
+  }
+
+  // ── Username ──────────────────────────────────────────────────────────────
+  // GET /profile/username-available?username= — advisory. The unique index is
+  // what actually decides; setUsername answers 409 if it was just taken.
+  static Future<Map<String, dynamic>> checkUsername(String username) async {
+    final res = await instance.get('/profile/username-available',
+        queryParameters: {'username': username});
+    final raw = res.data as Map<String, dynamic>;
+    return (raw['data'] as Map<String, dynamic>?) ?? {};
+  }
+
+  // PATCH /profile/username  { username }
+  static Future<Map<String, dynamic>> setUsername(String username) async {
+    final res =
+        await instance.patch('/profile/username', data: {'username': username});
     return res.data as Map<String, dynamic>;
   }
 

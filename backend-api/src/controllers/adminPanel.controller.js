@@ -17,7 +17,7 @@ const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { pickAdminCoachFields } = require('../utils/coachFields');
 const { notify } = require('../utils/notify');
 const {
-  GAME_INCLUDES, serialize: serializeGame, findGameWhole,
+  serialize: serializeGame, findGameWhole, findGamesByIds,
 } = require('../utils/gameView');
 
 const SALT_ROUNDS = 12;
@@ -466,13 +466,17 @@ exports.listGames = async (req, res) => {
     if (req.query.visibility) where.visibility = req.query.visibility;
     if (req.query.is_active != null) where.is_active = String(req.query.is_active) === 'true';
 
-    const { count, rows } = await Game.findAndCountAll({
-      where,
-      include: GAME_INCLUDES,
-      limit, offset, distinct: true,
-      order: [['created_at', 'DESC']],
-    });
-    return success(res, 'Games retrieved.', rows.map((g) => serializeGame(g)), 200,
+    // Two phases, per `findGamesByIds`: the page's ids first, then the rows
+    // loaded whole. Combining the includes with a limit makes Sequelize build a
+    // subquery that the nested venue join cannot resolve against.
+    const order = [['created_at', 'DESC']];
+    const [count, pageRows] = await Promise.all([
+      Game.count({ where }),
+      Game.findAll({ where, attributes: ['id'], order, limit, offset }),
+    ]);
+
+    const games = await findGamesByIds(pageRows.map((r) => r.id), order);
+    return success(res, 'Games retrieved.', games.map((g) => serializeGame(g)), 200,
       paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };

@@ -78,6 +78,13 @@ const {
  *         description: Drop games the caller hosts or has already joined
  *         schema: { type: boolean }
  *       - in: query
+ *         name: following_only
+ *         description: >
+ *           Only games hosted by players the caller follows. Following nobody
+ *           yields an empty feed rather than falling back to everything, which
+ *           would make the filter look broken.
+ *         schema: { type: boolean }
+ *       - in: query
  *         name: sort
  *         schema: { type: string, enum: [soonest, latest, newest], default: soonest }
  *       - in: query
@@ -115,6 +122,27 @@ router.get('/', optionalAuth, listGames, validate, ctrl.list);
  *       200: { description: The caller's games }
  */
 router.get('/mine', verifyToken, requireRole('user'), listGames, validate, ctrl.mine);
+
+/**
+ * @swagger
+ * /games/invites:
+ *   get:
+ *     tags: [Games]
+ *     summary: Games I have been invited to and not yet answered (user)
+ *     description: >
+ *       Its own list rather than a corner of `/games/mine`: an invitation is a
+ *       question somebody asked, and one buried among games you are already in
+ *       is a question nobody answers. A private game appears here even though
+ *       it is hidden from Discover — being invited is what grants that view.
+ *       Answer with `PATCH /games/{id}/invite/{userId}/respond`.
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *     responses:
+ *       200: { description: Pending invitations, soonest first }
+ */
+router.get('/invites', verifyToken, requireRole('user'), ctrl.invites);
 
 /**
  * @swagger
@@ -289,6 +317,12 @@ router.delete('/:id/leave', verifyToken, requireRole('user'), gameId, validate, 
  *   post:
  *     tags: [Games]
  *     summary: Invite players to a game (host)
+ *     description: >
+ *       Ids that could not mean anything are dropped rather than written — the
+ *       host themselves, players already holding a seat, those already invited,
+ *       and accounts that are deleted or deactivated. The response reports how
+ *       many were invited and how many were skipped. Find ids with
+ *       `GET /players/search` or `GET /players/teammates`.
  *     parameters:
  *       - in: path
  *         name: id

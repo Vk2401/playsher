@@ -10,6 +10,7 @@ const { generateAccessToken, generateRefreshToken } = require('../utils/jwt.util
 const { success, error } = require('../utils/response');
 const { REFRESH_EXPIRES_DAYS } = require('../config/jwt');
 const { sendSms } = require('../utils/sms.utils');
+const { generateUniqueUsername, isUsernameConflict } = require('../utils/username');
 
 const SALT_ROUNDS = 12;
 const OTP_TTL_MS  = 5 * 60 * 1000;
@@ -192,13 +193,30 @@ exports.completeRegistration = async (req, res) => {
 
     await Otp.destroy({ where: { mobile } });
 
-    // Update placeholder with real profile details
-    await user.update({
+    // Update placeholder with real profile details. The handle is assigned
+    // here, not later: an account without one cannot be found or invited, and a
+    // search that misses half the users is worse than no search at all.
+    const patch = {
       name,
       email: email || null,
       is_verified: true,
       is_active: true,
-    });
+    };
+    if (!user.username) {
+      patch.username = await generateUniqueUsername(User);
+    }
+
+    try {
+      await user.update(patch);
+    } catch (err) {
+      // Two registrations can pick the same free handle in the same instant —
+      // the unique index is the arbiter, not the check that preceded it. One
+      // more roll rather than failing a registration over a name the player
+      // has not even seen yet.
+      if (!isUsernameConflict(err)) throw err;
+      patch.username = await generateUniqueUsername(User);
+      await user.update(patch);
+    }
 
     const payload = { id: user.id, role: 'user' };
     const accessToken = generateAccessToken(payload);
@@ -211,7 +229,10 @@ exports.completeRegistration = async (req, res) => {
       {
         access_token: accessToken,
         refresh_token: refreshTokenStr,
-        user: { id: user.id, name: user.name, mobile: user.mobile, email: user.email },
+        user: {
+          id: user.id, name: user.name, username: user.username,
+          mobile: user.mobile, email: user.email,
+        },
       },
       201,
     );

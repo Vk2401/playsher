@@ -6,6 +6,9 @@ router.use('/grounds',       require('./ground.routes'));
 router.use('/sports',        require('./sport.routes'));
 router.use('/amenities',     require('./amenity.routes'));
 router.use('/users',         require('./user.routes'));
+// Player profiles and the follow graph. A separate namespace from /users,
+// which is admin-scoped: these are customer-facing and customer-authenticated.
+router.use('/players',       require('./player.routes'));
 router.use('/profile',       require('./profile.routes'));
 router.use('/ground-owners', require('./groundOwner.routes'));
 router.use('/ground-sports', require('./groundSport.routes'));

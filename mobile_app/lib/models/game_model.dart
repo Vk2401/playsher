@@ -32,6 +32,11 @@ class GameModel {
   final double? groundLatitude;
   final double? groundLongitude;
   final String? hostName;
+
+  /// The host's handle and id, so the detail screen can link to their profile.
+  final String? hostUsername;
+  final int? hostUserId;
+
   final String? hostAvatar;
   final String? gameLevel;
   final String? visibility;
@@ -68,6 +73,8 @@ class GameModel {
     this.groundLatitude,
     this.groundLongitude,
     this.hostName,
+    this.hostUsername,
+    this.hostUserId,
     this.hostAvatar,
     this.gameLevel,
     this.visibility,
@@ -142,6 +149,11 @@ class GameModel {
       groundLatitude: double.tryParse(ground?['latitude']?.toString() ?? ''),
       groundLongitude: double.tryParse(ground?['longitude']?.toString() ?? ''),
       hostName: json['host_name'] as String? ?? host?['name'] as String?,
+      hostUsername:
+          json['host_username'] as String? ?? host?['username'] as String?,
+      hostUserId: json['host_user_id'] as int? ??
+          json['hosted_by_user_id'] as int? ??
+          host?['id'] as int?,
       hostAvatar: json['host_avatar'] as String? ??
           host?['profile_picture'] as String? ??
           host?['avatar'] as String?,

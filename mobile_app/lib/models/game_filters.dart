@@ -75,6 +75,10 @@ class GameFilters {
   /// Hide games I host or have already joined — they live in My Games.
   final bool excludeMine;
 
+  /// Only games hosted by players I follow. Following nobody yields an empty
+  /// feed rather than everything — the filter means what it says.
+  final bool followingOnly;
+
   final GameSort sort;
   final int page;
 
@@ -86,6 +90,7 @@ class GameFilters {
     this.city,
     this.onlyOpen = false,
     this.excludeMine = false,
+    this.followingOnly = false,
     this.sort = GameSort.soonest,
     this.page = 1,
   });
@@ -102,6 +107,7 @@ class GameFilters {
     String? city,
     bool? onlyOpen,
     bool? excludeMine,
+    bool? followingOnly,
     GameSort? sort,
     int? page,
   }) =>
@@ -113,6 +119,7 @@ class GameFilters {
         city: city ?? this.city,
         onlyOpen: onlyOpen ?? this.onlyOpen,
         excludeMine: excludeMine ?? this.excludeMine,
+        followingOnly: followingOnly ?? this.followingOnly,
         sort: sort ?? this.sort,
         page: page ?? this.page,
       );
@@ -127,7 +134,12 @@ class GameFilters {
         sort != GameSort.soonest,
       ].where((on) => on).length;
 
-  bool get isClean => activeCount == 0 && sportId == null && search.isEmpty;
+  /// `followingOnly` is its own visible toggle on the feed, so like the sport
+  /// strip it is deliberately outside [activeCount] — badging a filter the
+  /// player can already see is telling them what they are looking at.
+
+  bool get isClean =>
+      activeCount == 0 && sportId == null && search.isEmpty && !followingOnly;
 
   /// The query string `GET /games` takes. Empty values are omitted rather than
   /// sent as nulls, so the server sees the same request the user described.
@@ -140,6 +152,7 @@ class GameFilters {
         if (city != null && city!.trim().isNotEmpty) 'city': city!.trim(),
         if (onlyOpen) 'only_open': 'true',
         if (excludeMine) 'exclude_mine': 'true',
+        if (followingOnly) 'following_only': 'true',
         'sort': sort.query,
       };
 
@@ -153,12 +166,13 @@ class GameFilters {
       other.city == city &&
       other.onlyOpen == onlyOpen &&
       other.excludeMine == excludeMine &&
+      other.followingOnly == followingOnly &&
       other.sort == sort &&
       other.page == page;
 
   @override
-  int get hashCode => Object.hash(
-      sportId, when, level, search, city, onlyOpen, excludeMine, sort, page);
+  int get hashCode => Object.hash(sportId, when, level, search, city, onlyOpen,
+      excludeMine, followingOnly, sort, page);
 }
 
 /// Which half of "My games" is being asked for.

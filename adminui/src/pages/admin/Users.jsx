@@ -53,6 +53,9 @@ export default function AdminUsers() {
     return raw.filter(
       (u) =>
         String(u.name ?? '').toLowerCase().includes(q) ||
+        // A support request arrives as "@ravi99 can't join a game", so the
+        // handle has to be searchable here too.
+        String(u.username ?? '').toLowerCase().includes(q.replace(/^@/, '')) ||
         String(u.email ?? '').toLowerCase().includes(q) ||
         String(u.mobile ?? '').toLowerCase().includes(q),
     )
@@ -175,15 +178,22 @@ export default function AdminUsers() {
     { field: 'id', headerName: 'ID', width: 70, sortable: true },
     {
       field: 'name',
-      headerName: 'Name',
-      flex: 1,
-      minWidth: 150,
+      headerName: 'Player',
+      flex: 1.1,
+      minWidth: 180,
       renderCell: ({ row }) => (
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box display="flex" alignItems="center" gap={1} minWidth={0}>
           <PersonIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-          <Typography variant="body2" fontWeight={500}>
-            {row.name ?? row.full_name ?? '—'}
-          </Typography>
+          <Box minWidth={0}>
+            <Typography variant="body2" fontWeight={500} noWrap>
+              {row.name ?? row.full_name ?? '—'}
+            </Typography>
+            {/* The handle is how this player is found and invited in the app,
+                so it is the identity to search and support by — not the id. */}
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {row.username ? `@${row.username}` : 'no username yet'}
+            </Typography>
+          </Box>
         </Box>
       ),
     },
@@ -292,10 +302,10 @@ export default function AdminUsers() {
       <Box mb={2}>
         <TextField
           size="small"
-          placeholder="Search by name, email or mobile…"
+          placeholder="Search by name, @username, email or mobile…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 320 }}
+          sx={{ width: 360 }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

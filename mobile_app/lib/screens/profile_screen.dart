@@ -226,7 +226,42 @@ class _Header extends StatelessWidget {
               letterSpacing: 0.2,
             ),
           ),
-          if (contact.isNotEmpty) ...[
+          // The handle leads, and the contact detail follows it: the handle is
+          // what other players see and type, the email is only for you.
+          if (user?.username != null && user!.username!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Semantics(
+              button: true,
+              label: 'View your public profile, @${user!.username}',
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: () => context.push('/players/${user!.username}'),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 44,
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '@${user!.username}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right_rounded,
+                          size: 18, color: AppColors.onPrimaryMuted),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ] else if (contact.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               contact,

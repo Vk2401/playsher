@@ -31,6 +31,8 @@ import 'screens/coach_sessions_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/saved_turfs_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/player_profile_screen.dart';
+import 'screens/follow_list_screen.dart';
 
 // ── Bridge: notifies GoRouter when auth state changes ─────────────────────────
 class _AuthRouterNotifier extends ChangeNotifier {
@@ -179,6 +181,31 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/host-game',
         builder: (_, __) => const HostGameScreen(),
+      ),
+
+      // ── Players ────────────────────────────────────────────────────────────
+      // `:handle` is a username or a numeric id — a shared link carries the
+      // first, a notification the second, and the API resolves both.
+      GoRoute(
+        path: '/players/:handle',
+        builder: (_, state) =>
+            PlayerProfileScreen(handle: state.pathParameters['handle']!),
+        routes: [
+          GoRoute(
+            path: 'followers',
+            builder: (_, state) => FollowListScreen(
+              handle: state.pathParameters['handle']!,
+              followers: true,
+            ),
+          ),
+          GoRoute(
+            path: 'following',
+            builder: (_, state) => FollowListScreen(
+              handle: state.pathParameters['handle']!,
+              followers: false,
+            ),
+          ),
+        ],
       ),
 
       // ── Coaching ───────────────────────────────────────────────────────────

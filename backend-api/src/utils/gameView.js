@@ -60,7 +60,9 @@ const HOST_INCLUDE = {
   model     : User,
   as        : 'hostedByUser',
   required  : false,
-  attributes: ['id', 'name', 'profile_picture'],
+  // `username` travels with every person a game shows: it is what a player is
+  // tapped through to, invited by, and found again as.
+  attributes: ['id', 'name', 'username', 'profile_picture'],
 };
 
 const PARTICIPANTS_INCLUDE = {
@@ -68,7 +70,10 @@ const PARTICIPANTS_INCLUDE = {
   as        : 'participants',
   required  : false,
   attributes: ['id', 'user_id', 'status', 'joined_at'],
-  include   : [{ model: User, as: 'user', required: false, attributes: ['id', 'name', 'profile_picture'] }],
+  include   : [{
+    model: User, as: 'user', required: false,
+    attributes: ['id', 'name', 'username', 'profile_picture'],
+  }],
 };
 
 // ── Serialisation ─────────────────────────────────────────────────────────────
@@ -125,7 +130,9 @@ function serialize(game, viewerId = null) {
   json.slot_time_from = booking?.slot_time_from ?? null;
   json.slot_time_to   = booking?.slot_time_to ?? null;
   json.host_name      = json.hostedByUser?.name ?? json.hostedByOwner?.name ?? null;
+  json.host_username  = json.hostedByUser?.username ?? null;
   json.host_avatar    = json.hostedByUser?.profile_picture ?? null;
+  json.host_user_id   = hostUserId;
 
   json.status = derivedStatus(json, booking, seated.length, seats);
 
@@ -264,6 +271,27 @@ function findGameWhole(id, options = {}) {
   });
 }
 
+/**
+ * Load a known set of games, whole and in order.
+ *
+ * The second half of every paged game query, and the reason it is a function:
+ * asking for `GAME_INCLUDES` and a `limit` in one go makes Sequelize wrap the
+ * query in a subquery that selects only the `games` table, and the nested
+ * booking → groundSport → sport join then has no column to resolve against —
+ * "no such column: booking.groundSport.sport_id". Every list therefore picks
+ * its page of ids first and calls this to fill them in.
+ *
+ * `IN (…)` does not preserve order, so the caller's ordering is reapplied here.
+ */
+function findGamesByIds(ids, order) {
+  if (!ids || ids.length === 0) return Promise.resolve([]);
+  return Game.findAll({
+    where  : { id: ids },
+    include: [HOST_INCLUDE, PARTICIPANTS_INCLUDE, BOOKING_INCLUDE],
+    ...(order ? { order } : {}),
+  });
+}
+
 module.exports = {
   GAME_LEVELS,
   dateWindow,
@@ -279,4 +307,5 @@ module.exports = {
   derivedStatus,
   isJoinable,
   findGameWhole,
+  findGamesByIds,
 };

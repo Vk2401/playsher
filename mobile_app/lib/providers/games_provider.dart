@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../models/game_filters.dart';
 import '../models/game_model.dart';
+import 'auth_provider.dart';
 
 // ── Discover ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,16 @@ final myGamesProvider =
   return GameModel.listFromJson(list);
 });
 
+/// Games I have been invited to and not yet answered.
+///
+/// Its own list rather than a corner of "My games": an invitation is a question
+/// somebody asked, and one buried among games you are already in is a question
+/// nobody answers.
+final gameInvitesProvider = FutureProvider<List<GameModel>>((ref) async {
+  final res = await ApiClient.getGameInvites();
+  return GameModel.listFromJson(res['data'] as List<dynamic>? ?? []);
+});
+
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 /// Taking and giving back a seat.
@@ -70,6 +81,21 @@ class GameActions extends StateNotifier<GameActionState> {
         _invalidate(gameId);
       });
 
+  /// Answer an invitation — accept takes the seat, decline releases it.
+  ///
+  /// Accepting is subject to the same capacity check as joining: an invitation
+  /// is a question, not a reserved seat, so a game that filled up while it sat
+  /// unread refuses and says so.
+  Future<void> respondToInvite(int gameId, {required String status}) =>
+      _run(gameId, () async {
+        final userId = _ref.read(authProvider).user?.id;
+        if (userId == null) {
+          throw StateError('Sign in to answer an invitation.');
+        }
+        await ApiClient.respondToGameInvite(gameId, userId, status);
+        _invalidate(gameId);
+      });
+
   /// Call off a game I host. The booking is untouched.
   Future<void> cancel(int gameId) => _run(gameId, () async {
         await ApiClient.cancelGame(gameId);
@@ -95,6 +121,7 @@ class GameActions extends StateNotifier<GameActionState> {
     _ref.invalidate(gameDetailProvider(gameId));
     _ref.invalidate(gamesProvider);
     _ref.invalidate(myGamesProvider);
+    _ref.invalidate(gameInvitesProvider);
   }
 }
 
