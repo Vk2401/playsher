@@ -106,10 +106,18 @@ class StickyBottomBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
               ],
+              // Always `Expanded`, never `flex: 0`. A zero flex makes RenderFlex
+              // treat the child as non-flexible and lay it out with an
+              // unbounded main axis, and the `width: double.infinity` this
+              // used to carry then forced an infinite width — an assertion in
+              // debug, and a collapsed, invisible button in release. Every bar
+              // without a price (Save changes, Publish game, Book Coach,
+              // Request session) had no working button because of it.
+              //
+              // With flex 1 the button takes whatever the price and the secure
+              // note leave, which is the whole bar when there is neither.
               Expanded(
-                flex: price != null ? 1 : 0,
                 child: SizedBox(
-                  width: price == null ? double.infinity : null,
                   height: 52,
                   child: ElevatedButton(
                     onPressed: isLoading ? null : onPressed,
