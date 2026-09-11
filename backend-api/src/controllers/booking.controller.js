@@ -6,6 +6,7 @@ const { releaseExpiredHolds, cancelBookingAndReleaseSlots, holdDeadline } = requ
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { splitPayment } = require('../utils/pricing');
 const { isPastSlot } = require('../utils/appTime');
+const { notifyGroundOwnerOfBooking } = require('../utils/notify');
 
 
 /**
@@ -216,6 +217,13 @@ exports.create = async (req, res) => {
 
     await t.commit();
 
+    // Only a booking that needs no payment is live the moment it is created;
+    // anything else is `pending` and may be swept away in five minutes, so its
+    // owner is told at the point the money lands, not here.
+    if (!money.requiresPayment) {
+      await notifyGroundOwnerOfBooking(booking, 'booked');
+    }
+
     const responseData = booking.toJSON();
     if (money.requiresPayment) {
       responseData.requires_payment = true;
@@ -250,6 +258,11 @@ exports.cancel = async (req, res) => {
     await cancelBookingAndReleaseSlots(
       { sequelize, BookedSlot, Slot }, booking, cancellation_reason,
     );
+
+    // The venue has an hour back that it thought was sold. Not inside the
+    // release transaction: that one is about slots, and it is already
+    // committed by the time this runs.
+    await notifyGroundOwnerOfBooking(booking, 'cancelled');
 
     return success(res, 'Booking cancelled.', booking);
   } catch (err) {

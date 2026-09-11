@@ -1,6 +1,7 @@
 const { Payment, Booking, User } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
+const { notifyGroundOwnerOfBooking } = require('../utils/notify');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
@@ -97,6 +98,10 @@ exports.create = async (req, res) => {
       // reclaim it.
       hold_expires_at: null,
     });
+
+    // Confirmed — now the owner has a fixture to plan for.
+    await notifyGroundOwnerOfBooking(booking, 'booked');
+
     return success(res, 'Payment recorded.', payment, 201);
   } catch (err) {
     return error(res, err.message, 500);
@@ -206,6 +211,7 @@ exports.verifyRazorpayPayment = async (req, res) => {
       // reclaim it.
       hold_expires_at: null,
     });
+      await notifyGroundOwnerOfBooking(booking, 'booked');
     }
 
     return success(res, 'Payment verified successfully.', { payment, booking });
