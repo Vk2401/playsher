@@ -7,7 +7,7 @@ const {
   sequelize,
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
   Sport, Amenity, Slot, Booking, BookedSlot, User, Game, Payment,
-  Coach, CoachGround, CoachBooking,
+  Coach, CoachGround, CoachBooking, BankDetails,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
@@ -589,6 +589,128 @@ exports.collectAtGround = async (req, res) => {
 
     await booking.reload();
     return success(res, 'Payment recorded.', booking);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+
+// ── Settlements ───────────────────────────────────────────────────────────────
+
+/**
+ * GET /ground-owner/settlements — what this venue has earned, and what is owed.
+ *
+ * The admin panel has had `GET /admin/vendors` since the beginning; the owner
+ * had no equivalent, so the person actually waiting for the money was the one
+ * who could not see it.
+ *
+ * Read through `Payment.booking_id` rather than `bookings.payment_id`, because
+ * a pay-at-ground booking has **two** payments — the 10% advance taken online
+ * and the balance recorded at the gate — and a single `payment_id` column can
+ * only point at one of them. Going the other way counts both.
+ *
+ * The split that matters to an owner is not paid/unpaid but *where the money
+ * is*: cash they already hold, versus online money sitting with Playsher that
+ * still has to reach their bank.
+ */
+exports.listSettlements = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+
+    const groundIds = await ownedGroundIds(req.user.id);
+    const empty = {
+      online_total: 0, online_paid_out: 0, online_awaiting: 0,
+      cash_collected: 0, payment_count: 0, payout_state: 'no_vendor',
+    };
+    if (groundIds.length === 0) {
+      return success(res, 'Settlements retrieved.', { summary: empty, payments: [] },
+        200, paginationMeta(0, page, limit));
+    }
+
+    // Money is only real once the payment succeeded. A pending or failed
+    // attempt is not earnings and must never appear in a total an owner plans
+    // around.
+    const scope = {
+      model  : Booking,
+      as     : 'bookingRecord',
+      required: true,
+      attributes: ['id', 'booking_reference', 'slot_date', 'slot_time_from', 'status'],
+      include: [{
+        model: GroundSport, as: 'groundSport', required: true, attributes: ['id'],
+        where: { ground_id: { [Op.in]: groundIds } },
+        include: [
+          { model: Ground, as: 'ground', attributes: ['id', 'name'] },
+          { model: Sport,  as: 'sport',  attributes: ['id', 'name'] },
+        ],
+      }],
+    };
+
+    const { count, rows } = await Payment.findAndCountAll({
+      where  : { payment_status: 'success' },
+      include: [scope],
+      limit, offset, distinct: true,
+      order  : [['payment_timestamp', 'DESC'], ['id', 'DESC']],
+    });
+
+    // Totals span every payment, not just this page — an owner reading "owed"
+    // off page 1 of 4 would plan around a quarter of their money.
+    const all = await Payment.findAll({
+      where     : { payment_status: 'success' },
+      include   : [{ ...scope, attributes: ['id'] }],
+      attributes: ['amount', 'payment_mode', 'vendor_payout_status'],
+    });
+
+    const num = (v) => parseFloat(v) || 0;
+    const online = all.filter((p) => p.payment_mode === 'online');
+    const summary = {
+      online_total   : online.reduce((t, p) => t + num(p.amount), 0),
+      online_paid_out: online.filter((p) => p.vendor_payout_status === 'transferred')
+                             .reduce((t, p) => t + num(p.amount), 0),
+      cash_collected : all.filter((p) => p.payment_mode === 'offline')
+                          .reduce((t, p) => t + num(p.amount), 0),
+      payment_count  : all.length,
+    };
+    summary.online_awaiting = summary.online_total - summary.online_paid_out;
+
+    // `vendor_payout_status` is an admin-written column and nothing sets it
+    // automatically, so on its own it reads "pending" for ever — including for
+    // an owner whose money cannot move because Playsher has no account to send
+    // it to. That one state is a fact we can check here, so it is *derived* for
+    // display rather than written back: the stored column stays the admin's
+    // record of what they actually did.
+    const bank = await BankDetails.findOne({
+      where: { user_id: req.user.id, user_type: 'ground_owner' },
+      attributes: ['id'],
+    });
+    summary.has_bank_details = Boolean(bank);
+    summary.payout_state = !bank && summary.online_awaiting > 0
+      ? 'no_bank_details'
+      : (summary.online_awaiting > 0 ? 'pending' : 'settled');
+
+    const payments = rows.map((p) => {
+      const b  = p.bookingRecord;
+      const gs = b?.groundSport;
+      return {
+        id                  : p.id,
+        amount              : num(p.amount),
+        payment_mode        : p.payment_mode,
+        payment_method      : p.payment_method,
+        payment_timestamp   : p.payment_timestamp,
+        // Cash never needed a payout — the owner already holds it. Reporting
+        // it as "pending" would inflate what looks outstanding.
+        vendor_payout_status: p.payment_mode === 'offline'
+          ? 'collected_at_ground'
+          : (!bank ? 'no_bank_details' : p.vendor_payout_status),
+        booking_id          : b?.id ?? null,
+        booking_reference   : b?.booking_reference ?? null,
+        slot_date           : b?.slot_date ?? null,
+        slot_time_from      : b?.slot_time_from ?? null,
+        booking_status      : b?.status ?? null,
+        ground_name         : gs?.ground?.name ?? null,
+        sport_name          : gs?.sport?.name ?? null,
+      };
+    });
+
+    return success(res, 'Settlements retrieved.', { summary, payments },
+      200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };
 

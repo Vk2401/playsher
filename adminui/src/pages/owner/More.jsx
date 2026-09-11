@@ -2,6 +2,7 @@ import { Avatar, Box, ButtonBase, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined'
 import SportsOutlinedIcon from '@mui/icons-material/SportsOutlined'
 import EmojiEventsOutlinedIcon from '@mui/icons-material/EmojiEventsOutlined'
@@ -65,6 +66,11 @@ export default function OwnerMore() {
       </ButtonBase>
 
       <Group title="Money">
+        <ListRow
+          icon={PaymentsOutlinedIcon}
+          label="Earnings & payouts"
+          onClick={() => navigate('/owner/settlements')}
+        />
         <ListRow
           icon={AccountBalanceOutlinedIcon}
           label="Bank & UPI for payouts"

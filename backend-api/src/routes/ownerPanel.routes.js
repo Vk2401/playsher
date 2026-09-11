@@ -584,6 +584,38 @@ router.patch ('/bookings/:id/cancel', ...owner, op.cancelBooking);
  */
 router.post  ('/bookings/:id/collect', ...owner, op.collectAtGround);
 
+// ── Settlements ───────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /ground-owner/settlements:
+ *   get:
+ *     tags: [OwnerPanel]
+ *     summary: What my grounds have earned, and what is still owed to me
+ *     description: >
+ *       The owner-scoped counterpart to `/admin/vendors`. Lists every
+ *       successful payment taken on this owner's grounds, plus totals that
+ *       span all pages.
+ *
+ *
+ *       Split by where the money actually is: `cash_collected` the owner
+ *       already holds, `online_awaiting` is sitting with Playsher and still has
+ *       to reach their bank. `payout_state` is derived, not stored — an owner
+ *       with no bank details on file reads `no_bank_details` rather than the
+ *       stored column's perpetual "pending", because that is the one payout
+ *       state we can establish as fact and the one that asks them to act.
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200: { description: Summary totals and the payment list }
+ *       403: { description: Ground owner role required }
+ */
+router.get  ('/settlements', ...owner, op.listSettlements);
+
 // ── Games ─────────────────────────────────────────────────────────────────────
 /**
  * @swagger

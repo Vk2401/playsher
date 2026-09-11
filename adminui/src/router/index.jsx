@@ -34,6 +34,7 @@ import OwnerMyGround from '../pages/owner/MyGround.jsx'
 import OwnerMore from '../pages/owner/More.jsx'
 import OwnerNotifications from '../pages/owner/Notifications.jsx'
 import OwnerBookings from '../pages/owner/Bookings.jsx'
+import OwnerSettlements from '../pages/owner/Settlements.jsx'
 import OwnerGames from '../pages/owner/Games.jsx'
 import OwnerBankDetails from '../pages/owner/BankDetails.jsx'
 import OwnerProfile from '../pages/owner/Profile.jsx'
@@ -126,6 +127,7 @@ export default function AppRouter() {
           <Route path="coach-requests" element={<OwnerCoachRequests />} />
           <Route path="coach-sessions" element={<OwnerCoachSessions />} />
           <Route path="bank-details" element={<OwnerBankDetails />} />
+          <Route path="settlements" element={<OwnerSettlements />} />
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="notifications" element={<OwnerNotifications />} />
         </Route>
