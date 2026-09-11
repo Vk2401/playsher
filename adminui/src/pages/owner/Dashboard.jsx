@@ -165,7 +165,7 @@ export default function OwnerToday() {
       ) : next ? (
         <Box
           sx={{
-            borderRadius: 1, p: 2.25, color: 'primary.contrastText',
+            borderRadius: 1, p: 2.75, color: 'primary.contrastText',
             background: `linear-gradient(145deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
           }}
         >
@@ -175,11 +175,11 @@ export default function OwnerToday() {
               <Typography variant="caption" fontWeight={700} color="inherit">{nextLabel}</Typography>
             </Box>
           </Stack>
-          <Typography variant="h5" fontWeight={800} mt={1} color="inherit">{bookingInfo(next).customer}</Typography>
+          <Typography variant="h5" fontWeight={800} mt={1.5} color="inherit">{bookingInfo(next).customer}</Typography>
           <Typography variant="body2" sx={{ opacity: 0.92 }}>
             {clock(next.slot_time_from)} – {clock(next.slot_time_to)} · {bookingInfo(next).sport}
           </Typography>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} spacing={1}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2.75} spacing={1.5}>
             <Typography variant="body2" fontWeight={700} color="inherit">
               {bookingMoney(next).balance > 0 ? `Collect ${rupee(bookingMoney(next).balance)} at ground` : next.status === 'pending' ? 'Customer is paying now' : 'Fully paid online'}
             </Typography>
@@ -196,24 +196,27 @@ export default function OwnerToday() {
           </Stack>
         </Box>
       ) : (
-        <Card sx={{ p: 2.25 }}>
+        <Card sx={{ p: 2.75 }}>
           <Typography fontWeight={700}>No more bookings today</Typography>
           <Typography variant="body2" color="text.secondary">New bookings show up here as soon as customers book.</Typography>
         </Card>
       )}
 
-      {/* Today in numbers */}
-      <Stack direction="row" spacing={1.25} mt={1.5}>
+      {/* Today in numbers.
+          mt 2.5, not 1.5: a saturated full-width block reads as heavier than a
+          plain card, so the same gap that looks right between two white cards
+          leaves the tiles stuck to the bottom of the hero. */}
+      <Stack direction="row" spacing={1.25} mt={2.5}>
         {[
           { label: 'Bookings', value: active.length, color: 'text.primary' },
           { label: 'Paid online', value: rupee(paidOnline), color: 'primary.dark' },
           { label: 'At ground', value: rupee(atGround), color: 'warning.dark' },
         ].map((s) => (
-          <Card key={s.label} sx={{ flex: 1, p: 1.5, minWidth: 0 }}>
-            <Typography variant="caption" color="text.secondary" fontWeight={500}>{s.label}</Typography>
+          <Card key={s.label} sx={{ flex: 1, px: 1.75, py: 1.5, minWidth: 0 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={500} display="block" noWrap>{s.label}</Typography>
             {loading
               ? <Skeleton width="70%" height={28} />
-              : <Typography fontWeight={800} fontSize={18} color={s.color} noWrap>{s.value}</Typography>}
+              : <Typography fontWeight={800} fontSize={19} color={s.color} noWrap sx={{ mt: 0.35, fontVariantNumeric: 'tabular-nums' }}>{s.value}</Typography>}
           </Card>
         ))}
       </Stack>
