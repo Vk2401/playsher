@@ -90,7 +90,12 @@ export default function OwnerMyGround() {
             sx={{
               mt: 2, minHeight: 44, bgcolor: 'action.hover', borderRadius: 1, p: 0.5,
               '& .MuiTabs-indicator': { height: '100%', borderRadius: 1, bgcolor: 'background.paper', zIndex: 0, boxShadow: 1 },
-              '& .MuiTab-root': { zIndex: 1, minHeight: 36, fontWeight: 600, textTransform: 'none' },
+              // "Sports & price" wrapped onto two lines at phone width and
+              // pushed the whole segmented control taller than its siblings.
+              '& .MuiTab-root': {
+                zIndex: 1, minHeight: 36, fontWeight: 600, textTransform: 'none',
+                whiteSpace: 'nowrap', fontSize: { xs: 13, sm: 14 }, minWidth: 0, px: 1,
+              },
             }}
           >
             <Tab label="Slots" />

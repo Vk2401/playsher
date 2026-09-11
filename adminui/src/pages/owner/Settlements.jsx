@@ -68,16 +68,21 @@ export default function OwnerSettlements() {
             </Banner>
           )}
 
-          <Stack direction="row" spacing={1.25} sx={{ mb: 2 }}>
-            <Money label="Cash you took" value={summary.cash_collected} hint="At the ground" />
-            <Money
+          {/* One card of rows, not three tiles side by side. At phone width
+              three columns left each figure about 100px, so "Cash you took"
+              wrapped, "₹2,700" shrank, and three bordered boxes competed with
+              the banner above them. Read down, these are three answers to the
+              same question. */}
+          <Card sx={{ px: 2, py: 0.5, mb: 2 }}>
+            <MoneyRow label="Cash you took" hint="At the ground" value={summary.cash_collected} />
+            <MoneyRow
               label="Coming to you"
+              hint="Paid online, not sent yet"
               value={summary.online_awaiting}
-              hint="Paid online"
               tone={summary.online_awaiting > 0 ? 'warning' : undefined}
             />
-            <Money label="Already sent" value={summary.online_paid_out} hint="To your bank" />
-          </Stack>
+            <MoneyRow label="Already sent" hint="To your bank" value={summary.online_paid_out} last />
+          </Card>
 
           <SectionTitle>Every payment</SectionTitle>
           {payments.length === 0 ? (
@@ -99,20 +104,28 @@ export default function OwnerSettlements() {
   )
 }
 
-function Money({ label, value, hint, tone }) {
+function MoneyRow({ label, hint, value, tone, last }) {
   return (
-    <Card sx={{ flex: 1, p: 1.75, minWidth: 0 }}>
-      <Typography variant="caption" color="text.secondary" noWrap>{label}</Typography>
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="space-between"
+      spacing={2}
+      sx={{ py: 1.5, borderBottom: last ? 0 : '1px solid', borderColor: 'divider' }}
+    >
+      <Box minWidth={0}>
+        <Typography fontWeight={600} sx={{ lineHeight: 1.3 }}>{label}</Typography>
+        <Typography variant="caption" color="text.secondary">{hint}</Typography>
+      </Box>
       <Typography
         variant="h6"
         fontWeight={700}
         color={tone === 'warning' && value > 0 ? 'warning.dark' : 'text.primary'}
-        sx={{ lineHeight: 1.2, mt: 0.25 }}
+        sx={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
       >
         {rupee(value)}
       </Typography>
-      <Typography variant="caption" color="text.secondary" noWrap>{hint}</Typography>
-    </Card>
+    </Stack>
   )
 }
 

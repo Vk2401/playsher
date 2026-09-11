@@ -11,7 +11,7 @@ import DateStrip from '../../components/owner/DateStrip.jsx'
 import BookingCard from '../../components/owner/BookingCard.jsx'
 import BookingSheet from '../../components/owner/BookingSheet.jsx'
 import { Banner, Card, EmptyNote, FilterChips } from '../../components/owner/OwnerBits.jsx'
-import { bookingMoney, bookingStart, dayLabel, isUpcoming, rupee, todayYmd, unwrapList, ymd } from '../../components/owner/ownerFormat.js'
+import { bookingMoney, bookingStart, isUpcoming, rupee, todayYmd, unwrapList, ymd } from '../../components/owner/ownerFormat.js'
 import { useOwnerGround } from '../../contexts/OwnerGroundContext.jsx'
 import { bookingsApi } from '../../api/bookings.js'
 
@@ -111,14 +111,23 @@ export default function OwnerBookings() {
 
       {!searching && <DateStrip value={date} onChange={setDate} from={STRIP_FROM} to={STRIP_TO} counts={counts} />}
 
-      <Box mt={1.5}>
-        <FilterChips options={options} value={filter} onChange={setFilter} />
-      </Box>
+      {/* One chip is not a filter. With a single option this row was a lone
+          "All 0" pill sitting under the date strip, adding a line and saying
+          nothing. */}
+      {options.length > 1 && (
+        <Box mt={1.5}>
+          <FilterChips options={options} value={filter} onChange={setFilter} />
+        </Box>
+      )}
 
-      <Typography variant="body2" color="text.secondary" mt={1.5} mb={1}>
+      {/* The strip above already names the day; repeating "Today, 11 September
+          2026" under it spent a line restating the selected chip. This line
+          now carries only what the strip cannot: how many, and how much is
+          still to collect. */}
+      <Typography variant="body2" color="text.secondary" mt={1.75} mb={1.25}>
         {searching
           ? `${rows.length} result${rows.length === 1 ? '' : 's'} for “${term}”`
-          : `${dayLabel(date)}, ${dayjs(date).format('D MMMM YYYY')}`}
+          : `${rows.length} booking${rows.length === 1 ? '' : 's'}`}
         {toCollect > 0 && (
           <Typography component="span" variant="body2" fontWeight={700} color="warning.dark"> · {rupee(toCollect)} to collect</Typography>
         )}

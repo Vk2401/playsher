@@ -54,32 +54,45 @@ export function Card({ children, sx, ...rest }) {
 export function ScreenHeader({ title, subtitle, back, right, children }) {
   const navigate = useNavigate()
   return (
-    <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1} mb={2}>
-      <Stack direction="row" alignItems="center" spacing={0.5} minWidth={0}>
-        {back && (
-          <IconButton
-            onClick={() => (typeof back === 'string' ? navigate(back) : navigate(-1))}
-            aria-label="Back"
-            sx={{ ml: -1 }}
-          >
-            <ArrowBackIosNewIcon fontSize="small" />
-          </IconButton>
-        )}
-        <Box minWidth={0}>
+    // The back arrow sits on the title's own line rather than beside the whole
+    // block: with a subtitle under it, centring against both lines floated the
+    // arrow into the gap between them and read as a rendering fault.
+    <Box mb={2}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        <Stack direction="row" alignItems="center" spacing={0.25} minWidth={0}>
+          {back && (
+            <IconButton
+              onClick={() => (typeof back === 'string' ? navigate(back) : navigate(-1))}
+              aria-label="Back"
+              size="small"
+              sx={{ ml: -0.5, mr: 0.25, flexShrink: 0 }}
+            >
+              <ArrowBackIosNewIcon sx={{ fontSize: 17 }} />
+            </IconButton>
+          )}
           {children ?? (
-            <Typography variant="h5" fontWeight={800} noWrap>
+            <Typography
+              variant="h6"
+              fontWeight={700}
+              noWrap
+              sx={{ fontSize: { xs: 20, sm: 23 }, letterSpacing: '-0.01em', minWidth: 0 }}
+            >
               {title}
             </Typography>
           )}
-          {subtitle && (
-            <Typography variant="body2" color="text.secondary">
-              {subtitle}
-            </Typography>
-          )}
-        </Box>
+        </Stack>
+        {right}
       </Stack>
-      {right}
-    </Stack>
+      {subtitle && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mt: 0.25, ml: back ? 3.5 : 0 }}
+        >
+          {subtitle}
+        </Typography>
+      )}
+    </Box>
   )
 }
 

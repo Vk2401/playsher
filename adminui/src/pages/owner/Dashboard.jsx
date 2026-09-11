@@ -146,9 +146,9 @@ export default function OwnerToday() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
         <GroundSwitcher greeting={greeting} />
-        <IconButton onClick={() => navigate('/owner/notifications')} aria-label="Notifications" sx={{ mt: 0.5 }}>
+        <IconButton onClick={() => navigate('/owner/notifications')} aria-label="Notifications" sx={{ mt: -0.5, flexShrink: 0 }}>
           <Badge color="warning" badgeContent={unread} max={9}>
             <NotificationsNoneIcon />
           </Badge>
