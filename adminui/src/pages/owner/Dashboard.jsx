@@ -1,281 +1,286 @@
-import React, { useMemo } from 'react'
-import { Grid, Box, Paper, Typography } from '@mui/material'
+import { useMemo, useState } from 'react'
+import { Badge, Box, Button, IconButton, Skeleton, Stack, Typography } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useQuery } from '@tanstack/react-query'
-import { useTheme } from '@mui/material/styles'
+import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
+
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'
+import PhoneIcon from '@mui/icons-material/Phone'
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined'
+import HourglassTopIcon from '@mui/icons-material/HourglassTop'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined'
+import StadiumOutlinedIcon from '@mui/icons-material/StadiumOutlined'
+
+import GroundSwitcher from '../../components/owner/GroundSwitcher.jsx'
+import BookingCard from '../../components/owner/BookingCard.jsx'
+import BookingSheet from '../../components/owner/BookingSheet.jsx'
+import GroundFormSheet from '../../components/owner/GroundFormSheet.jsx'
+import { Banner, Card, EmptyNote, SectionTitle } from '../../components/owner/OwnerBits.jsx'
 import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
-
-import PageHeader from '../../components/ui/PageHeader.jsx'
-import StatCard from '../../components/ui/StatCard.jsx'
-import StatusChip from '../../components/ui/StatusChip.jsx'
-import DataTable from '../../components/ui/DataTable.jsx'
+  bookingEnd, bookingInfo, bookingMoney, bookingStart, clock, isUpcoming, rupee, telHref, todayYmd, unwrapList, ymd,
+} from '../../components/owner/ownerFormat.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { groundsApi } from '../../api/grounds.js'
+import { useOwnerGround } from '../../contexts/OwnerGroundContext.jsx'
+import { usePendingCoachRequests, useUnreadNotifications } from '../../hooks/useOwnerCounts.js'
 import { bookingsApi } from '../../api/bookings.js'
+import { bankDetailsApi } from '../../api/bankDetails.js'
 
-import LocationOnIcon from '@mui/icons-material/LocationOn'
-import BookOnlineIcon from '@mui/icons-material/BookOnline'
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
-import EventAvailableIcon from '@mui/icons-material/EventAvailable'
-
-// Recent bookings table columns
-const recentColumns = [
-  { field: 'id', headerName: 'ID', width: 60 },
-  {
-    field: 'user_name',
-    headerName: 'Customer',
-    flex: 1,
-    minWidth: 130,
-    renderCell: ({ row }) =>
-      row.user?.name ?? row.user_name ?? '—',
-  },
-  {
-    field: 'ground_name',
-    headerName: 'Ground',
-    flex: 1,
-    minWidth: 130,
-    renderCell: ({ row }) =>
-      row.ground?.name ?? row.ground_name ?? '—',
-  },
-  {
-    field: 'amount',
-    headerName: 'Amount',
-    width: 110,
-    renderCell: ({ row }) => {
-      const amt = row.payment?.amount ?? row.amount
-      return amt != null ? `₹ ${Number(amt).toLocaleString()}` : '—'
-    },
-  },
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 120,
-    renderCell: ({ value }) => <StatusChip status={value ?? 'pending'} />,
-  },
-  {
-    field: 'created_at',
-    headerName: 'Date',
-    width: 120,
-    renderCell: ({ value }) =>
-      value ? dayjs(value).format('DD MMM YYYY') : '—',
-  },
-]
-
-export default function OwnerDashboard() {
+/**
+ * Today — the owner's home screen.
+ *
+ * Answers the questions an owner has when they open the app at the ground:
+ * who is next, how much cash do I collect, and is anything waiting on me.
+ * The old analytics dashboard is replaced by a simple last-7-days card.
+ */
+export default function OwnerToday() {
   const theme = useTheme()
-  const primary = theme.palette.primary.main
+  const navigate = useNavigate()
   const { user } = useAuth()
+  const { ground, groundId, grounds, isLoading: groundsLoading } = useOwnerGround()
+  const pendingCoach = usePendingCoachRequests()
+  const unread = useUnreadNotifications()
+  const [open, setOpen] = useState(null)
+  const [adding, setAdding] = useState(false)
 
-  // ── Queries ───────────────────────────────────────────────────────────────
-  const { data: groundsData, isLoading: gLoad } = useQuery({
-    queryKey: ['owner', 'grounds'],
-    queryFn: () => groundsApi.getOwnerGrounds(),
-    select: (res) => res.data,
+  const today = todayYmd()
+  const weekFrom = ymd(dayjs().subtract(6, 'day'))
+
+  const todayQ = useQuery({
+    queryKey: ['owner', 'bookings', { date: today, ground_id: groundId }],
+    queryFn: () => bookingsApi.getOwnerBookings({ date: today, ground_id: groundId, limit: 100 }),
+    select: unwrapList,
+    enabled: Boolean(groundId),
+    refetchInterval: 60_000,
   })
 
-  const { data: bookingsData, isLoading: bLoad } = useQuery({
-    queryKey: ['owner', 'bookings'],
-    queryFn: () => bookingsApi.getOwnerBookings(),
-    select: (res) => res.data,
+  const weekQ = useQuery({
+    queryKey: ['owner', 'bookings', { date_from: weekFrom, date_to: today, ground_id: groundId }],
+    queryFn: () => bookingsApi.getOwnerBookings({ date_from: weekFrom, date_to: today, ground_id: groundId, limit: 100 }),
+    select: unwrapList,
+    enabled: Boolean(groundId),
   })
 
-  const grounds = useMemo(
-    () => groundsData?.grounds ?? groundsData?.data ?? [],
-    [groundsData],
-  )
-  const bookings = useMemo(
-    () => bookingsData?.bookings ?? bookingsData?.data ?? [],
-    [bookingsData],
-  )
+  const bankQ = useQuery({
+    queryKey: ['owner', 'bank-details'],
+    queryFn: () => bankDetailsApi.get(),
+    select: (res) => res.data?.bank_details || res.data?.data || null,
+  })
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
-  const pendingBookings = useMemo(
-    () => bookings.filter((b) => b.status === 'pending').length,
-    [bookings],
+  const todays = useMemo(
+    () => [...(todayQ.data ?? [])].sort((a, b) => bookingStart(a) - bookingStart(b)),
+    [todayQ.data],
   )
+  const active = todays.filter((b) => b.status !== 'cancelled')
+  const next = todays.find((b) => isUpcoming(b) && bookingStart(b).isAfter(dayjs()))
+    ?? todays.find((b) => isUpcoming(b))
+  const paidOnline = active.reduce((s, b) => s + bookingMoney(b).paidOnline, 0)
+  const atGround = active.reduce((s, b) => s + bookingMoney(b).balance, 0)
+  const awaiting = todays.filter((b) => b.status === 'pending')
 
-  const totalRevenue = useMemo(
-    () =>
-      bookings
-        .filter((b) => b.status === 'completed' || b.payment?.status === 'success')
-        .reduce((sum, b) => sum + parseFloat(b.payment?.amount ?? b.amount ?? 0), 0),
-    [bookings],
-  )
-
-  const activeSlots = useMemo(
-    () =>
-      grounds.reduce((sum, g) => sum + (g.active_slots_count ?? 0), 0),
-    [grounds],
-  )
-
-  // ── Chart data ────────────────────────────────────────────────────────────
-  const bookingChartData = useMemo(() => {
-    return Array.from({ length: 14 }, (_, i) => {
-      const date = dayjs().subtract(13 - i, 'day')
-      const label = date.format('MMM D')
-      const count = bookings.filter(
-        (b) =>
-          dayjs(b.created_at).format('YYYY-MM-DD') === date.format('YYYY-MM-DD'),
-      ).length
-      return { date: label, count }
-    })
-  }, [bookings])
-
-  const revenuePerGround = useMemo(() => {
-    const map = {}
-    bookings.forEach((b) => {
-      const gid = b.ground_id ?? b.ground?.id
-      const gname = b.ground?.name ?? `Ground #${gid}`
-      const amt = parseFloat(b.payment?.amount ?? b.amount ?? 0)
-      if (gid) {
-        if (!map[gid]) map[gid] = { name: gname.slice(0, 18), revenue: 0 }
-        if (b.status === 'completed' || b.payment?.status === 'success') {
-          map[gid].revenue += amt
-        }
+  const week = useMemo(() => {
+    const rows = (weekQ.data ?? []).filter((b) => b.status !== 'cancelled')
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = dayjs().subtract(6 - i, 'day')
+      const key = ymd(d)
+      const dayRows = rows.filter((b) => ymd(b.slot_date) === key)
+      return {
+        day: i === 6 ? 'Today' : d.format('dd'),
+        bookings: dayRows.length,
+        earned: dayRows.reduce((s, b) => s + bookingMoney(b).total, 0),
       }
     })
-    return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 6)
-  }, [bookings])
+  }, [weekQ.data])
+  const weekTotal = week.reduce((s, d) => s + d.earned, 0)
+  const weekCount = week.reduce((s, d) => s + d.bookings, 0)
 
-  const recentBookings = useMemo(
-    () => [...bookings].sort((a, b) => dayjs(b.created_at).diff(dayjs(a.created_at))).slice(0, 5),
-    [bookings],
-  )
+  const hour = dayjs().hour()
+  const greeting = `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}${user?.name ? `, ${user.name.split(' ')[0]}` : ''}`
 
-  const stats = [
-    {
-      title: 'My Grounds',
-      value: groundsData?.total ?? grounds.length ?? '—',
-      icon: LocationOnIcon,
-      loading: gLoad,
-    },
-    {
-      title: 'Pending Bookings',
-      value: bLoad ? undefined : pendingBookings,
-      icon: BookOnlineIcon,
-      loading: bLoad,
-    },
-    {
-      title: 'Total Revenue',
-      value: bLoad ? undefined : `₹ ${totalRevenue.toLocaleString()}`,
-      icon: AttachMoneyIcon,
-      loading: bLoad,
-    },
-    {
-      title: 'Active Slots',
-      value: gLoad ? undefined : activeSlots || '—',
-      icon: EventAvailableIcon,
-      loading: gLoad,
-    },
-  ]
+  // Nothing to show until the owner has a ground.
+  if (!groundsLoading && grounds.length === 0) {
+    return (
+      <Box>
+        <Typography variant="h5" fontWeight={800} mb={1}>{greeting}</Typography>
+        <Card>
+          <EmptyNote
+            icon={StadiumOutlinedIcon}
+            title="Add your first ground"
+            text="Once Playsher approves it, customers can find it and book in the app."
+            action={<Button variant="contained" onClick={() => setAdding(true)}>Add a ground</Button>}
+          />
+        </Card>
+        <GroundFormSheet open={adding} onClose={() => setAdding(false)} />
+      </Box>
+    )
+  }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const attention = []
+  if (ground && !ground.is_approved) {
+    attention.push({ key: 'review', tone: 'warning', icon: InfoOutlinedIcon, text: 'Playsher is reviewing this ground. Customers can book it once it is approved.' })
+  }
+  if (ground && ground.is_active === false) {
+    attention.push({ key: 'closed', tone: 'error', icon: EventBusyOutlinedIcon, text: 'This ground is closed for booking.', onClick: () => navigate('/owner/my-ground') })
+  }
+  if (pendingCoach > 0) {
+    attention.push({ key: 'coach', tone: 'primary', icon: GroupsOutlinedIcon, text: `${pendingCoach} coach ${pendingCoach > 1 ? 'requests need' : 'request needs'} your answer`, onClick: () => navigate('/owner/coach-requests') })
+  }
+  awaiting.forEach((b) => attention.push({
+    key: `pay-${b.id}`, tone: 'warning', icon: HourglassTopIcon,
+    text: `${bookingInfo(b).customer} is paying for ${clock(b.slot_time_from)}`, onClick: () => setOpen(b),
+  }))
+  if (bankQ.isSuccess && !bankQ.data) {
+    attention.push({ key: 'bank', tone: 'error', icon: AccountBalanceOutlinedIcon, text: 'Add your bank details so online payments can reach you', onClick: () => navigate('/owner/bank-details') })
+  }
+
+  // Timeline with a "now" line between the past and the rest of the day.
+  const nowIndex = todays.findIndex((b) => bookingStart(b).isAfter(dayjs()))
+  const minsToNext = next ? bookingStart(next).diff(dayjs(), 'minute') : 0
+  const nextLabel = !next ? '' : minsToNext <= 0 ? 'Playing now'
+    : minsToNext < 60 ? `in ${minsToNext} min` : `at ${clock(next.slot_time_from)}`
+
+  const loading = groundsLoading || todayQ.isLoading
+
   return (
     <Box>
-      <PageHeader
-        title={`Welcome, ${user?.name ?? 'Owner'}`}
-        subtitle="Your grounds overview"
-      />
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+        <GroundSwitcher greeting={greeting} />
+        <IconButton onClick={() => navigate('/owner/notifications')} aria-label="Notifications" sx={{ mt: 0.5 }}>
+          <Badge color="warning" badgeContent={unread} max={9}>
+            <NotificationsNoneIcon />
+          </Badge>
+        </IconButton>
+      </Stack>
 
-      {/* KPI Cards */}
-      <Grid container spacing={2.5} mb={3}>
-        {stats.map((s, i) => (
-          <Grid item xs={12} sm={6} lg={3} key={i}>
-            <StatCard {...s} />
-          </Grid>
+      {/* Next booking */}
+      {loading ? (
+        <Skeleton variant="rounded" height={150} />
+      ) : next ? (
+        <Box
+          sx={{
+            borderRadius: 1, p: 2.25, color: 'primary.contrastText',
+            background: `linear-gradient(145deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+          }}
+        >
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2" fontWeight={600} sx={{ opacity: 0.9 }}>Next booking</Typography>
+            <Box sx={{ px: 1.25, py: 0.25, borderRadius: 1, bgcolor: alpha(theme.palette.common.white, 0.2) }}>
+              <Typography variant="caption" fontWeight={700} color="inherit">{nextLabel}</Typography>
+            </Box>
+          </Stack>
+          <Typography variant="h5" fontWeight={800} mt={1} color="inherit">{bookingInfo(next).customer}</Typography>
+          <Typography variant="body2" sx={{ opacity: 0.92 }}>
+            {clock(next.slot_time_from)} – {clock(next.slot_time_to)} · {bookingInfo(next).sport}
+          </Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} spacing={1}>
+            <Typography variant="body2" fontWeight={700} color="inherit">
+              {bookingMoney(next).balance > 0 ? `Collect ${rupee(bookingMoney(next).balance)} at ground` : next.status === 'pending' ? 'Customer is paying now' : 'Fully paid online'}
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              {bookingInfo(next).mobile && (
+                <IconButton href={telHref(bookingInfo(next).mobile)} aria-label="Call customer" sx={{ bgcolor: 'common.white', color: 'primary.dark', '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.9) } }}>
+                  <PhoneIcon fontSize="small" />
+                </IconButton>
+              )}
+              <Button onClick={() => setOpen(next)} sx={{ color: 'inherit', bgcolor: alpha(theme.palette.common.white, 0.18), '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.28) } }}>
+                Details
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      ) : (
+        <Card sx={{ p: 2.25 }}>
+          <Typography fontWeight={700}>No more bookings today</Typography>
+          <Typography variant="body2" color="text.secondary">New bookings show up here as soon as customers book.</Typography>
+        </Card>
+      )}
+
+      {/* Today in numbers */}
+      <Stack direction="row" spacing={1.25} mt={1.5}>
+        {[
+          { label: 'Bookings', value: active.length, color: 'text.primary' },
+          { label: 'Paid online', value: rupee(paidOnline), color: 'primary.dark' },
+          { label: 'At ground', value: rupee(atGround), color: 'warning.dark' },
+        ].map((s) => (
+          <Card key={s.label} sx={{ flex: 1, p: 1.5, minWidth: 0 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={500}>{s.label}</Typography>
+            {loading
+              ? <Skeleton width="70%" height={28} />
+              : <Typography fontWeight={800} fontSize={18} color={s.color} noWrap>{s.value}</Typography>}
+          </Card>
         ))}
-      </Grid>
+      </Stack>
 
-      {/* Charts row */}
-      <Grid container spacing={2.5} mb={3}>
-        {/* Bookings over 14 days */}
-        <Grid item xs={12} md={7}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={2}>
-              Bookings — Last 14 Days
-            </Typography>
-            <ResponsiveContainer width="100%" height={230}>
-              <AreaChart data={bookingChartData}>
-                <defs>
-                  <linearGradient id="ownerBookGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={primary} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={primary} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke={primary}
-                  fill="url(#ownerBookGrad)"
-                  strokeWidth={2}
-                  name="Bookings"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
+      {attention.length > 0 && (
+        <>
+          <SectionTitle>Needs your attention</SectionTitle>
+          {attention.map((a) => (
+            <Banner key={a.key} tone={a.tone} icon={a.icon} onClick={a.onClick}>{a.text}</Banner>
+          ))}
+        </>
+      )}
 
-        {/* Revenue per ground */}
-        <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={2}>
-              Revenue per Ground (INR)
-            </Typography>
-            <ResponsiveContainer width="100%" height={230}>
-              <BarChart data={revenuePerGround} layout="vertical">
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(0,0,0,0.06)"
-                  horizontal={false}
-                />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  tick={{ fontSize: 11 }}
-                  width={100}
-                />
-                <Tooltip formatter={(v) => [`₹ ${Number(v).toLocaleString()}`, 'Revenue']} />
-                <Bar
-                  dataKey="revenue"
-                  fill={primary}
-                  radius={[0, 6, 6, 0]}
-                  name="Revenue (INR)"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
+      <SectionTitle action="All bookings" onAction={() => navigate('/owner/bookings')}>
+        Today&apos;s schedule
+      </SectionTitle>
+      {loading && [0, 1, 2].map((i) => <Skeleton key={i} variant="rounded" height={84} sx={{ mb: 1.25 }} />)}
+      {todayQ.isError && (
+        <Banner tone="error">Could not load today&apos;s bookings. Check your internet and pull to refresh.</Banner>
+      )}
+      {!loading && !todayQ.isError && todays.length === 0 && (
+        <Card><EmptyNote icon={EventBusyOutlinedIcon} title="No bookings today" text="When customers book, they appear here." /></Card>
+      )}
+      {todays.map((b, i) => (
+        <Box key={b.id}>
+          {i === nowIndex && i > 0 && <NowLine />}
+          <BookingCard booking={b} onOpen={setOpen} dim={bookingEnd(b).isBefore(dayjs()) && b.status !== 'pending'} />
+        </Box>
+      ))}
+      {todays.length > 0 && nowIndex === -1 && <NowLine />}
 
-      {/* Recent bookings */}
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="subtitle1" fontWeight={600} mb={2}>
-          Recent Bookings
+      {/* Last 7 days — replaces the old charts */}
+      <SectionTitle>Last 7 days</SectionTitle>
+      <Card sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="space-between">
+          <Box>
+            <Typography variant="caption" color="text.secondary">Booking value</Typography>
+            <Typography fontWeight={800} fontSize={20}>{rupee(weekTotal)}</Typography>
+          </Box>
+          <Box textAlign="right">
+            <Typography variant="caption" color="text.secondary">Bookings</Typography>
+            <Typography fontWeight={800} fontSize={20}>{weekCount}</Typography>
+          </Box>
+        </Stack>
+        <Box height={120} mt={1}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={week} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: theme.palette.text.secondary }} />
+              <Tooltip
+                cursor={{ fill: alpha(theme.palette.primary.main, 0.08) }}
+                formatter={(v, name) => (name === 'earned' ? [rupee(v), 'Value'] : [v, 'Bookings'])}
+              />
+              <Bar dataKey="earned" fill={theme.palette.primary.main} radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          Total value of bookings played, online and at the ground. Cancelled bookings are left out.
         </Typography>
-        <DataTable
-          rows={recentBookings}
-          columns={recentColumns}
-          loading={bLoad}
-          pageSize={5}
-          pageSizeOptions={[5]}
-          hideFooter={recentBookings.length <= 5}
-        />
-      </Paper>
+      </Card>
+
+      <BookingSheet booking={open} onClose={() => setOpen(null)} />
     </Box>
+  )
+}
+
+function NowLine() {
+  return (
+    <Stack direction="row" alignItems="center" spacing={1} my={1}>
+      <Typography variant="caption" fontWeight={700} color="error.main">Now {dayjs().format('h:mm A')}</Typography>
+      <Box sx={{ flex: 1, height: 2, bgcolor: 'error.main', opacity: 0.4, borderRadius: 1 }} />
+    </Stack>
   )
 }

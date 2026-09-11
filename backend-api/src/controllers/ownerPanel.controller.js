@@ -366,22 +366,75 @@ exports.toggleSlot = async (req, res) => {
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
-/** GET /ground-owner/bookings */
+/**
+ * GET /ground-owner/bookings
+ *
+ * Optional filters, all additive — with none of them the query is exactly the
+ * old one (newest first), so existing callers see no change:
+ *   date=YYYY-MM-DD            bookings played on that day, ordered by start time
+ *   date_from / date_to        an inclusive range of play dates
+ *   status=confirmed,pending   one or more statuses
+ *   ground_id                  one of the owner's grounds
+ *   search                     booking reference, customer name or mobile
+ */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const BOOKING_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed'];
+
 exports.listBookings = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
+    const { date, date_from, date_to, status, ground_id, search } = req.query;
+
+    for (const [name, value] of [['date', date], ['date_from', date_from], ['date_to', date_to]]) {
+      if (value && !DATE_RE.test(value)) return error(res, `${name} must be YYYY-MM-DD.`, 422);
+    }
+
+    const where = {};
+    if (date) where.slot_date = date;
+    else if (date_from || date_to) {
+      where.slot_date = {};
+      if (date_from) where.slot_date[Op.gte] = date_from;
+      if (date_to)   where.slot_date[Op.lte] = date_to;
+    }
+    if (status) {
+      const wanted = String(status).split(',').map((s) => s.trim()).filter((s) => BOOKING_STATUSES.includes(s));
+      if (wanted.length) where.status = { [Op.in]: wanted };
+    }
+    if (search && String(search).trim()) {
+      const term = `%${String(search).trim()}%`;
+      where[Op.or] = [
+        { booking_reference: { [Op.like]: term } },
+        { '$user.name$':     { [Op.like]: term } },
+        { '$user.mobile$':   { [Op.like]: term } },
+      ];
+    }
+
+    const groundWhere = { owner_id: req.user.id };
+    if (ground_id) groundWhere.id = ground_id;
+
+    const byPlayDate = Boolean(date || date_from || date_to);
+
     await completeFinishedBookings({ Booking });
     const { count, rows } = await Booking.findAndCountAll({
+      where,
       include: [
         {
           model: GroundSport, as: 'groundSport', required: true,
-          include: [{ model: Ground, as: 'ground', where: { owner_id: req.user.id }, required: true }],
+          include: [
+            { model: Ground, as: 'ground', where: groundWhere, required: true },
+            { model: Sport,  as: 'sport',  attributes: ['id', 'name'] },
+          ],
         },
         { model: User, as: 'user', attributes: ['id', 'name', 'mobile', 'email'] },
         { model: Payment, as: 'paymentRecord', required: false },
       ],
+      // Every include is to-one, so no row multiplication — this only stops
+      // Sequelize wrapping the query in a subquery the $user.*$ search can't see.
+      subQuery: false,
       limit, offset, distinct: true,
-      order: [['created_at', 'DESC']],
+      order: byPlayDate
+        ? [['slot_date', 'ASC'], ['slot_time_from', 'ASC']]
+        : [['created_at', 'DESC']],
     });
     return success(res, 'Bookings retrieved.', rows, 200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }

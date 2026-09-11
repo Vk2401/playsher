@@ -1,312 +1,116 @@
-import React, { useMemo, useState } from 'react'
-import {
-  Box,
-  Chip,
-  FormControl,
-  Grid,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material'
+import { useMemo, useState } from 'react'
+import { Box, ButtonBase, InputAdornment, LinearProgress, Skeleton, Stack, TextField, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-
-import FilterListIcon from '@mui/icons-material/FilterList'
-import GroupsIcon from '@mui/icons-material/Groups'
-import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
-import LockIcon from '@mui/icons-material/Lock'
 import SearchIcon from '@mui/icons-material/Search'
-import SportsSoccerIcon from '@mui/icons-material/SportsSoccer'
-import VisibilityIcon from '@mui/icons-material/Visibility'
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
+import EmojiEventsOutlinedIcon from '@mui/icons-material/EmojiEventsOutlined'
 
-import PageHeader from '../../components/ui/PageHeader.jsx'
-import DataTable from '../../components/ui/DataTable.jsx'
 import GameDetailDrawer from '../../components/ui/GameDetailDrawer.jsx'
-import SeatMeter from '../../components/ui/SeatMeter.jsx'
-import StatCard from '../../components/ui/StatCard.jsx'
-import StatusChip from '../../components/ui/StatusChip.jsx'
+import { Banner, Card, EmptyNote, FilterChips, Pill, ScreenHeader } from '../../components/owner/OwnerBits.jsx'
+import { clock, dayLabel, todayYmd, ymd } from '../../components/owner/ownerFormat.js'
 import { gamesApi } from '../../api/games.js'
 
-const LEVEL_LABELS = {
-  newbie: 'Newbie',
-  beginner: 'Beginner',
-  intermediate: 'Intermediate',
-  advanced: 'Advanced',
-  professional: 'Professional',
-  ultra_professional: 'Ultra pro',
+const LEVELS = {
+  newbie: 'Newbie', beginner: 'Beginner', intermediate: 'Intermediate',
+  advanced: 'Advanced', professional: 'Professional', ultra_professional: 'Ultra pro',
 }
 
-const WHEN_OPTIONS = [
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'today', label: 'Today' },
-  { value: 'past', label: 'Past' },
-  { value: 'all', label: 'All' },
-]
-
 /**
- * Open games running at my grounds.
- *
- * Not "games I published": nearly every game is opened by a customer on their
- * own booking, and what an owner needs to know is how many people are actually
- * turning up to a slot that was sold as one. The endpoint is scoped by venue
- * for that reason, and this page reads the counts and status the API derives
- * rather than recomputing them.
- *
- * Read-only by design. A game belongs to the player who opened it; the owner's
- * lever over the slot is the booking, which lives on the Bookings page.
+ * Open games running at the owner's grounds — whoever published them — so the
+ * owner knows how many people will actually turn up. Read-only: a game belongs
+ * to the player who opened it; the owner's lever is the booking.
  */
 export default function OwnerGames() {
-  const [search, setSearch] = useState('')
   const [when, setWhen] = useState('upcoming')
+  const [search, setSearch] = useState('')
   const [detailId, setDetailId] = useState(null)
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
-  const { data, isLoading, error } = useQuery({
+  const q = useQuery({
     queryKey: ['owner', 'games'],
     queryFn: () => gamesApi.getOwnerGames({ limit: 100 }),
     select: (res) => res.data?.data ?? [],
   })
+  const all = useMemo(() => q.data ?? [], [q.data])
 
-  const all = useMemo(() => (Array.isArray(data) ? data : []), [data])
+  const today = todayYmd()
+  const matchWhen = (g, w) => {
+    const d = g.slot_date ? ymd(g.slot_date) : null
+    if (w === 'all' || !d) return true
+    if (w === 'today') return d === today
+    if (w === 'upcoming') return d >= today
+    return d < today
+  }
+  const term = search.trim().toLowerCase()
+  const rows = all
+    .filter((g) => matchWhen(g, when))
+    .filter((g) => !term || [g.game_name, g.ground_name, g.sport_name, g.host_name].filter(Boolean).some((v) => String(v).toLowerCase().includes(term)))
+    .sort((a, b) => (when === 'past' ? -1 : 1) * (dayjs(`${ymd(a.slot_date)}T${a.slot_time_from || '00:00'}`) - dayjs(`${ymd(b.slot_date)}T${b.slot_time_from || '00:00'}`)))
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const today = dayjs().format('YYYY-MM-DD')
+  const options = ['upcoming', 'today', 'past', 'all'].map((w) => ({
+    value: w, label: w[0].toUpperCase() + w.slice(1), count: all.filter((g) => matchWhen(g, w)).length,
+  }))
 
-    return all.filter((g) => {
-      const date = g.slot_date ? dayjs(g.slot_date).format('YYYY-MM-DD') : null
-      const matchWhen =
-        when === 'all' ||
-        !date ||
-        (when === 'today' && date === today) ||
-        (when === 'upcoming' && date >= today) ||
-        (when === 'past' && date < today)
+  const detail = all.find((g) => g.id === detailId) ?? null
 
-      const matchSearch =
-        !q ||
-        [g.game_name, g.ground_name, g.sport_name, g.host_name]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(q))
-
-      return matchWhen && matchSearch
-    })
-  }, [all, search, when])
-
-  // ── Summary ───────────────────────────────────────────────────────────────
-  // Scoped to what is on screen, so the filter and the tiles agree.
-  const stats = useMemo(() => {
-    const open = rows.filter((g) => g.status === 'open')
-    return {
-      games: rows.length,
-      filling: open.filter((g) => g.spots_left > 0 && g.spots_left <= 2).length,
-      players: rows.reduce((sum, g) => sum + (g.joined_count ?? 0), 0),
-    }
-  }, [rows])
-
-  // The owner endpoint has no by-id route and its rows already carry the
-  // participants, so the drawer reads the row that is on screen rather than
-  // firing a second request for data the page is holding.
-  const detail = useMemo(
-    () => all.find((g) => g.id === detailId) ?? null,
-    [all, detailId],
-  )
-
-  // ── Columns ───────────────────────────────────────────────────────────────
-  const columns = [
-    {
-      field: 'game_name',
-      headerName: 'Game',
-      flex: 1.3,
-      minWidth: 210,
-      renderCell: ({ row }) => (
-        <Box display="flex" alignItems="center" gap={1} minWidth={0}>
-          <SportsSoccerIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-          <Box minWidth={0}>
-            <Typography variant="body2" fontWeight={600} noWrap>
-              {row.game_name || `Game #${row.id}`}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {[row.sport_name, LEVEL_LABELS[row.game_level] ?? row.game_level]
-                .filter(Boolean)
-                .join(' · ') || '—'}
-            </Typography>
-          </Box>
-          {row.visibility === 'private' && (
-            <Tooltip title="Invite only — not listed in Discover">
-              <LockIcon sx={{ fontSize: 15, color: 'text.disabled' }} />
-            </Tooltip>
-          )}
-        </Box>
-      ),
-    },
-    {
-      field: 'host_name',
-      headerName: 'Hosted by',
-      flex: 0.8,
-      minWidth: 130,
-      renderCell: ({ row }) => row.host_name || '—',
-    },
-    {
-      field: 'ground_name',
-      headerName: 'Ground',
-      flex: 1,
-      minWidth: 150,
-      renderCell: ({ row }) => row.ground_name || '—',
-    },
-    {
-      field: 'slot_date',
-      headerName: 'Slot',
-      width: 165,
-      renderCell: ({ row }) => {
-        const date = row.slot_date ? dayjs(row.slot_date) : null
-        if (!date?.isValid()) return '—'
-        return (
-          <Box>
-            <Typography variant="body2">{date.format('DD MMM YYYY')}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {String(row.slot_time_from || '').slice(0, 5)}
-              {row.slot_time_to ? ` – ${String(row.slot_time_to).slice(0, 5)}` : ''}
-            </Typography>
-          </Box>
-        )
-      },
-    },
-    {
-      field: 'joined_count',
-      headerName: 'Turning up',
-      width: 120,
-      renderCell: ({ row }) => (
-        <SeatMeter
-          joined={row.joined_count}
-          capacity={row.max_participants}
-          spotsLeft={row.spots_left}
-        />
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 130,
-      renderCell: ({ value }) => <StatusChip status={value || 'open'} />,
-    },
-    {
-      field: '_actions',
-      headerName: '',
-      width: 70,
-      sortable: false,
-      filterable: false,
-      renderCell: ({ row }) => (
-        <Tooltip title="See who is coming">
-          <IconButton size="small" onClick={() => setDetailId(row.id)}>
-            <VisibilityIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      ),
-    },
-  ]
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Box>
-      <PageHeader
-        title="Games"
-        subtitle="Open games running at your grounds, whoever published them"
-        breadcrumbs={[{ label: 'Owner', href: '/owner' }, { label: 'Games' }]}
+      <ScreenHeader title="Games" subtitle="Open games at your grounds and who is coming" back="/owner/more" />
+      <TextField
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search game, sport or host"
+        fullWidth
+        sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
+        InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
       />
+      <FilterChips options={options} value={when} onChange={setWhen} />
 
-      <Grid container spacing={2} mb={3}>
-        <Grid item xs={12} sm={4}>
-          <StatCard
-            title="Games"
-            value={stats.games}
-            icon={SportsSoccerIcon}
-            loading={isLoading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <StatCard
-            title="Players expected"
-            value={stats.players}
-            icon={GroupsIcon}
-            loading={isLoading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <StatCard
-            title="Last seats"
-            value={stats.filling}
-            icon={LocalFireDepartmentIcon}
-            loading={isLoading}
-          />
-        </Grid>
-      </Grid>
-
-      {/* Filters row */}
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        mb={2}
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        flexWrap="wrap"
-        useFlexGap
-      >
-        <TextField
-          size="small"
-          placeholder="Search game, host, ground or sport…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: { xs: '100%', sm: 320 } }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>
-            <Box component="span" display="flex" alignItems="center" gap={0.5}>
-              <FilterListIcon sx={{ fontSize: 16 }} />
-              When
-            </Box>
-          </InputLabel>
-          <Select
-            value={when}
-            label="When"
-            onChange={(e) => setWhen(e.target.value)}
-          >
-            {WHEN_OPTIONS.map((o) => (
-              <MenuItem key={o.value} value={o.value}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {rows.length !== all.length && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`Showing ${rows.length} of ${all.length}`}
-          />
+      <Box mt={2}>
+        {q.isLoading && [0, 1].map((i) => <Skeleton key={i} variant="rounded" height={130} sx={{ mb: 1.25 }} />)}
+        {q.isError && <Banner tone="error">Could not load games.</Banner>}
+        {q.isSuccess && rows.length === 0 && (
+          <Card><EmptyNote icon={EmojiEventsOutlinedIcon} title="No games" text="When players open a game on a booking at your ground, it shows here." /></Card>
         )}
-      </Stack>
+        {rows.map((g) => {
+          const cap = Number(g.max_participants || 0)
+          const joined = Number(g.joined_count || 0)
+          return (
+            <ButtonBase key={g.id} onClick={() => setDetailId(g.id)} sx={{ width: '100%', display: 'block', textAlign: 'left', borderRadius: 1, mb: 1.25 }}>
+              <Card sx={{ p: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                  <Typography fontWeight={700} noWrap>{g.game_name || `Game #${g.id}`}</Typography>
+                  <Stack direction="row" spacing={0.75}>
+                    {g.visibility === 'private' && <Pill tone="neutral" icon={<LockOutlinedIcon />} label="Invite only" />}
+                    {g.status && g.status !== 'open' && <Pill tone="neutral" label={g.status[0].toUpperCase() + g.status.slice(1)} />}
+                  </Stack>
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  {[g.sport_name, LEVELS[g.game_level] ?? g.game_level, g.host_name ? `Host: ${g.host_name}` : null].filter(Boolean).join(' · ')}
+                </Typography>
+                <Typography variant="body2" fontWeight={600} mt={0.75}>
+                  {g.slot_date ? dayLabel(g.slot_date) : '—'}{g.slot_time_from ? `, ${clock(g.slot_time_from)}` : ''}{g.slot_time_to ? ` – ${clock(g.slot_time_to)}` : ''}
+                  {g.ground_name ? <Typography component="span" variant="body2" color="text.secondary"> · {g.ground_name}</Typography> : null}
+                </Typography>
+                {cap > 0 && (
+                  <Box mt={1.5}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>Players coming</Typography>
+                      <Typography variant="caption" fontWeight={700}>
+                        {joined} of {cap}{g.spots_left > 0 && g.spots_left <= 2 ? ` · ${g.spots_left} left` : ''}
+                      </Typography>
+                    </Stack>
+                    <LinearProgress variant="determinate" value={Math.min(100, (joined / cap) * 100)} sx={{ height: 8, borderRadius: 1, mt: 0.5 }} />
+                  </Box>
+                )}
+                <Typography variant="body2" fontWeight={600} color="primary.dark" mt={1.25}>See who is coming</Typography>
+              </Card>
+            </ButtonBase>
+          )
+        })}
+      </Box>
 
-      <DataTable rows={rows} columns={columns} loading={isLoading} error={error} />
-
-      <GameDetailDrawer
-        open={Boolean(detailId)}
-        onClose={() => setDetailId(null)}
-        game={detail}
-      />
+      <GameDetailDrawer open={Boolean(detailId)} onClose={() => setDetailId(null)} game={detail} />
     </Box>
   )
 }

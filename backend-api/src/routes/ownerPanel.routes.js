@@ -486,9 +486,31 @@ router.put   ('/grounds/:groundId/schedule',  ...owner, schedule.upsert);
  *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema: { type: integer, default: 20 }
+ *         schema: { type: integer, default: 20, maximum: 100 }
+ *       - in: query
+ *         name: date
+ *         description: Play date (YYYY-MM-DD). Orders the day by start time.
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: date_from
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: date_to
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: status
+ *         description: Comma-separated — pending, confirmed, cancelled, completed
+ *         schema: { type: string }
+ *       - in: query
+ *         name: ground_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: search
+ *         description: Booking reference, customer name or mobile
+ *         schema: { type: string }
  *     responses:
  *       200: { description: Bookings list }
+ *       422: { description: A date filter is not YYYY-MM-DD }
  */
 router.get   ('/bookings',          ...owner, op.listBookings);
 

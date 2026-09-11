@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AppShell from '../components/layout/AppShell.jsx'
+import OwnerShell from '../components/owner/OwnerShell.jsx'
 
 // Pages
 import Login from '../pages/Login.jsx'
@@ -29,8 +30,9 @@ import AdminCoachSessions from '../pages/admin/CoachSessions.jsx'
 
 // Owner
 import OwnerDashboard from '../pages/owner/Dashboard.jsx'
-import OwnerGrounds from '../pages/owner/Grounds.jsx'
-import OwnerGroundDetail from '../pages/owner/GroundDetail.jsx'
+import OwnerMyGround from '../pages/owner/MyGround.jsx'
+import OwnerMore from '../pages/owner/More.jsx'
+import OwnerNotifications from '../pages/owner/Notifications.jsx'
 import OwnerBookings from '../pages/owner/Bookings.jsx'
 import OwnerGames from '../pages/owner/Games.jsx'
 import OwnerBankDetails from '../pages/owner/BankDetails.jsx'
@@ -103,25 +105,29 @@ export default function AppRouter() {
           <Route path="profile" element={<AdminProfile />} />
         </Route>
 
-        {/* Owner Routes */}
+        {/* Owner Routes — app-style layout of their own (OwnerShell), not AppShell */}
         <Route
           path="/owner"
           element={
             <ProtectedRoute requiredRole="ground_owner">
-              <AppShell />
+              <OwnerShell />
             </ProtectedRoute>
           }
         >
           <Route index element={<Navigate to="/owner/dashboard" replace />} />
           <Route path="dashboard" element={<OwnerDashboard />} />
-          <Route path="grounds" element={<OwnerGrounds />} />
-          <Route path="grounds/:id" element={<OwnerGroundDetail />} />
           <Route path="bookings" element={<OwnerBookings />} />
+          <Route path="my-ground" element={<OwnerMyGround />} />
+          <Route path="more" element={<OwnerMore />} />
+          {/* The old grounds table and ground page now live in My Ground. */}
+          <Route path="grounds" element={<Navigate to="/owner/my-ground" replace />} />
+          <Route path="grounds/:id" element={<Navigate to="/owner/my-ground" replace />} />
           <Route path="games" element={<OwnerGames />} />
           <Route path="coach-requests" element={<OwnerCoachRequests />} />
           <Route path="coach-sessions" element={<OwnerCoachSessions />} />
           <Route path="bank-details" element={<OwnerBankDetails />} />
           <Route path="profile" element={<OwnerProfile />} />
+          <Route path="notifications" element={<OwnerNotifications />} />
         </Route>
 
         {/* Coach Routes */}
