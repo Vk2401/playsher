@@ -18,9 +18,13 @@ import { bookingsApi } from '../../api/bookings.js'
 import { useNotify } from '../../hooks/useNotify.js'
 
 /**
- * Everything about one booking, plus the two things an owner does with it:
- * contact the customer, or cancel. Cancelling is a second step with a reason,
- * so it is never one accidental tap.
+ * Everything about one booking, plus the three things an owner does with it:
+ * contact the customer, mark the cash collected, or cancel. Cancelling is a
+ * second step with a reason, so it is never one accidental tap.
+ *
+ * "Mark cash collected" is confirmed rather than instant for the opposite
+ * reason: the server refuses a second collect (409), so a mistaken tap cannot
+ * be undone from this panel at all. Confirm first is the only guard there is.
  */
 export default function BookingSheet({ booking, onClose }) {
   const [step, setStep] = useState('details')
@@ -45,9 +49,14 @@ function DetailsStep({ booking: b, onClose, onCancel }) {
       open
       onClose={onClose}
       title="Booking details"
-      actions={isUpcoming(b) ? (
-        <Button color="error" size="large" onClick={onCancel}>Cancel this booking</Button>
-      ) : null}
+      actions={(
+        <Stack spacing={0.5}>
+          <CollectAction booking={b} onDone={onClose} />
+          {isUpcoming(b) && (
+            <Button color="error" size="large" onClick={onCancel}>Cancel this booking</Button>
+          )}
+        </Stack>
+      )}
     >
       <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
         <Pill tone={status.tone} label={status.label} />
@@ -107,6 +116,75 @@ function DetailsStep({ booking: b, onClose, onCancel }) {
         )}
       </Box>
     </ActionSheet>
+  )
+}
+
+/**
+ * The gate-side half of a pay-at-ground booking.
+ *
+ * Only appears while money is actually outstanding: a fully-paid, cancelled or
+ * online booking has nothing to collect, and a button that does nothing is
+ * worse than no button. `money.balance` is the server's figure — never
+ * recomputed here, because the server is the only thing that computes money.
+ */
+function CollectAction({ booking: b, onDone }) {
+  const queryClient = useQueryClient()
+  const notify = useNotify()
+  const [confirming, setConfirming] = useState(false)
+  const money = bookingMoney(b)
+
+  const collectable = b.status !== 'cancelled' && b.status !== 'completed' && money.balance > 0
+
+  const mutation = useMutation({
+    mutationFn: () => bookingsApi.ownerCollect(b.id),
+    onSuccess: () => {
+      // The booking list, the day's takings on Today, and the slot grid all
+      // read this booking; invalidate the lot rather than patching one cache.
+      queryClient.invalidateQueries({ queryKey: ['owner'] })
+      notify.success(`${rupee(money.balance)} recorded as collected`)
+      setConfirming(false)
+      // Close rather than stay open on a stale booking. The sheet renders the
+      // object the list handed it when it opened, so after a collect it would
+      // still offer the button for money that has already been taken — and the
+      // second attempt answers 409, which reads as a failure to the owner even
+      // though their first tap worked.
+      onDone()
+    },
+    onError: (err) => {
+      notify.error(err?.response?.data?.message || 'Could not record the payment')
+      setConfirming(false)
+    },
+  })
+
+  if (!collectable) return null
+
+  if (!confirming) {
+    return (
+      <Button
+        variant="contained"
+        size="large"
+        startIcon={<CheckCircleIcon />}
+        onClick={() => setConfirming(true)}
+      >
+        Collected {rupee(money.balance)} at ground
+      </Button>
+    )
+  }
+
+  return (
+    <Stack spacing={0.75}>
+      <Typography variant="body2" color="text.secondary" textAlign="center">
+        Confirm you took {rupee(money.balance)} in cash. This cannot be undone here.
+      </Typography>
+      <Stack direction="row" spacing={1}>
+        <Button fullWidth variant="outlined" size="large" onClick={() => setConfirming(false)} disabled={mutation.isPending}>
+          Not yet
+        </Button>
+        <Button fullWidth variant="contained" size="large" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          {mutation.isPending ? 'Saving…' : 'Yes, collected'}
+        </Button>
+      </Stack>
+    </Stack>
   )
 }
 

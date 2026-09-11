@@ -171,7 +171,24 @@ exports.groundOwnerLogin = async (req, res) => {
     return success(res, 'Login successful.', {
       access_token: accessToken,
       refresh_token: refreshTokenStr,
-      user: { id: owner.id, name: owner.name, email: owner.email, mobile: owner.mobile, role: 'ground_owner' },
+      // `status` and `created_at` are here because the panel's profile screen is
+      // the only place they are shown and there is no owner-readable
+      // /ground-owners/:id — that route is admin-only. Without them the screen
+      // rendered "Account status —" and "Member since —" for ever.
+      //
+      // Safe to extend: this endpoint is called by adminui alone. The customer
+      // app has no ground-owner login and never parses this payload.
+      user: {
+        id        : owner.id,
+        name      : owner.name,
+        email     : owner.email,
+        mobile    : owner.mobile,
+        role      : 'ground_owner',
+        status    : owner.is_active ? 'active' : 'inactive',
+        // `underscored: true` maps the column to a camelCase JS attribute, so
+        // the instance answers to createdAt even though the wire name is snake.
+        created_at: owner.createdAt,
+      },
     });
   } catch (err) {
     return error(res, err.message, 500);

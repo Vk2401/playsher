@@ -555,6 +555,35 @@ router.get   ('/bookings/:id',      ...owner, op.getBooking);
  */
 router.patch ('/bookings/:id/cancel', ...owner, op.cancelBooking);
 
+/**
+ * @swagger
+ * /ground-owner/bookings/{id}/collect:
+ *   post:
+ *     tags: [OwnerPanel]
+ *     summary: Record the balance collected in cash at the ground
+ *     description: >
+ *       A pay-at-ground booking takes a 10% advance online and leaves the rest
+ *       owed. This records that rest arriving at the gate as an offline
+ *       payment (`payment_mode: offline`, `payment_status: success`), clears
+ *       `balance_due` and confirms the booking.
+ *
+ *
+ *       No money moves through Playsher and no gateway is called, so there is
+ *       nothing to reverse through the API if it is recorded by mistake.
+ *       A second call answers 409 rather than writing a second payment row,
+ *       which would double the venue's takings in any later reconciliation.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Payment recorded; the updated booking }
+ *       404: { description: Not your booking, or no such booking }
+ *       409: { description: Cancelled, or nothing left to collect }
+ */
+router.post  ('/bookings/:id/collect', ...owner, op.collectAtGround);
+
 // ── Games ─────────────────────────────────────────────────────────────────────
 /**
  * @swagger

@@ -4,6 +4,7 @@
  */
 const { Op, literal } = require('sequelize');
 const {
+  sequelize,
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
   Sport, Amenity, Slot, Booking, BookedSlot, User, Game, Payment,
   Coach, CoachGround, CoachBooking,
@@ -11,7 +12,7 @@ const {
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
-const { releaseExpiredHolds } = require('../utils/slotHolds');
+const { releaseExpiredHolds, cancelBookingAndReleaseSlots } = require('../utils/slotHolds');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { notify } = require('../utils/notify');
@@ -473,8 +474,121 @@ exports.cancelBooking = async (req, res) => {
     if (!booking) return error(res, 'Booking not found.', 404);
     if (booking.status === 'cancelled') return error(res, 'Booking already cancelled.');
     const reason = req.body.reason || req.body.cancellation_reason || 'Cancelled by owner';
-    await booking.update({ status: 'cancelled', is_canceled: true, cancellation_reason: reason });
+
+    // This used to be a bare `booking.update({ status: 'cancelled' })`, which
+    // left every slot the booking held marked unavailable for ever — the venue
+    // quietly lost that hour's inventory and no screen showed why. It now runs
+    // the same release the customer's own cancel does.
+    //
+    // The transaction is opened here rather than inside the helper so the
+    // notification rolls back with the cancellation: telling somebody their
+    // game is off, and then failing to actually cancel it, is the one outcome
+    // worse than either alone.
+    const t = await sequelize.transaction();
+    try {
+      await cancelBookingAndReleaseSlots({ sequelize, BookedSlot, Slot }, booking, reason, t);
+
+      const ground = booking.groundSport?.ground;
+      await notify({
+        recipientType: 'user',
+        recipientId  : booking.user_id,
+        type         : 'booking_cancelled_by_owner',
+        title        : 'Your booking was cancelled',
+        message      : `${ground?.name || 'The venue'} cancelled your booking on `
+                     + `${booking.slot_date}. ${reason}`,
+        referenceType: 'booking',
+        referenceId  : booking.id,
+        // A client route, not a URL — the app prefixes its own base. See §9.
+        actionPath   : `/bookings/${booking.id}`,
+      }, t);
+
+      await t.commit();
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
+
     return success(res, 'Booking cancelled.', booking);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * POST /ground-owner/bookings/:id/collect — the owner took the cash at the gate.
+ *
+ * A pay-at-ground booking takes a 10% advance online (see utils/pricing) and
+ * leaves the rest owed. Nothing recorded that rest ever arriving, so the
+ * owner's list kept saying "collect Rs.X" after the customer had already paid
+ * and walked onto the pitch.
+ *
+ * This writes the payment the venue actually received: `payment_mode: offline`,
+ * `payment_status: success`. Both values already existed on the model — no
+ * column was added for this, and none should be.
+ *
+ * Deliberately NOT a Razorpay path: no gateway is involved, no money moves
+ * through Playsher, and there is nothing to refund through the API if it is
+ * recorded in error. That is also why it is owner-only and additive — the
+ * customer app never calls it.
+ *
+ * Idempotent by refusing rather than by upserting: a second call answers 409
+ * instead of writing a second payment row, because two rows would double the
+ * venue's takings in any later reconciliation.
+ */
+exports.collectAtGround = async (req, res) => {
+  try {
+    const booking = await Booking.findOne({
+      where  : { id: req.params.id },
+      include: [{
+        model: GroundSport, as: 'groundSport', required: true,
+        include: [{ model: Ground, as: 'ground', where: { owner_id: req.user.id }, required: true }],
+      }],
+    });
+    if (!booking) return error(res, 'Booking not found.', 404);
+    if (booking.status === 'cancelled') return error(res, 'That booking was cancelled.', 409);
+
+    const due = Number(booking.balance_due) || 0;
+    if (due <= 0) return error(res, 'Nothing left to collect on this booking.', 409);
+
+    const t = await sequelize.transaction();
+    try {
+      await Payment.create({
+        booking_id       : booking.id,
+        done_by_user_id  : booking.user_id,
+        payment_status   : 'success',
+        payment_mode     : 'offline',
+        payment_method   : 'cash_at_ground',
+        payment_timestamp: new Date(),
+        amount           : due,
+        currency         : 'INR',
+      }, { transaction: t });
+
+      // The money is in, so nothing is owed and the booking is settled. A
+      // pay-at-ground booking sits `pending` until this moment: the advance
+      // only ever held the slot.
+      await booking.update(
+        { balance_due: 0, status: booking.status === 'pending' ? 'confirmed' : booking.status },
+        { transaction: t },
+      );
+
+      await notify({
+        recipientType: 'user',
+        recipientId  : booking.user_id,
+        type         : 'booking_payment_collected',
+        title        : 'Payment received',
+        message      : `${booking.groundSport?.ground?.name || 'The venue'} recorded `
+                     + `Rs.${due} received at the ground. Your booking is fully paid.`,
+        referenceType: 'booking',
+        referenceId  : booking.id,
+        actionPath   : `/bookings/${booking.id}`,
+      }, t);
+
+      await t.commit();
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
+
+    await booking.reload();
+    return success(res, 'Payment recorded.', booking);
   } catch (err) { return error(res, err.message, 500); }
 };
 

@@ -2,7 +2,7 @@ const { sequelize, Booking, BookedSlot, Slot, GroundSport, Ground, Sport, User, 
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
-const { releaseExpiredHolds, holdDeadline } = require('../utils/slotHolds');
+const { releaseExpiredHolds, cancelBookingAndReleaseSlots, holdDeadline } = require('../utils/slotHolds');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { splitPayment } = require('../utils/pricing');
 const { isPastSlot } = require('../utils/appTime');
@@ -244,27 +244,12 @@ exports.cancel = async (req, res) => {
     if (booking.status === 'cancelled') return error(res, 'Booking already cancelled.');
 
     const { cancellation_reason } = req.body;
-    // One transaction: a failure between the status change and the slot release
-    // would leave a cancelled booking whose slots stay blocked forever.
-    const t = await sequelize.transaction();
-    try {
-      await booking.update(
-        { status: 'cancelled', is_canceled: true, cancellation_reason, hold_expires_at: null },
-        { transaction: t },
-      );
-      const bookedSlots = await BookedSlot.findAll({
-        where: { booking_id: booking.id },
-        transaction: t,
-      });
-      const slotIds = bookedSlots.map((bs) => bs.slot_id);
-      if (slotIds.length > 0) {
-        await Slot.update({ is_available: true }, { where: { id: slotIds }, transaction: t });
-      }
-      await t.commit();
-    } catch (err) {
-      await t.rollback();
-      throw err;
-    }
+    // Shared with the owner's cancel — see cancelBookingAndReleaseSlots. It
+    // opens its own transaction, because the status change and the slot release
+    // have to land together or the slots stay blocked for ever.
+    await cancelBookingAndReleaseSlots(
+      { sequelize, BookedSlot, Slot }, booking, cancellation_reason,
+    );
 
     return success(res, 'Booking cancelled.', booking);
   } catch (err) {
