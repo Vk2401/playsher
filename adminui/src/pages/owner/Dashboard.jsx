@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Badge, Box, Button, IconButton, Skeleton, Stack, Typography } from '@mui/material'
+import { Badge, Box, Button, ButtonBase, IconButton, Skeleton, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -44,6 +44,7 @@ export default function OwnerToday() {
   const pendingCoach = usePendingCoachRequests()
   const unread = useUnreadNotifications()
   const [open, setOpen] = useState(null)
+  const [showCancelled, setShowCancelled] = useState(false)
   const [adding, setAdding] = useState(false)
 
   const today = todayYmd()
@@ -75,6 +76,7 @@ export default function OwnerToday() {
     [todayQ.data],
   )
   const active = todays.filter((b) => b.status !== 'cancelled')
+  const cancelledToday = todays.filter((b) => b.status === 'cancelled')
   const next = todays.find((b) => isUpcoming(b) && bookingStart(b).isAfter(dayjs()))
     ?? todays.find((b) => isUpcoming(b))
   const paidOnline = active.reduce((s, b) => s + bookingMoney(b).paidOnline, 0)
@@ -137,7 +139,9 @@ export default function OwnerToday() {
   }
 
   // Timeline with a "now" line between the past and the rest of the day.
-  const nowIndex = todays.findIndex((b) => bookingStart(b).isAfter(dayjs()))
+  // Indexed against the list that is actually rendered, not `todays` — with
+  // cancellations hidden the two diverge and the Now line lands mid-list.
+  const nowIndex = active.findIndex((b) => bookingStart(b).isAfter(dayjs()))
   const minsToNext = next ? bookingStart(next).diff(dayjs(), 'minute') : 0
   const nextLabel = !next ? '' : minsToNext <= 0 ? 'Playing now'
     : minsToNext < 60 ? `in ${minsToNext} min` : `at ${clock(next.slot_time_from)}`
@@ -230,16 +234,65 @@ export default function OwnerToday() {
       {todayQ.isError && (
         <Banner tone="error">Could not load today&apos;s bookings. Check your internet and pull to refresh.</Banner>
       )}
-      {!loading && !todayQ.isError && todays.length === 0 && (
-        <Card><EmptyNote icon={EventBusyOutlinedIcon} title="No bookings today" text="When customers book, they appear here." /></Card>
+      {!loading && !todayQ.isError && active.length === 0 && (
+        <Card>
+          <EmptyNote
+            icon={EventBusyOutlinedIcon}
+            title={cancelledToday.length ? 'Nothing still on today' : 'No bookings today'}
+            text={cancelledToday.length
+              ? `${cancelledToday.length} booking${cancelledToday.length === 1 ? ' was' : 's were'} cancelled.`
+              : 'When customers book, they appear here.'}
+          />
+        </Card>
       )}
-      {todays.map((b, i) => (
-        <Box key={b.id}>
-          {i === nowIndex && i > 0 && <NowLine />}
-          <BookingCard booking={b} onOpen={setOpen} dim={bookingEnd(b).isBefore(dayjs()) && b.status !== 'pending'} />
+
+      {/* A schedule is who is turning up. Cancellations were being listed
+          alongside them, so a day with four cancellations and two real
+          bookings read as six — and the owner had to check each pill to work
+          out which pitch was actually busy. They are counted below instead,
+          one tap away. */}
+      {active.length > 0 && (
+        <Card sx={{ p: 0, overflow: 'hidden' }}>
+          {active.map((b, i) => (
+            <Box key={b.id}>
+              {i === nowIndex && i > 0 && <NowLine />}
+              <BookingCard
+                booking={b}
+                onOpen={setOpen}
+                dim={bookingEnd(b).isBefore(dayjs()) && b.status !== 'pending'}
+                last={i === active.length - 1}
+              />
+            </Box>
+          ))}
+        </Card>
+      )}
+      {active.length > 0 && nowIndex === -1 && <NowLine />}
+
+      {cancelledToday.length > 0 && (
+        <Box mt={1.5}>
+          <ButtonBase
+            onClick={() => setShowCancelled((v) => !v)}
+            sx={{ borderRadius: 1, px: 1, py: 0.75, ml: -1 }}
+          >
+            <Typography variant="body2" fontWeight={600} color="text.secondary">
+              {cancelledToday.length} cancelled today
+              {showCancelled ? ' · Hide' : ' · Show'}
+            </Typography>
+          </ButtonBase>
+          {showCancelled && (
+            <Card sx={{ p: 0, overflow: 'hidden', mt: 0.5 }}>
+              {cancelledToday.map((b, i) => (
+                <BookingCard
+                  key={b.id}
+                  booking={b}
+                  onOpen={setOpen}
+                  last={i === cancelledToday.length - 1}
+                />
+              ))}
+            </Card>
+          )}
         </Box>
-      ))}
-      {todays.length > 0 && nowIndex === -1 && <NowLine />}
+      )}
 
       {/* Last 7 days — replaces the old charts */}
       <SectionTitle>Last 7 days</SectionTitle>

@@ -144,9 +144,19 @@ export default function OwnerBookings() {
           />
         </Card>
       )}
-      {rows.map((b) => (
-        <BookingCard key={b.id} booking={b} onOpen={setOpen} showDate={searching} />
-      ))}
+      {rows.length > 0 && (
+        <Card sx={{ p: 0, overflow: 'hidden' }}>
+          {rows.map((b, i) => (
+            <BookingCard
+              key={b.id}
+              booking={b}
+              onOpen={setOpen}
+              showDate={searching}
+              last={i === rows.length - 1}
+            />
+          ))}
+        </Card>
+      )}
 
       <BookingSheet booking={open} onClose={() => setOpen(null)} />
     </Box>
