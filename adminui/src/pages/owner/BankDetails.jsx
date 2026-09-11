@@ -1,195 +1,107 @@
-import React, { useState, useEffect } from 'react'
-import {
-  Box,
-  Button,
-  Grid,
-  Paper,
-  TextField,
-  Typography,
-  CircularProgress,
-  Alert,
-} from '@mui/material'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Box, Button, Skeleton, Stack, TextField, Typography } from '@mui/material'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
-import SaveIcon from '@mui/icons-material/Save'
-
-import PageHeader from '../../components/ui/PageHeader.jsx'
-import { useNotify } from '../../hooks/useNotify.js'
+import { Banner, Card, InfoRow, ScreenHeader } from '../../components/owner/OwnerBits.jsx'
 import { bankDetailsApi } from '../../api/bankDetails.js'
+import { useNotify } from '../../hooks/useNotify.js'
 
-function SectionLabel({ icon: Icon, label }) {
-  return (
-    <Box display="flex" alignItems="center" gap={1} mb={2}>
-      <Icon sx={{ fontSize: 20, color: 'text.secondary' }} />
-      <Typography
-        variant="subtitle2"
-        color="text.secondary"
-        fontWeight={700}
-        sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
-      >
-        {label}
-      </Typography>
-    </Box>
-  )
-}
+const FIELDS = ['account_holder_name', 'account_number', 'ifsc_code', 'bank_name', 'upi_id']
+const mask = (n) => (n ? `•••• ${String(n).slice(-4)}` : '—')
 
-const INITIAL_FORM = {
-  account_holder_name: '',
-  account_number: '',
-  ifsc_code: '',
-  bank_name: '',
-  upi_id: '',
-}
-
+/** Where online payments for bookings are sent. */
 export default function OwnerBankDetails() {
-  const queryClient = useQueryClient()
-  const notify = useNotify()
-  const [form, setForm] = useState(INITIAL_FORM)
+  const [editing, setEditing] = useState(false)
 
-  const { data: bankDetails, isLoading, error } = useQuery({
+  const q = useQuery({
     queryKey: ['owner', 'bank-details'],
     queryFn: () => bankDetailsApi.get(),
     select: (res) => res.data?.bank_details || res.data?.data || null,
   })
+  const bank = q.data
 
-  useEffect(() => {
-    if (bankDetails) {
-      setForm({
-        account_holder_name: bankDetails.account_holder_name || '',
-        account_number: bankDetails.account_number || '',
-        ifsc_code: bankDetails.ifsc_code || '',
-        bank_name: bankDetails.bank_name || '',
-        upi_id: bankDetails.upi_id || '',
-      })
-    }
-  }, [bankDetails])
+  return (
+    <Box>
+      <ScreenHeader title="Bank & UPI" subtitle="Online payments for your bookings are sent here" back="/owner/more" />
+      {q.isLoading && <Skeleton variant="rounded" height={260} />}
+      {q.isError && <Banner tone="error">Could not load your bank details. Try again.</Banner>}
 
-  const saveMutation = useMutation({
-    mutationFn: (data) => bankDetailsApi.save(data),
+      {q.isSuccess && (editing || !bank) && (
+        <BankForm key={bank?.id ?? 'new'} bank={bank} onDone={() => setEditing(false)} canCancel={Boolean(bank)} />
+      )}
+
+      {q.isSuccess && bank && !editing && (
+        <>
+          <Banner tone="primary" icon={CheckCircleOutlineIcon}>Payouts are set up</Banner>
+          <Card sx={{ px: 2, py: 0.5 }}>
+            <InfoRow label="Account holder" value={bank.account_holder_name} />
+            <InfoRow label="Bank" value={bank.bank_name} />
+            <InfoRow label="Account number" value={mask(bank.account_number)} />
+            <InfoRow label="IFSC" value={bank.ifsc_code} />
+            <InfoRow label="UPI ID" value={bank.upi_id || 'Not added'} last />
+          </Card>
+          <Button fullWidth variant="outlined" size="large" startIcon={<EditOutlinedIcon />} sx={{ mt: 2 }} onClick={() => setEditing(true)}>
+            Change bank details
+          </Button>
+        </>
+      )}
+    </Box>
+  )
+}
+
+function BankForm({ bank, onDone, canCancel }) {
+  const queryClient = useQueryClient()
+  const notify = useNotify()
+  const [form, setForm] = useState(() => Object.fromEntries(FIELDS.map((f) => [f, bank?.[f] || ''])))
+  const [errors, setErrors] = useState({})
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: k === 'ifsc_code' ? e.target.value.toUpperCase() : e.target.value }))
+
+  const mutation = useMutation({
+    mutationFn: () => bankDetailsApi.save(Object.fromEntries(Object.entries(form).map(([k, v]) => [k, String(v).trim()]))),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner', 'bank-details'] })
-      notify.success('Bank details saved successfully')
+      notify.success('Bank details saved')
+      onDone()
     },
-    onError: (err) => {
-      notify.error(err?.response?.data?.message || 'Failed to save bank details')
-    },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Could not save bank details'),
   })
 
-  const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    saveMutation.mutate(form)
-  }
-
-  if (isLoading) {
-    return (
-      <Box>
-        <PageHeader title="Bank Details" subtitle="Manage your payout account" />
-        <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
-        </Box>
-      </Box>
-    )
+  const submit = () => {
+    const e = {}
+    if (!form.account_holder_name.trim()) e.account_holder_name = 'Name as printed on the passbook'
+    if (!/^\d{9,18}$/.test(form.account_number.trim())) e.account_number = 'Enter the account number (9 to 18 digits)'
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(form.ifsc_code.trim())) e.ifsc_code = 'IFSC looks like SBIN0001234'
+    if (form.upi_id && !/^[\w.-]+@[\w.-]+$/.test(form.upi_id.trim())) e.upi_id = 'UPI ID looks like name@bank'
+    setErrors(e)
+    if (Object.keys(e).length === 0) mutation.mutate()
   }
 
   return (
     <Box>
-      <PageHeader
-        title="Bank Details"
-        subtitle="Manage your payout account"
-        breadcrumbs={[
-          { label: 'Owner', href: '/owner' },
-          { label: 'Bank Details' },
-        ]}
-      />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load bank details. Please try again.
-        </Alert>
+      {!bank && (
+        <Banner tone="warning" icon={InfoOutlinedIcon}>
+          No bank details yet. Online payments wait until you add them.
+        </Banner>
       )}
-
-      {!bankDetails && !error && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          No bank details yet. Fill in the form below to add your payout account.
-        </Alert>
-      )}
-
-      <Paper sx={{ p: 3 }}>
-        <SectionLabel icon={AccountBalanceIcon} label="Bank Account Information" />
-
-        <form onSubmit={handleSubmit}>
-          <Grid container spacing={2} mb={3}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Account Holder Name"
-                value={form.account_holder_name}
-                onChange={handleChange('account_holder_name')}
-                size="small"
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Account Number"
-                value={form.account_number}
-                onChange={handleChange('account_number')}
-                size="small"
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="IFSC Code"
-                value={form.ifsc_code}
-                onChange={handleChange('ifsc_code')}
-                size="small"
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Bank Name"
-                value={form.bank_name}
-                onChange={handleChange('bank_name')}
-                size="small"
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="UPI ID"
-                value={form.upi_id}
-                onChange={handleChange('upi_id')}
-                size="small"
-                fullWidth
-              />
-            </Grid>
-          </Grid>
-
-          <Button
-            type="submit"
-            variant="contained"
-            startIcon={
-              saveMutation.isPending ? (
-                <CircularProgress size={18} color="inherit" />
-              ) : (
-                <SaveIcon />
-              )
-            }
-            disabled={saveMutation.isPending}
-          >
-            {saveMutation.isPending ? 'Saving...' : 'Save Bank Details'}
-          </Button>
-        </form>
-      </Paper>
+      <Card sx={{ p: 2 }}>
+        <Stack spacing={1.75}>
+          <TextField label="Account holder name" value={form.account_holder_name} onChange={set('account_holder_name')} error={!!errors.account_holder_name} helperText={errors.account_holder_name} fullWidth />
+          <TextField label="Account number" value={form.account_number} onChange={set('account_number')} error={!!errors.account_number} helperText={errors.account_number} inputMode="numeric" fullWidth />
+          <TextField label="IFSC code" value={form.ifsc_code} onChange={set('ifsc_code')} error={!!errors.ifsc_code} helperText={errors.ifsc_code || 'Printed on your cheque book or passbook'} fullWidth />
+          <TextField label="Bank name" value={form.bank_name} onChange={set('bank_name')} fullWidth />
+          <TextField label="UPI ID (optional)" value={form.upi_id} onChange={set('upi_id')} error={!!errors.upi_id} helperText={errors.upi_id} fullWidth />
+        </Stack>
+      </Card>
+      <Typography variant="body2" color="text.secondary" mt={1.5}>
+        Check the account number twice. Money sent to a wrong account is hard to get back.
+      </Typography>
+      <Stack spacing={1} mt={2}>
+        <Button variant="contained" size="large" onClick={submit} disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save bank details'}</Button>
+        {canCancel && <Button size="large" onClick={onDone}>Cancel</Button>}
+      </Stack>
     </Box>
   )
 }

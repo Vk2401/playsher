@@ -486,9 +486,31 @@ router.put   ('/grounds/:groundId/schedule',  ...owner, schedule.upsert);
  *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema: { type: integer, default: 20 }
+ *         schema: { type: integer, default: 20, maximum: 100 }
+ *       - in: query
+ *         name: date
+ *         description: Play date (YYYY-MM-DD). Orders the day by start time.
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: date_from
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: date_to
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: status
+ *         description: Comma-separated — pending, confirmed, cancelled, completed
+ *         schema: { type: string }
+ *       - in: query
+ *         name: ground_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: search
+ *         description: Booking reference, customer name or mobile
+ *         schema: { type: string }
  *     responses:
  *       200: { description: Bookings list }
+ *       422: { description: A date filter is not YYYY-MM-DD }
  */
 router.get   ('/bookings',          ...owner, op.listBookings);
 
@@ -532,6 +554,67 @@ router.get   ('/bookings/:id',      ...owner, op.getBooking);
  *       200: { description: Booking cancelled }
  */
 router.patch ('/bookings/:id/cancel', ...owner, op.cancelBooking);
+
+/**
+ * @swagger
+ * /ground-owner/bookings/{id}/collect:
+ *   post:
+ *     tags: [OwnerPanel]
+ *     summary: Record the balance collected in cash at the ground
+ *     description: >
+ *       A pay-at-ground booking takes a 10% advance online and leaves the rest
+ *       owed. This records that rest arriving at the gate as an offline
+ *       payment (`payment_mode: offline`, `payment_status: success`), clears
+ *       `balance_due` and confirms the booking.
+ *
+ *
+ *       No money moves through Playsher and no gateway is called, so there is
+ *       nothing to reverse through the API if it is recorded by mistake.
+ *       A second call answers 409 rather than writing a second payment row,
+ *       which would double the venue's takings in any later reconciliation.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Payment recorded; the updated booking }
+ *       404: { description: Not your booking, or no such booking }
+ *       409: { description: Cancelled, or nothing left to collect }
+ */
+router.post  ('/bookings/:id/collect', ...owner, op.collectAtGround);
+
+// ── Settlements ───────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /ground-owner/settlements:
+ *   get:
+ *     tags: [OwnerPanel]
+ *     summary: What my grounds have earned, and what is still owed to me
+ *     description: >
+ *       The owner-scoped counterpart to `/admin/vendors`. Lists every
+ *       successful payment taken on this owner's grounds, plus totals that
+ *       span all pages.
+ *
+ *
+ *       Split by where the money actually is: `cash_collected` the owner
+ *       already holds, `online_awaiting` is sitting with Playsher and still has
+ *       to reach their bank. `payout_state` is derived, not stored — an owner
+ *       with no bank details on file reads `no_bank_details` rather than the
+ *       stored column's perpetual "pending", because that is the one payout
+ *       state we can establish as fact and the one that asks them to act.
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200: { description: Summary totals and the payment list }
+ *       403: { description: Ground owner role required }
+ */
+router.get  ('/settlements', ...owner, op.listSettlements);
 
 // ── Games ─────────────────────────────────────────────────────────────────────
 /**

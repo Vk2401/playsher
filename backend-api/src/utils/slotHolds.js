@@ -61,9 +61,72 @@ async function releaseExpiredHolds({ Booking, BookedSlot, Slot }, scope = {}, tr
   return bookingIds.length;
 }
 
+
+/**
+ * Cancel a booking and hand its slots back to the calendar.
+ *
+ * This is the one place a booking is cancelled. It exists because it used not
+ * to: `booking.controller.cancel` released the slots, `ownerPanel.cancelBooking`
+ * only flipped the status — so a slot an owner cancelled stayed unbookable for
+ * ever, and nobody noticed because the booking itself looked correctly
+ * cancelled in both panels. Route every new cancel path through here rather
+ * than writing the two updates again; the second copy is what drifted last
+ * time.
+ *
+ * The status change and the slot release must land together, so a caller that
+ * has no transaction gets one opened for it. A caller that already has one
+ * passes it in and keeps control of the commit — the owner cancel does that,
+ * because its notification has to roll back with the cancellation.
+ *
+ * @param {object}  models                { sequelize, BookedSlot, Slot }
+ * @param {object}  booking               a Booking instance, already loaded
+ * @param {string}  [reason]              stored on the row as the reason
+ * @param {import('sequelize').Transaction} [transaction]
+ * @returns {Promise<number>} how many slots were freed
+ */
+async function cancelBookingAndReleaseSlots({ sequelize, BookedSlot, Slot }, booking, reason, transaction) {
+  const run = async (t) => {
+    await booking.update(
+      {
+        status             : 'cancelled',
+        is_canceled        : true,
+        cancellation_reason: reason || null,
+        // A cancelled booking holds nothing, so the sweep above must never
+        // pick it up again and "expire" a row that is already settled.
+        hold_expires_at    : null,
+      },
+      { transaction: t },
+    );
+
+    const held = await BookedSlot.findAll({ where: { booking_id: booking.id }, transaction: t });
+    const slotIds = held.map((h) => h.slot_id);
+    if (slotIds.length > 0) {
+      await Slot.update({ is_available: true }, { where: { id: slotIds }, transaction: t });
+    }
+    return slotIds.length;
+  };
+
+  if (transaction) return run(transaction);
+
+  const t = await sequelize.transaction();
+  try {
+    const freed = await run(t);
+    await t.commit();
+    return freed;
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
+}
+
 /** Deadline for a hold starting now. */
 function holdDeadline(from = new Date()) {
   return new Date(from.getTime() + HOLD_MINUTES * 60 * 1000);
 }
 
-module.exports = { releaseExpiredHolds, holdDeadline, HOLD_MINUTES };
+module.exports = {
+  releaseExpiredHolds,
+  cancelBookingAndReleaseSlots,
+  holdDeadline,
+  HOLD_MINUTES,
+};
