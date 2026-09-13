@@ -3,7 +3,7 @@ const { User, Sport, UserSportPreference, UserFollow, Game, GameParticipant } = 
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const {
-  normalise, validationError, isTaken, generateUniqueUsername, isUsernameConflict,
+  normalise, validationError, isTaken, ensureUsername, isUsernameConflict,
 } = require('../utils/username');
 
 // Admin: GET /users
@@ -75,36 +75,6 @@ exports.toggleStatus = async (req, res) => {
   }
 };
 
-/**
- * Give an account a handle if it does not have one yet.
- *
- * Registration assigns one, so this only ever fires for an account that
- * predates handles existing. Doing it on the profile read rather than in a
- * migration means an account is backfilled the first time it is actually used,
- * which is also the first moment the handle could matter to anybody.
- *
- * Failures are swallowed: reading your profile must not break because a name
- * could not be minted, and the next read will try again.
- */
-async function ensureUsername(user) {
-  if (user.username) return user;
-  try {
-    await user.update({ username: await generateUniqueUsername(User) });
-  } catch (err) {
-    if (!isUsernameConflict(err)) {
-      // eslint-disable-next-line no-console
-      console.error('[username] could not backfill a handle:', err.message);
-      return user;
-    }
-    try {
-      await user.update({ username: await generateUniqueUsername(User) });
-    } catch {
-      // eslint-disable-next-line no-console
-      console.error('[username] backfill lost a second race; leaving it for next time');
-    }
-  }
-  return user;
-}
 
 // User: GET /profile
 exports.getProfile = async (req, res) => {
@@ -116,7 +86,7 @@ exports.getProfile = async (req, res) => {
     });
     if (!user) return error(res, 'User not found.', 404);
 
-    await ensureUsername(user);
+    await ensureUsername(User, user);
 
     // The counts the profile screen shows. Cheap, and fetching them here saves
     // the app three round trips to render one header.
