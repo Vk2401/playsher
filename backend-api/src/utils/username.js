@@ -163,6 +163,47 @@ async function isTaken(User, raw, exceptUserId = null, transaction = undefined) 
  * All three are checked because getting this wrong is silent: it degrades into
  * "registration failed" with no clue why.
  */
+/**
+ * Give this account a handle if it has none, and say whether one was written.
+ *
+ * Registration assigns a handle, so this only ever fires for an account that
+ * predates them. It is called from every entry point a real user passes
+ * through — logging in, and reading their own profile — because a handle that
+ * only appears after somebody opens their own profile screen is a handle half
+ * the user base does not have, and a search that shows three accounts all
+ * labelled "Vasanth" is the result.
+ *
+ * Failures are swallowed and logged: signing in must not break because a name
+ * could not be minted, and the next pass will try again.
+ *
+ * @param {import('sequelize').ModelStatic<any>} User
+ * @param {any} user a User instance
+ * @returns {Promise<boolean>} whether a handle was assigned just now
+ */
+async function ensureUsername(User, user) {
+  if (!user || user.username) return false;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await user.update({ username: await generateUniqueUsername(User) });
+      return true;
+    } catch (err) {
+      // Two accounts can pick the same free name in the same instant; the
+      // unique index is the arbiter. Anything else is not ours to retry.
+      if (!isUsernameConflict(err)) {
+        // eslint-disable-next-line no-console
+        console.error('[username] could not backfill a handle:', err.message);
+        return false;
+      }
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.error('[username] backfill lost a second race; leaving it for next time');
+  return false;
+}
+
 function isUsernameConflict(err) {
   if (err?.name !== 'SequelizeUniqueConstraintError') return false;
 
@@ -186,6 +227,7 @@ module.exports = {
   validationError,
   randomUsername,
   generateUniqueUsername,
+  ensureUsername,
   isTaken,
   isUsernameConflict,
 };

@@ -13,7 +13,7 @@ const { Op } = require('sequelize');
 const {
   Game, GameParticipant, Booking, GroundSport, Ground, Sport, User,
 } = require('../models');
-const { appToday, isPastSlot, isPastSlotEnd } = require('./appTime');
+const { appNow, appToday, isPastSlot, isPastSlotEnd } = require('./appTime');
 
 const GAME_LEVELS = [
   'newbie', 'beginner', 'intermediate', 'advanced', 'professional', 'ultra_professional',
@@ -216,26 +216,84 @@ function dateWindow(query) {
   }
 }
 
+/** The current wall-clock time in the app timezone, as 'HH:MM:SS'. */
+function appClock(at = new Date()) {
+  const { minutes } = appNow(at);
+  const h = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const m = String(minutes % 60).padStart(2, '0');
+  return `${h}:${m}:00`;
+}
+
+/**
+ * Bookings that have not finished yet, to the minute.
+ *
+ * `slot_date >= today` was the old test and it is a whole day too coarse: a
+ * game that ran 07:00–08:00 stayed in Discover until midnight, so the feed
+ * advertised games nobody could turn up to and every one of them rendered with
+ * the derived status `completed`. The end time is what decides, not the date.
+ *
+ * `slot_time_to` is always later than `slot_time_from` — `utils/slotGenerator`
+ * builds every block from minutes since midnight and never rolls one past the
+ * day it belongs to — so there is no wrap-past-midnight case to handle. The
+ * same reasoning `isPastSlotEnd` applies in JS, expressed in SQL.
+ */
+function unfinishedBooking(at = new Date()) {
+  const { date } = appNow(at);
+  return {
+    [Op.or]: [
+      { slot_date: { [Op.gt]: date } },
+      { slot_date: date, slot_time_to: { [Op.gt]: appClock(at) } },
+    ],
+  };
+}
+
+/** The exact complement of [unfinishedBooking]: games that are over. */
+function finishedBooking(at = new Date()) {
+  const { date } = appNow(at);
+  return {
+    [Op.or]: [
+      { slot_date: { [Op.lt]: date } },
+      { slot_date: date, slot_time_to: { [Op.lte]: appClock(at) } },
+    ],
+  };
+}
+
 /**
  * The `where` for the booking join, given the feed's filters.
  *
  * Cancelled bookings never appear: the slot is gone, so the game on it is not
  * a game any more. Past games are hidden unless the caller asks for them —
  * Discover is somewhere to find a game to play, not an archive; "My games" is
- * the archive.
+ * the archive, and it is the only list that asks.
+ *
+ * `time_scope` is how a caller says which side of *now* it wants, rather than
+ * doing date arithmetic of its own. "My games → Past" used `date_to:
+ * yesterday`, which stranded a game played this morning: too late for Upcoming,
+ * too recent for Past, so it appeared in neither list.
  */
 function bookingWhere(query) {
-  const where = { is_canceled: false, status: { [Op.ne]: 'cancelled' } };
+  const base = { is_canceled: false, status: { [Op.ne]: 'cancelled' } };
+
+  if (query.time_scope === 'past')     return { ...base, ...finishedBooking() };
+  if (query.time_scope === 'upcoming') return { ...base, ...unfinishedBooking() };
 
   const explicitDates = Boolean(query.date || query.when || query.date_from || query.date_to);
-  if (String(query.include_past) === 'true' && !explicitDates) return where;
+  if (String(query.include_past) === 'true' && !explicitDates) return base;
 
   const { from, to } = dateWindow(query);
-  if (from && to) where.slot_date = { [Op.between]: [from, to] };
-  else if (from) where.slot_date = { [Op.gte]: from };
-  else if (to) where.slot_date = { [Op.lte]: to };
 
-  return where;
+  // A window that opens today is forward-looking — the "Today" chip included —
+  // so a game that finished this morning is not in it. Midnight is not "now".
+  if (from === appToday()) {
+    const clauses = [unfinishedBooking()];
+    if (to) clauses.push({ slot_date: { [Op.lte]: to } });
+    return { ...base, [Op.and]: clauses };
+  }
+
+  if (from && to) return { ...base, slot_date: { [Op.between]: [from, to] } };
+  if (from)       return { ...base, slot_date: { [Op.gte]: from } };
+  if (to)         return { ...base, slot_date: { [Op.lte]: to } };
+  return base;
 }
 
 
@@ -296,6 +354,9 @@ module.exports = {
   GAME_LEVELS,
   dateWindow,
   bookingWhere,
+  appClock,
+  unfinishedBooking,
+  finishedBooking,
   GAME_HOST_FIELDS,
   pickGameFields,
   SEATED,

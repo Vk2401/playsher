@@ -10,7 +10,7 @@ const { generateAccessToken, generateRefreshToken } = require('../utils/jwt.util
 const { success, error } = require('../utils/response');
 const { REFRESH_EXPIRES_DAYS } = require('../config/jwt');
 const { sendSms } = require('../utils/sms.utils');
-const { generateUniqueUsername, isUsernameConflict } = require('../utils/username');
+const { generateUniqueUsername, ensureUsername, isUsernameConflict } = require('../utils/username');
 
 const SALT_ROUNDS = 12;
 const OTP_TTL_MS  = 5 * 60 * 1000;
@@ -133,7 +133,16 @@ exports.verifyOtp = async (req, res) => {
       });
     }
 
-    // Existing user — issue tokens
+    // Existing user — issue tokens.
+    //
+    // Backfilled here as well as on the profile read: an account that predates
+    // handles otherwise has none until its owner happens to open their own
+    // profile screen, and until then they appear in search as a bare name. Two
+    // accounts called "Vasanth" then render as two identical rows with nothing
+    // to tell them apart. Signing in is the moment every active account passes
+    // through, so it is the one that fixes the whole user base.
+    await ensureUsername(User, user);
+
     await Otp.destroy({ where: { mobile } });
     const payload = { id: user.id, role: 'user' };
     const accessToken = generateAccessToken(payload);

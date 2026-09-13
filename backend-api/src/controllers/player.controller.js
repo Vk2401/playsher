@@ -19,7 +19,7 @@
  */
 const { Op, fn, col, literal } = require('sequelize');
 const {
-  sequelize, User, UserFollow, Game, GameParticipant, Sport, UserSportPreference,
+  sequelize, User, UserFollow, Game, GameParticipant, Booking, Sport, UserSportPreference,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
@@ -29,7 +29,9 @@ const { notify } = require('../utils/notify');
 const {
   PUBLIC_ATTRIBUTES, CARD_ATTRIBUTES, toCard, toProfile, followedIdsAmong,
 } = require('../utils/playerView');
-const { serialize: serializeGame, findGamesByIds } = require('../utils/gameView');
+const {
+  serialize: serializeGame, findGamesByIds, unfinishedBooking,
+} = require('../utils/gameView');
 
 /** Only real, reachable accounts appear anywhere in here. */
 const VISIBLE = { deleted_at: null, is_active: true };
@@ -246,6 +248,12 @@ exports.show = async (req, res) => {
  * What makes a profile worth opening: you are deciding whether to join their
  * game, or whether to invite them to yours. Private games are never listed —
  * they are not the viewer's to see.
+ *
+ * **Upcoming only.** A game that has already been played is not an invitation
+ * to anything, and listing a stranger's history on a profile tells people
+ * where somebody was and when. The archive belongs to the people who were in
+ * it, in their own "My games"; the profile's `games_played` count still says
+ * how much they play without naming a single fixture.
  */
 exports.games = async (req, res) => {
   try {
@@ -257,26 +265,39 @@ exports.games = async (req, res) => {
       where     : { user_id: user.id, status: { [Op.in]: SEATED } },
       attributes: ['game_id'],
     });
-    const ids = seats.map((s) => s.game_id);
-    if (ids.length === 0) {
+    const seatedIds = seats.map((s) => s.game_id);
+    if (seatedIds.length === 0) {
       return success(res, 'Games retrieved.', [], 200, paginationMeta(0, page, limit));
     }
 
-    // Two phases, for the reason `findGamesByIds` documents: the page's ids
-    // first, then the rows loaded whole. Asking for the includes and a limit
-    // together makes Sequelize build a subquery the nested venue join cannot
-    // resolve against.
-    const where = { id: { [Op.in]: ids }, visibility: 'public', is_active: true };
+    // The booking carries the date and time, so "is it still to come?" is a
+    // question about the booking. Resolved as a separate lookup rather than a
+    // join with a limit, for the reason `findGamesByIds` documents — and the
+    // set is one player's games, so it is small.
+    const candidates = await Game.findAll({
+      where     : { id: { [Op.in]: seatedIds }, visibility: 'public', is_active: true },
+      attributes: ['id', 'booking_id'],
+      order     : [['id', 'DESC']],
+    });
+
+    const live = await Booking.findAll({
+      where     : {
+        id: { [Op.in]: candidates.map((g) => g.booking_id).filter(Boolean) },
+        is_canceled: false,
+        status: { [Op.ne]: 'cancelled' },
+        ...unfinishedBooking(),
+      },
+      attributes: ['id'],
+    });
+    const liveIds = new Set(live.map((b) => b.id));
+
+    const ids = candidates.filter((g) => liveIds.has(g.booking_id)).map((g) => g.id);
     const order = [['id', 'DESC']];
+    const pageIds = ids.slice(offset, offset + limit);
 
-    const [count, page_] = await Promise.all([
-      Game.count({ where }),
-      Game.findAll({ where, attributes: ['id'], order, limit, offset }),
-    ]);
-
-    const games = await findGamesByIds(page_.map((r) => r.id), order);
+    const games = await findGamesByIds(pageIds, order);
     return success(res, 'Games retrieved.', games.map((row) => serializeGame(row, req.user.id)), 200,
-      paginationMeta(count, page, limit));
+      paginationMeta(ids.length, page, limit));
   } catch (err) {
     return error(res, err.message, 500);
   }

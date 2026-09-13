@@ -46,9 +46,8 @@ class PlayerCard {
         gamesTogether: json['games_together'] as int?,
       );
 
-  static List<PlayerCard> listFromJson(List<dynamic> list) => list
-      .map((e) => PlayerCard.fromJson(e as Map<String, dynamic>))
-      .toList();
+  static List<PlayerCard> listFromJson(List<dynamic> list) =>
+      list.map((e) => PlayerCard.fromJson(e as Map<String, dynamic>)).toList();
 
   PlayerCard copyWith({bool? isFollowing}) => PlayerCard(
         id: id,
@@ -60,9 +59,17 @@ class PlayerCard {
         gamesTogether: gamesTogether,
       );
 
-  /// `@ravi99`, or the display name when the API sent no handle.
+  /// `@ravi99`, or `Player #12` for an account whose handle has not been
+  /// assigned yet.
+  ///
+  /// Deliberately **not** the display name. Falling back to the name printed it
+  /// twice — once as the title, once as the line under it — so three different
+  /// accounts called "Vasanth" rendered as three identical rows and read as
+  /// duplicate records rather than as three different people. The id is the one
+  /// thing that is always there and always distinct, and it is also what
+  /// `/players/:handle` resolves when there is no username.
   String get handle =>
-      username == null || username!.isEmpty ? name : '@$username';
+      username == null || username!.isEmpty ? 'Player #$id' : '@$username';
 
   String get initials => _initialsOf(name);
 
@@ -166,8 +173,18 @@ class PlayerProfile {
     final at = DateTime.tryParse(raw);
     if (at == null) return null;
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return 'Playing since ${months[at.month - 1]} ${at.year}';
   }

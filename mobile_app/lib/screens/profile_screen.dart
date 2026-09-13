@@ -9,11 +9,35 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/bookings_provider.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    // The user cached at sign-in comes from the login payload, which carries
+    // only id, name, mobile and email — no handle, and no follower counts. So
+    // this screen showed no @handle and 0 followers until the profile happened
+    // to be re-read after an edit. Asking on every visit is one cheap call and
+    // is also what picks up a handle the API has just backfilled.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(authProvider.notifier).refreshUser();
+    });
+  }
+
+  Future<void> _refresh() async {
+    await ref.read(authProvider.notifier).refreshUser();
+    ref.invalidate(bookingsProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final auth = ref.watch(authProvider);
     final user = auth.user;
@@ -22,127 +46,144 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
-      body: CustomScrollView(
-        slivers: [
-          // The header bleeds under the status bar, so it pads itself with
-          // MediaQuery.padding.top instead of sitting inside a SafeArea.
-          //
-          // Header and stats card share one sliver: slivers paint in reverse
-          // order, so a stats card in its own sliver below the header was
-          // painted *under* it and the numbers vanished into the blue.
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                  bottom: _Header.statsOverlap + 24),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _Header(user: user),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: -_Header.statsOverlap,
-                    child: _StatsCard(
-                      bookings: '$totalBookings',
-                      games: '${user?.gamesPlayed ?? 0}',
-                      rating: user != null && user.rating > 0
-                          ? user.rating.toStringAsFixed(1)
-                          : '—',
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        backgroundColor: colors.card,
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          slivers: [
+            // The header bleeds under the status bar, so it pads itself with
+            // MediaQuery.padding.top instead of sitting inside a SafeArea.
+            //
+            // Header and stats card share one sliver: slivers paint in reverse
+            // order, so a stats card in its own sliver below the header was
+            // painted *under* it and the numbers vanished into the blue.
+            SliverToBoxAdapter(
+              child: Padding(
+                padding:
+                    const EdgeInsets.only(bottom: _Header.statsOverlap + 24),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _Header(user: user),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: -_Header.statsOverlap,
+                      child: _StatsCard(
+                        bookings: '$totalBookings',
+                        games: '${user?.gamesPlayed ?? 0}',
+                        rating: user != null && user.rating > 0
+                            ? user.rating.toStringAsFixed(1)
+                            : '—',
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                const _GroupLabel('Activity'),
-                _MenuGroup(
-                  items: [
-                    _MenuEntry(
-                      icon: Icons.event_note_rounded,
-                      tint: AppColors.primary,
-                      title: 'My Bookings',
-                      subtitle: 'Upcoming and past slots',
-                      onTap: () => context.push('/my-bookings'),
-                    ),
-                    _MenuEntry(
-                      icon: Icons.sports_rounded,
-                      tint: AppColors.info,
-                      title: 'My Coaching',
-                      subtitle: 'Sessions booked with coaches',
-                      onTap: () => context.push('/my-sessions'),
-                    ),
-                    _MenuEntry(
-                      icon: Icons.favorite_rounded,
-                      tint: AppColors.error,
-                      title: 'Saved Turfs',
-                      subtitle: 'Venues you shortlisted',
-                      onTap: () => context.push('/saved-turfs'),
-                    ),
-                    _MenuEntry(
-                      icon: Icons.notifications_rounded,
-                      tint: AppColors.warning,
-                      title: 'Notifications',
-                      subtitle: 'Booking and game updates',
-                      onTap: () => context.push('/notifications'),
-                    ),
-                    _MenuEntry(
-                      icon: Icons.person_search_rounded,
-                      tint: AppColors.success,
-                      title: 'Find Players',
-                      subtitle: 'Search by username or number, and follow',
-                      onTap: () => context.push('/players'),
-                    ),
-                  ],
+            // The follow graph, where a player looks for it: on their own
+            // profile. Both lists already existed as screens, but the only way
+            // in was somebody *else's* profile — so your own followers were
+            // unreachable from your own account.
+            if (user != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: _SocialCard(user: user),
                 ),
-                const SizedBox(height: 22),
-                const _GroupLabel('Account'),
-                _MenuGroup(
-                  items: [
-                    _MenuEntry(
-                      icon: Icons.person_rounded,
-                      tint: AppColors.info,
-                      title: 'Edit Profile',
-                      subtitle: 'Name, email and city',
-                      onTap: () => context.push('/profile/edit'),
-                    ),
-                    _MenuEntry(
-                      icon: Icons.settings_rounded,
-                      tint: AppColors.neutral,
-                      title: 'Settings',
-                      subtitle: 'Theme, location and app info',
-                      onTap: () => context.push('/settings'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                _LogoutButton(onTap: () => _logout(context, ref)),
-                const SizedBox(height: 28),
-                Center(
-                  child: Text(
-                    '${AppConstants.appName.toUpperCase()} V1.0.0',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: colors.textSecondary,
-                      letterSpacing: 1.5,
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  const _GroupLabel('Activity'),
+                  _MenuGroup(
+                    items: [
+                      _MenuEntry(
+                        icon: Icons.event_note_rounded,
+                        tint: AppColors.primary,
+                        title: 'My Bookings',
+                        subtitle: 'Upcoming and past slots',
+                        onTap: () => context.push('/my-bookings'),
+                      ),
+                      _MenuEntry(
+                        icon: Icons.sports_rounded,
+                        tint: AppColors.info,
+                        title: 'My Coaching',
+                        subtitle: 'Sessions booked with coaches',
+                        onTap: () => context.push('/my-sessions'),
+                      ),
+                      _MenuEntry(
+                        icon: Icons.favorite_rounded,
+                        tint: AppColors.error,
+                        title: 'Saved Turfs',
+                        subtitle: 'Venues you shortlisted',
+                        onTap: () => context.push('/saved-turfs'),
+                      ),
+                      _MenuEntry(
+                        icon: Icons.notifications_rounded,
+                        tint: AppColors.warning,
+                        title: 'Notifications',
+                        subtitle: 'Booking and game updates',
+                        onTap: () => context.push('/notifications'),
+                      ),
+                      _MenuEntry(
+                        icon: Icons.person_search_rounded,
+                        tint: AppColors.success,
+                        title: 'Find Players',
+                        subtitle: 'Search by username or number, and follow',
+                        onTap: () => context.push('/players'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  const _GroupLabel('Account'),
+                  _MenuGroup(
+                    items: [
+                      _MenuEntry(
+                        icon: Icons.person_rounded,
+                        tint: AppColors.info,
+                        title: 'Edit Profile',
+                        subtitle: 'Name, email and city',
+                        onTap: () => context.push('/profile/edit'),
+                      ),
+                      _MenuEntry(
+                        icon: Icons.settings_rounded,
+                        tint: AppColors.neutral,
+                        title: 'Settings',
+                        subtitle: 'Theme, location and app info',
+                        onTap: () => context.push('/settings'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  _LogoutButton(onTap: () => _logout(context, ref)),
+                  const SizedBox(height: 28),
+                  Center(
+                    child: Text(
+                      '${AppConstants.appName.toUpperCase()} V1.0.0',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: colors.textSecondary,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Center(
-                  child: Text(
-                    '© 2025 ${AppConstants.appName}. All rights reserved.',
-                    style: TextStyle(fontSize: 10, color: colors.textSecondary),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text(
+                      '© 2025 ${AppConstants.appName}. All rights reserved.',
+                      style:
+                          TextStyle(fontSize: 10, color: colors.textSecondary),
+                    ),
                   ),
-                ),
-              ]),
+                ]),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -453,8 +494,7 @@ class _StatsCard extends StatelessWidget {
           _StatItem(
               icon: Icons.sports_soccer_rounded, value: games, label: 'GAMES'),
           _StatDivider(color: colors.border),
-          _StatItem(
-              icon: Icons.star_rounded, value: rating, label: 'RATING'),
+          _StatItem(icon: Icons.star_rounded, value: rating, label: 'RATING'),
         ],
       ),
     );
@@ -519,6 +559,116 @@ class _StatItem extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Followers and Following, side by side and each one a way in.
+///
+/// A handle resolves either form — `/players/ravi99` or `/players/12` — so an
+/// account whose handle has not been backfilled yet still reaches its own
+/// lists rather than losing them to a null.
+class _SocialCard extends StatelessWidget {
+  final UserModel user;
+
+  const _SocialCard({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final handle = (user.username == null || user.username!.isEmpty)
+        ? '${user.id}'
+        : user.username!;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        children: [
+          _SocialStat(
+            value: '${user.followersCount}',
+            label: user.followersCount == 1 ? 'Follower' : 'Followers',
+            onTap: () => context.push('/players/$handle/followers'),
+          ),
+          Container(width: 1, height: 34, color: colors.border),
+          _SocialStat(
+            value: '${user.followingCount}',
+            label: 'Following',
+            onTap: () => context.push('/players/$handle/following'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SocialStat extends StatelessWidget {
+  final String value;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SocialStat({
+    required this.value,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Expanded(
+      child: Semantics(
+        button: true,
+        label: '$value $label',
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            // 44px minimum whatever the text scale does to the two lines.
+            height: 68,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 16, color: colors.textSecondary),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -689,8 +839,7 @@ class _LogoutButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: colors.card,
             borderRadius: BorderRadius.circular(16),
-            border:
-                Border.all(color: AppColors.error.withValues(alpha: 0.35)),
+            border: Border.all(color: AppColors.error.withValues(alpha: 0.35)),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,

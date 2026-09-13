@@ -25,6 +25,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+
+    // Opening the inbox is a request to see what is in it now. Without this the
+    // screen showed whatever was fetched when the provider was first built,
+    // which could be hours old — and on a fresh install was the empty list
+    // fetched before anybody had followed you.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(notificationsProvider.notifier).refresh();
+    });
   }
 
   @override
@@ -119,31 +127,47 @@ class _NotificationList extends ConsumerWidget {
     final colors = context.colors;
 
     if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.notifications_none_rounded,
-                  size: 56, color: colors.textSecondary),
-              const SizedBox(height: 16),
-              Text(
-                emptyTitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: colors.textPrimary,
+      // Wrapped in the same pull-to-refresh as the list, over an
+      // always-scrollable viewport: an empty inbox is precisely the one
+      // somebody pulls on to see whether anything has arrived.
+      return RefreshIndicator(
+        color: AppColors.primary,
+        backgroundColor: colors.card,
+        onRefresh: () => ref.read(notificationsProvider.notifier).refresh(),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.notifications_none_rounded,
+                        size: 56, color: colors.textSecondary),
+                    const SizedBox(height: 16),
+                    Text(
+                      emptyTitle,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      emptyBody,
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 14, color: colors.textSecondary),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                emptyBody,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: colors.textSecondary),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -152,7 +176,7 @@ class _NotificationList extends ConsumerWidget {
     return RefreshIndicator(
       color: AppColors.primary,
       backgroundColor: colors.card,
-      onRefresh: () => ref.read(notificationsProvider.notifier).load(),
+      onRefresh: () => ref.read(notificationsProvider.notifier).refresh(),
       child: ListView.builder(
         itemCount: items.length,
         itemBuilder: (_, i) => NotificationCard(
@@ -172,7 +196,8 @@ class _NotificationList extends ConsumerWidget {
 /// Mark it read, then follow it. The path is a router location the server
 /// chose, so an absent or unrecognised one simply does nothing rather than
 /// throwing on a route this build does not have.
-void _open(BuildContext context, WidgetRef ref, NotificationModel notification) {
+void _open(
+    BuildContext context, WidgetRef ref, NotificationModel notification) {
   ref.read(notificationsProvider.notifier).markAsRead(notification.id);
   final path = notification.actionPath;
   if (path == null || !path.startsWith('/')) return;

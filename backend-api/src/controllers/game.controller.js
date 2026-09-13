@@ -27,7 +27,7 @@ const {
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
-const { appToday, isPastSlot } = require('../utils/appTime');
+const { isPastSlot } = require('../utils/appTime');
 const { notify } = require('../utils/notify');
 const {
   GAME_LEVELS, SEATED, BOOKING_INCLUDE, PARTICIPANTS_INCLUDE,
@@ -223,16 +223,16 @@ exports.mine = async (req, res) => {
     // the game you are about to walk to, most-recent-first for the archive —
     // so the caller says which one it wants rather than getting one order that
     // reads backwards for half of them.
+    //
+    // The boundary between them is *now*, not midnight. It used to be
+    // `date_to: yesterday` for Past against `date_from: today` for Upcoming,
+    // which left a game played this morning in neither list: too late to be
+    // upcoming, too recent to be past. `time_scope` compares the end time.
     const scope = ['past', 'all'].includes(req.query.scope) ? req.query.scope : 'upcoming';
-    const today = appToday();
-    const yesterday = new Date(`${today}T00:00:00Z`);
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-    const scoped = scope === 'past'
-      ? { date_to: yesterday.toISOString().slice(0, 10) }
-      : scope === 'all'
-        ? { include_past: 'true' }
-        : { date_from: today };
+    const scoped = scope === 'all'
+      ? { include_past: 'true' }
+      : { time_scope: scope };
 
     const { count, games } = await findGamesPage({
       where,

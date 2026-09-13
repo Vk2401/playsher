@@ -50,11 +50,17 @@ void main() {
       expect(p.handle, '@ravi99');
     });
 
-    test('falls back to the display name when there is no handle', () {
-      // Should not happen — every account is assigned one — but a bare "@" is
-      // worse than a name.
-      final p = PlayerCard.fromJson(cardJson(username: null));
-      expect(p.handle, 'Ravi Kumar');
+    test('an account with no handle is still told apart from another', () {
+      // Falling back to the display name printed it twice — as the row's title
+      // and again underneath — so several accounts sharing a name rendered as
+      // identical rows and read as duplicate records. The id always differs.
+      final a = PlayerCard.fromJson(cardJson(username: null));
+      final b = PlayerCard.fromJson({...cardJson(username: null), 'id': 8});
+
+      expect(a.handle, 'Player #7');
+      expect(b.handle, 'Player #8');
+      expect(a.handle, isNot(b.handle));
+      expect(a.handle, isNot(contains(a.name)));
     });
 
     test('shows how well you know them when the API says', () {
