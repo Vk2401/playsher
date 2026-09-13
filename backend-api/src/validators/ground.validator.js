@@ -1,5 +1,20 @@
 const { body, param } = require('express-validator');
 
+// A venue's public number is free text — a mobile, a landline with an STD code,
+// sometimes with spaces or a +91. We only ever hand it to `tel:`, so the rule is
+// "dialable and short enough for the column", not a strict Indian mobile.
+// An empty string is allowed on purpose: it is how an owner clears the number.
+const contactNumber = (field) => body(field)
+  .optional({ nullable: true })
+  .trim()
+  .custom((value) => {
+    if (value === '') return true;
+    if (value.length > 20) throw new Error('Contact number must be 20 characters or fewer.');
+    if (!/^\+?[0-9][0-9\s-]*$/.test(value)) throw new Error('Contact number may only contain digits, spaces and dashes.');
+    if (value.replace(/\D/g, '').length < 6) throw new Error('Contact number is too short.');
+    return true;
+  });
+
 const createGround = [
   body('name').trim().notEmpty().withMessage('Ground name is required.'),
   body('address').optional().trim(),
@@ -8,6 +23,7 @@ const createGround = [
   body('latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude.'),
   body('longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude.'),
   body('venue_rules').optional().trim(),
+  contactNumber('contact_number'),
   // The venue's price for one 30-minute slot. Multipart sends numbers as
   // strings, so isFloat rather than isNumeric, and it may not be negative.
   body('price_per_slot').optional().isFloat({ min: 0 })
@@ -23,6 +39,7 @@ const updateGround = [
   // strings, so isFloat rather than isNumeric, and it may not be negative.
   body('price_per_slot').optional().isFloat({ min: 0 })
     .withMessage('price_per_slot must be a number >= 0.'),
+  contactNumber('contact_number'),
 ];
 
 const addAmenities = [

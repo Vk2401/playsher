@@ -1,3 +1,6 @@
+import '../core/map_links.dart';
+import '../core/phone_links.dart';
+import '../core/venue_contact.dart';
 import 'ground_sport_model.dart';
 import 'amenity_model.dart';
 import 'review_model.dart';
@@ -47,6 +50,11 @@ class GroundModel {
   final String? description;
   final String? about;
   final String? venueRules;
+
+  /// The venue's public phone number, as its owner typed it — a mobile, or a
+  /// landline with an STD code. Null when the owner has not set one, which is
+  /// why every caller has to hide the Call affordance rather than dial blank.
+  final String? contactNumber;
   final double? latitude;
   final double? longitude;
   final bool isApproved;
@@ -72,6 +80,7 @@ class GroundModel {
     this.description,
     this.about,
     this.venueRules,
+    this.contactNumber,
     this.latitude,
     this.longitude,
     this.isApproved = true,
@@ -134,6 +143,7 @@ class GroundModel {
       description: json['description'] as String?,
       about: json['about'] as String?,
       venueRules: json['venue_rules'] as String?,
+      contactNumber: json['contact_number'] as String?,
       latitude: double.tryParse(json['latitude']?.toString() ?? ''),
       longitude: double.tryParse(json['longitude']?.toString() ?? ''),
       isApproved: json['is_approved'] as bool? ?? true,
@@ -215,6 +225,23 @@ class GroundModel {
     if (price <= 0) return null;
     return '\u20b9${price.toStringAsFixed(0)}';
   }
+
+  /// The dialable form of [contactNumber], or null when there is nothing to
+  /// dial. Whitespace-only and stray punctuation both count as nothing — a row
+  /// written before the column existed can hold either.
+  String? get callableNumber => PhoneLinks.sanitize(contactNumber);
+
+  /// Directions to this venue, or null when its coordinates are unset.
+  String? get directionsUrl =>
+      MapLinks.directionsUrl(latitude: latitude, longitude: longitude);
+
+  /// Directions and the number as one value, ready to hand to
+  /// `VenueContactBar` or to carry into checkout through GoRouter's `extra`.
+  VenueContact get venueContact => VenueContact(
+        phone: contactNumber,
+        latitude: latitude,
+        longitude: longitude,
+      );
 
   List<String> get sportNames => groundSports
       .map((gs) => gs.sport?.name ?? '')

@@ -26,6 +26,18 @@ function asBool(value) {
   return !(value === 'false' || value === '0' || value === '');
 }
 
+/**
+ * Normalise the venue's public phone number.
+ * Clearing the field sends an empty string, and an empty string stored in the
+ * column is not "no number" to any client — the app would render a Call button
+ * that dials nothing. NULL is the only honest value for absent.
+ */
+function normaliseContact(value) {
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 /** Pick only the fields an owner is allowed to set, coercing booleans. */
 function pickGroundFields(body = {}) {
   const patch = {};
@@ -33,9 +45,11 @@ function pickGroundFields(body = {}) {
     if (body[key] === undefined) continue;
     // Multipart sends every field as a string, so "false" arrives truthy
     // unless each boolean is coerced by name.
-    patch[key] = BOOLEAN_FIELDS.has(key) ? asBool(body[key]) : body[key];
+    if (BOOLEAN_FIELDS.has(key))        patch[key] = asBool(body[key]);
+    else if (key === 'contact_number')  patch[key] = normaliseContact(body[key]);
+    else                                patch[key] = body[key];
   }
   return patch;
 }
 
-module.exports = { OWNER_GROUND_FIELDS, asBool, pickGroundFields };
+module.exports = { OWNER_GROUND_FIELDS, asBool, normaliseContact, pickGroundFields };

@@ -71,6 +71,7 @@ router.get   ('/grounds/:id',                ...owner, op.getGround);
  *               latitude:    { type: number }
  *               longitude:   { type: number }
  *               venue_rules: { type: string }
+ *               contact_number: { type: string, description: "Public phone number for the venue, max 20 chars. Empty string clears it." }
  *               cover_image: { type: string, format: binary }
  *     responses:
  *       201: { description: Ground created (pending approval) }
@@ -90,7 +91,7 @@ router.post  ('/grounds',                    ...owner, uploadGround, op.createGr
  *         schema: { type: integer }
  *     requestBody:
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -99,10 +100,16 @@ router.post  ('/grounds',                    ...owner, uploadGround, op.createGr
  *               description: { type: string }
  *               address:     { type: string }
  *               venue_rules: { type: string }
+ *               contact_number: { type: string, description: "Public phone number for the venue, max 20 chars. Empty string clears it." }
+ *               cover_image: { type: string, format: binary, description: "Replaces the cover photo. The previous one stays in the gallery." }
  *     responses:
  *       200: { description: Updated }
  */
-router.put   ('/grounds/:id',                ...owner, op.updateGround);
+// uploadGround here as well as on create: the panel submits this form as
+// multipart either way, and with nothing to parse it express left req.body
+// empty — so every owner edit answered "No updatable fields supplied" and
+// nothing an owner typed could be saved.
+router.put   ('/grounds/:id',                ...owner, uploadGround, op.updateGround);
 
 /**
  * @swagger

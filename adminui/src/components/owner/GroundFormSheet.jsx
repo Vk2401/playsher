@@ -89,6 +89,11 @@ function GroundForm({ ground, onClose, onCreated }) {
     const fd = new FormData()
     Object.entries(form).forEach(([k, v]) => {
       if (k === 'has_roof' || k === 'is_active') fd.append(k, v ? 'true' : 'false')
+      // Sent even when blank, so an owner can remove a wrong number. Every
+      // other optional field is skipped when empty, which means it can only
+      // ever be set — fine for a description, wrong for a number customers
+      // are about to ring. The API stores a blank one as NULL.
+      else if (k === 'contact_number' && editing) fd.append(k, String(v ?? '').trim())
       else if (v !== '' && v != null) fd.append(k, typeof v === 'string' ? v.trim() : v)
     })
     if (cover) fd.append('cover_image', cover)

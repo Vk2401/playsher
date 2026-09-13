@@ -15,6 +15,7 @@ const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { pickAdminCoachFields } = require('../utils/coachFields');
+const { normaliseContact } = require('../utils/groundFields');
 const { notify } = require('../utils/notify');
 const {
   serialize: serializeGame, findGameWhole, findGamesByIds,
@@ -852,6 +853,11 @@ exports.updateGround = async (req, res) => {
 
     const patch = pick(req.body, ADMIN_GROUND_FIELDS);
     if (Object.keys(patch).length === 0) return error(res, 'No updatable fields supplied.');
+
+    // Same rule as the owner's own path: a cleared number is NULL, never ''.
+    if (patch.contact_number !== undefined) {
+      patch.contact_number = normaliseContact(patch.contact_number);
+    }
 
     // Reassigning a ground to a non-existent owner would orphan it.
     if (patch.owner_id !== undefined) {

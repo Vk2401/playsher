@@ -56,5 +56,9 @@ function uploader(subdir, field) {
 exports.uploadSport     = uploader('sports',    'image');
 exports.uploadAmenity   = uploader('amenities', 'icon');
 exports.uploadCoach     = uploader('coaches',   'profile_image');
-exports.uploadGround    = uploader('grounds',   'main_image');
+// `cover_image`, which is what the owner panel sends and what the route's
+// swagger block documents. It read `main_image` here and nowhere else, so
+// multer rejected the upload outright with "Unexpected field" and adding a
+// ground with a photo failed on the one field the form makes prominent.
+exports.uploadGround    = uploader('grounds',   'cover_image');
 exports.uploadGroundImg = uploader('grounds',   'image');

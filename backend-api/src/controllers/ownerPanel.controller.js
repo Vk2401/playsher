@@ -66,7 +66,7 @@ exports.getGround = async (req, res) => {
   } catch (err) { return error(res, err.message, 500); }
 };
 
-/** POST /ground-owner/grounds (with optional main_image upload) */
+/** POST /ground-owner/grounds (with optional cover_image upload) */
 exports.createGround = async (req, res) => {
   try {
     const ground = await Ground.create({
@@ -91,10 +91,25 @@ exports.updateGround = async (req, res) => {
     if (!ground) return error(res, 'Ground not found.', 404);
 
     const patch = pickGroundFields(req.body);
-    if (Object.keys(patch).length === 0) {
+    // A new cover photo on its own is a change, even when no text field moved.
+    if (Object.keys(patch).length === 0 && !req.file) {
       return error(res, 'No updatable fields supplied.');
     }
-    await ground.update(patch);
+    if (Object.keys(patch).length > 0) await ground.update(patch);
+
+    // Replacing the cover demotes the old one rather than deleting it: the
+    // photo stays in the gallery, which is where an owner expects it to go.
+    if (req.file) {
+      await GroundImage.update(
+        { is_primary: false },
+        { where: { ground_id: ground.id, is_primary: true } },
+      );
+      await GroundImage.create({
+        ground_id:  ground.id,
+        image:      req.file.publicUrl,
+        is_primary: true,
+      });
+    }
     return success(res, 'Ground updated.', ground);
   } catch (err) { return error(res, err.message, 500); }
 };

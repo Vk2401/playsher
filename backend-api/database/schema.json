@@ -1938,6 +1938,11 @@
           "type": "text",
           "nullable": true
         },
+        "contact_number": {
+          "type": "varchar",
+          "length": 20,
+          "nullable": true
+        },
         "is_approved": {
           "type": "tinyint",
           "length": 1,
