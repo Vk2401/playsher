@@ -1,4 +1,5 @@
 import '../core/map_links.dart';
+import '../core/venue_contact.dart';
 
 class BookingModel {
   final int id;
@@ -13,6 +14,10 @@ class BookingModel {
   /// and the shared text can include a maps link.
   final double? groundLatitude;
   final double? groundLongitude;
+
+  /// The venue's own number, so a player standing at the wrong gate can ring
+  /// it. Null when the owner has not set one.
+  final String? groundContactNumber;
 
   final String? sportName;
   final String? paymentStatus;
@@ -44,6 +49,7 @@ class BookingModel {
     this.groundAddress,
     this.groundLatitude,
     this.groundLongitude,
+    this.groundContactNumber,
     this.sportName,
     this.paymentStatus,
     this.createdAt,
@@ -130,6 +136,8 @@ class BookingModel {
           double.tryParse(ground?['latitude']?.toString() ?? ''),
       groundLongitude:
           double.tryParse(ground?['longitude']?.toString() ?? ''),
+      groundContactNumber: ground?['contact_number'] as String? ??
+          json['ground_contact_number'] as String?,
       sportName: sport?['name'] as String? ?? category?['name'] as String?,
       paymentStatus: payment?['status'] as String? ??
           payment?['payment_status'] as String?,
@@ -171,6 +179,13 @@ class BookingModel {
       );
 
   bool get hasDirections => directionsUrl != null;
+
+  /// Directions and the venue's number as one value, for `VenueContactBar`.
+  VenueContact get venueContact => VenueContact(
+        phone: groundContactNumber,
+        latitude: groundLatitude,
+        longitude: groundLongitude,
+      );
 
   /// True when money is still owed at the venue.
   bool get hasBalanceDue => balanceDue > 0;

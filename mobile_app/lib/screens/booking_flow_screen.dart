@@ -16,6 +16,7 @@ import '../providers/bookings_provider.dart';
 import '../providers/grounds_provider.dart';
 import '../widgets/sport_glyph.dart';
 import '../widgets/sticky_bottom_bar.dart';
+import '../widgets/venue_contact_bar.dart';
 
 class BookingFlowScreen extends ConsumerStatefulWidget {
   final int groundId;
@@ -75,6 +76,13 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   String? get _groundName => widget.extra['groundName'] as String?;
   String? get _groundLocality => widget.extra['groundLocality'] as String?;
   String? get _groundImage => widget.extra['groundImage'] as String?;
+
+  /// Directions and the venue's phone number, carried from the detail screen
+  /// alongside the name and image. Empty when the screen was reached without
+  /// them — a deep link into checkout — in which case the bar renders nothing
+  /// rather than this screen fetching a ground to fill two buttons.
+  VenueContact get _venueContact =>
+      widget.extra['venueContact'] as VenueContact? ?? const VenueContact();
 
   /// The slots this booking covers, resolved from the same provider the picker
   /// used. Watched rather than passed through `extra` so the times survive a
@@ -547,6 +555,15 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
               groundLocality: _groundLocality,
               groundImage: _groundImage,
             ),
+
+            // How to get there and who to ring. On the confirm screen because
+            // this is the last point before money changes hands, and "can I
+            // actually reach this place" is the question a player asks here.
+            if (!_venueContact.isEmpty) ...[
+              const SizedBox(height: 14),
+              VenueContactBar(contact: _venueContact),
+            ],
+
             const SizedBox(height: 24),
 
             Text(

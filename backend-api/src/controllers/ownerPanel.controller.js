@@ -4,14 +4,15 @@
  */
 const { Op, literal } = require('sequelize');
 const {
+  sequelize,
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
   Sport, Amenity, Slot, Booking, BookedSlot, User, Game, Payment,
-  Coach, CoachGround, CoachBooking,
+  Coach, CoachGround, CoachBooking, BankDetails,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
 const { ensureSlotsForDate } = require('../utils/slotGenerator');
-const { releaseExpiredHolds } = require('../utils/slotHolds');
+const { releaseExpiredHolds, cancelBookingAndReleaseSlots } = require('../utils/slotHolds');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { notify } = require('../utils/notify');
@@ -65,7 +66,7 @@ exports.getGround = async (req, res) => {
   } catch (err) { return error(res, err.message, 500); }
 };
 
-/** POST /ground-owner/grounds (with optional main_image upload) */
+/** POST /ground-owner/grounds (with optional cover_image upload) */
 exports.createGround = async (req, res) => {
   try {
     const ground = await Ground.create({
@@ -90,10 +91,25 @@ exports.updateGround = async (req, res) => {
     if (!ground) return error(res, 'Ground not found.', 404);
 
     const patch = pickGroundFields(req.body);
-    if (Object.keys(patch).length === 0) {
+    // A new cover photo on its own is a change, even when no text field moved.
+    if (Object.keys(patch).length === 0 && !req.file) {
       return error(res, 'No updatable fields supplied.');
     }
-    await ground.update(patch);
+    if (Object.keys(patch).length > 0) await ground.update(patch);
+
+    // Replacing the cover demotes the old one rather than deleting it: the
+    // photo stays in the gallery, which is where an owner expects it to go.
+    if (req.file) {
+      await GroundImage.update(
+        { is_primary: false },
+        { where: { ground_id: ground.id, is_primary: true } },
+      );
+      await GroundImage.create({
+        ground_id:  ground.id,
+        image:      req.file.publicUrl,
+        is_primary: true,
+      });
+    }
     return success(res, 'Ground updated.', ground);
   } catch (err) { return error(res, err.message, 500); }
 };
@@ -366,22 +382,75 @@ exports.toggleSlot = async (req, res) => {
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
-/** GET /ground-owner/bookings */
+/**
+ * GET /ground-owner/bookings
+ *
+ * Optional filters, all additive — with none of them the query is exactly the
+ * old one (newest first), so existing callers see no change:
+ *   date=YYYY-MM-DD            bookings played on that day, ordered by start time
+ *   date_from / date_to        an inclusive range of play dates
+ *   status=confirmed,pending   one or more statuses
+ *   ground_id                  one of the owner's grounds
+ *   search                     booking reference, customer name or mobile
+ */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const BOOKING_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed'];
+
 exports.listBookings = async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query);
+    const { date, date_from, date_to, status, ground_id, search } = req.query;
+
+    for (const [name, value] of [['date', date], ['date_from', date_from], ['date_to', date_to]]) {
+      if (value && !DATE_RE.test(value)) return error(res, `${name} must be YYYY-MM-DD.`, 422);
+    }
+
+    const where = {};
+    if (date) where.slot_date = date;
+    else if (date_from || date_to) {
+      where.slot_date = {};
+      if (date_from) where.slot_date[Op.gte] = date_from;
+      if (date_to)   where.slot_date[Op.lte] = date_to;
+    }
+    if (status) {
+      const wanted = String(status).split(',').map((s) => s.trim()).filter((s) => BOOKING_STATUSES.includes(s));
+      if (wanted.length) where.status = { [Op.in]: wanted };
+    }
+    if (search && String(search).trim()) {
+      const term = `%${String(search).trim()}%`;
+      where[Op.or] = [
+        { booking_reference: { [Op.like]: term } },
+        { '$user.name$':     { [Op.like]: term } },
+        { '$user.mobile$':   { [Op.like]: term } },
+      ];
+    }
+
+    const groundWhere = { owner_id: req.user.id };
+    if (ground_id) groundWhere.id = ground_id;
+
+    const byPlayDate = Boolean(date || date_from || date_to);
+
     await completeFinishedBookings({ Booking });
     const { count, rows } = await Booking.findAndCountAll({
+      where,
       include: [
         {
           model: GroundSport, as: 'groundSport', required: true,
-          include: [{ model: Ground, as: 'ground', where: { owner_id: req.user.id }, required: true }],
+          include: [
+            { model: Ground, as: 'ground', where: groundWhere, required: true },
+            { model: Sport,  as: 'sport',  attributes: ['id', 'name'] },
+          ],
         },
         { model: User, as: 'user', attributes: ['id', 'name', 'mobile', 'email'] },
         { model: Payment, as: 'paymentRecord', required: false },
       ],
+      // Every include is to-one, so no row multiplication — this only stops
+      // Sequelize wrapping the query in a subquery the $user.*$ search can't see.
+      subQuery: false,
       limit, offset, distinct: true,
-      order: [['created_at', 'DESC']],
+      order: byPlayDate
+        ? [['slot_date', 'ASC'], ['slot_time_from', 'ASC']]
+        : [['created_at', 'DESC']],
     });
     return success(res, 'Bookings retrieved.', rows, 200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
@@ -420,8 +489,243 @@ exports.cancelBooking = async (req, res) => {
     if (!booking) return error(res, 'Booking not found.', 404);
     if (booking.status === 'cancelled') return error(res, 'Booking already cancelled.');
     const reason = req.body.reason || req.body.cancellation_reason || 'Cancelled by owner';
-    await booking.update({ status: 'cancelled', is_canceled: true, cancellation_reason: reason });
+
+    // This used to be a bare `booking.update({ status: 'cancelled' })`, which
+    // left every slot the booking held marked unavailable for ever — the venue
+    // quietly lost that hour's inventory and no screen showed why. It now runs
+    // the same release the customer's own cancel does.
+    //
+    // The transaction is opened here rather than inside the helper so the
+    // notification rolls back with the cancellation: telling somebody their
+    // game is off, and then failing to actually cancel it, is the one outcome
+    // worse than either alone.
+    const t = await sequelize.transaction();
+    try {
+      await cancelBookingAndReleaseSlots({ sequelize, BookedSlot, Slot }, booking, reason, t);
+
+      const ground = booking.groundSport?.ground;
+      await notify({
+        recipientType: 'user',
+        recipientId  : booking.user_id,
+        type         : 'booking_cancelled_by_owner',
+        title        : 'Your booking was cancelled',
+        message      : `${ground?.name || 'The venue'} cancelled your booking on `
+                     + `${booking.slot_date}. ${reason}`,
+        referenceType: 'booking',
+        referenceId  : booking.id,
+        // A client route, not a URL — the app prefixes its own base. See §9.
+        actionPath   : `/bookings/${booking.id}`,
+      }, t);
+
+      await t.commit();
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
+
     return success(res, 'Booking cancelled.', booking);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * POST /ground-owner/bookings/:id/collect — the owner took the cash at the gate.
+ *
+ * A pay-at-ground booking takes a 10% advance online (see utils/pricing) and
+ * leaves the rest owed. Nothing recorded that rest ever arriving, so the
+ * owner's list kept saying "collect Rs.X" after the customer had already paid
+ * and walked onto the pitch.
+ *
+ * This writes the payment the venue actually received: `payment_mode: offline`,
+ * `payment_status: success`. Both values already existed on the model — no
+ * column was added for this, and none should be.
+ *
+ * Deliberately NOT a Razorpay path: no gateway is involved, no money moves
+ * through Playsher, and there is nothing to refund through the API if it is
+ * recorded in error. That is also why it is owner-only and additive — the
+ * customer app never calls it.
+ *
+ * Idempotent by refusing rather than by upserting: a second call answers 409
+ * instead of writing a second payment row, because two rows would double the
+ * venue's takings in any later reconciliation.
+ */
+exports.collectAtGround = async (req, res) => {
+  try {
+    const booking = await Booking.findOne({
+      where  : { id: req.params.id },
+      include: [{
+        model: GroundSport, as: 'groundSport', required: true,
+        include: [{ model: Ground, as: 'ground', where: { owner_id: req.user.id }, required: true }],
+      }],
+    });
+    if (!booking) return error(res, 'Booking not found.', 404);
+    if (booking.status === 'cancelled') return error(res, 'That booking was cancelled.', 409);
+
+    const due = Number(booking.balance_due) || 0;
+    if (due <= 0) return error(res, 'Nothing left to collect on this booking.', 409);
+
+    const t = await sequelize.transaction();
+    try {
+      await Payment.create({
+        booking_id       : booking.id,
+        done_by_user_id  : booking.user_id,
+        payment_status   : 'success',
+        payment_mode     : 'offline',
+        payment_method   : 'cash_at_ground',
+        payment_timestamp: new Date(),
+        amount           : due,
+        currency         : 'INR',
+      }, { transaction: t });
+
+      // The money is in, so nothing is owed and the booking is settled. A
+      // pay-at-ground booking sits `pending` until this moment: the advance
+      // only ever held the slot.
+      await booking.update(
+        { balance_due: 0, status: booking.status === 'pending' ? 'confirmed' : booking.status },
+        { transaction: t },
+      );
+
+      await notify({
+        recipientType: 'user',
+        recipientId  : booking.user_id,
+        type         : 'booking_payment_collected',
+        title        : 'Payment received',
+        message      : `${booking.groundSport?.ground?.name || 'The venue'} recorded `
+                     + `Rs.${due} received at the ground. Your booking is fully paid.`,
+        referenceType: 'booking',
+        referenceId  : booking.id,
+        actionPath   : `/bookings/${booking.id}`,
+      }, t);
+
+      await t.commit();
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
+
+    await booking.reload();
+    return success(res, 'Payment recorded.', booking);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+
+// ── Settlements ───────────────────────────────────────────────────────────────
+
+/**
+ * GET /ground-owner/settlements — what this venue has earned, and what is owed.
+ *
+ * The admin panel has had `GET /admin/vendors` since the beginning; the owner
+ * had no equivalent, so the person actually waiting for the money was the one
+ * who could not see it.
+ *
+ * Read through `Payment.booking_id` rather than `bookings.payment_id`, because
+ * a pay-at-ground booking has **two** payments — the 10% advance taken online
+ * and the balance recorded at the gate — and a single `payment_id` column can
+ * only point at one of them. Going the other way counts both.
+ *
+ * The split that matters to an owner is not paid/unpaid but *where the money
+ * is*: cash they already hold, versus online money sitting with Playsher that
+ * still has to reach their bank.
+ */
+exports.listSettlements = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+
+    const groundIds = await ownedGroundIds(req.user.id);
+    const empty = {
+      online_total: 0, online_paid_out: 0, online_awaiting: 0,
+      cash_collected: 0, payment_count: 0, payout_state: 'no_vendor',
+    };
+    if (groundIds.length === 0) {
+      return success(res, 'Settlements retrieved.', { summary: empty, payments: [] },
+        200, paginationMeta(0, page, limit));
+    }
+
+    // Money is only real once the payment succeeded. A pending or failed
+    // attempt is not earnings and must never appear in a total an owner plans
+    // around.
+    const scope = {
+      model  : Booking,
+      as     : 'bookingRecord',
+      required: true,
+      attributes: ['id', 'booking_reference', 'slot_date', 'slot_time_from', 'status'],
+      include: [{
+        model: GroundSport, as: 'groundSport', required: true, attributes: ['id'],
+        where: { ground_id: { [Op.in]: groundIds } },
+        include: [
+          { model: Ground, as: 'ground', attributes: ['id', 'name'] },
+          { model: Sport,  as: 'sport',  attributes: ['id', 'name'] },
+        ],
+      }],
+    };
+
+    const { count, rows } = await Payment.findAndCountAll({
+      where  : { payment_status: 'success' },
+      include: [scope],
+      limit, offset, distinct: true,
+      order  : [['payment_timestamp', 'DESC'], ['id', 'DESC']],
+    });
+
+    // Totals span every payment, not just this page — an owner reading "owed"
+    // off page 1 of 4 would plan around a quarter of their money.
+    const all = await Payment.findAll({
+      where     : { payment_status: 'success' },
+      include   : [{ ...scope, attributes: ['id'] }],
+      attributes: ['amount', 'payment_mode', 'vendor_payout_status'],
+    });
+
+    const num = (v) => parseFloat(v) || 0;
+    const online = all.filter((p) => p.payment_mode === 'online');
+    const summary = {
+      online_total   : online.reduce((t, p) => t + num(p.amount), 0),
+      online_paid_out: online.filter((p) => p.vendor_payout_status === 'transferred')
+                             .reduce((t, p) => t + num(p.amount), 0),
+      cash_collected : all.filter((p) => p.payment_mode === 'offline')
+                          .reduce((t, p) => t + num(p.amount), 0),
+      payment_count  : all.length,
+    };
+    summary.online_awaiting = summary.online_total - summary.online_paid_out;
+
+    // `vendor_payout_status` is an admin-written column and nothing sets it
+    // automatically, so on its own it reads "pending" for ever — including for
+    // an owner whose money cannot move because Playsher has no account to send
+    // it to. That one state is a fact we can check here, so it is *derived* for
+    // display rather than written back: the stored column stays the admin's
+    // record of what they actually did.
+    const bank = await BankDetails.findOne({
+      where: { user_id: req.user.id, user_type: 'ground_owner' },
+      attributes: ['id'],
+    });
+    summary.has_bank_details = Boolean(bank);
+    summary.payout_state = !bank && summary.online_awaiting > 0
+      ? 'no_bank_details'
+      : (summary.online_awaiting > 0 ? 'pending' : 'settled');
+
+    const payments = rows.map((p) => {
+      const b  = p.bookingRecord;
+      const gs = b?.groundSport;
+      return {
+        id                  : p.id,
+        amount              : num(p.amount),
+        payment_mode        : p.payment_mode,
+        payment_method      : p.payment_method,
+        payment_timestamp   : p.payment_timestamp,
+        // Cash never needed a payout — the owner already holds it. Reporting
+        // it as "pending" would inflate what looks outstanding.
+        vendor_payout_status: p.payment_mode === 'offline'
+          ? 'collected_at_ground'
+          : (!bank ? 'no_bank_details' : p.vendor_payout_status),
+        booking_id          : b?.id ?? null,
+        booking_reference   : b?.booking_reference ?? null,
+        slot_date           : b?.slot_date ?? null,
+        slot_time_from      : b?.slot_time_from ?? null,
+        booking_status      : b?.status ?? null,
+        ground_name         : gs?.ground?.name ?? null,
+        sport_name          : gs?.sport?.name ?? null,
+      };
+    });
+
+    return success(res, 'Settlements retrieved.', { summary, payments },
+      200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
 };
 

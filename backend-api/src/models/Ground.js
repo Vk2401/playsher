@@ -23,6 +23,10 @@ module.exports = (sequelize) => {
       // sport advertised itself at zero however the others were priced.
       price_per_slot: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
       venue_rules: { type: DataTypes.TEXT },
+      // The number a player rings when they cannot find the gate. Free text
+      // rather than a normalised mobile: a venue often publishes a landline
+      // with an STD code, and the app only ever dials it.
+      contact_number: { type: DataTypes.STRING(20) },
       is_approved: { type: DataTypes.BOOLEAN, defaultValue: false },
       is_active:   { type: DataTypes.BOOLEAN, defaultValue: true },
       owner_id:    { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },

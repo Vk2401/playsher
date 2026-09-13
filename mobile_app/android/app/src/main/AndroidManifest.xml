@@ -59,6 +59,16 @@
             <data android:scheme="market"/>
         </intent>
 
+        <!-- The dialer, for a venue's contact number. The DIAL action rather
+             than CALL: it opens the dialer with the number filled in and lets
+             the player press the button, so the app needs no CALL_PHONE
+             permission. Without this query Android 11+ cannot resolve a
+             handler and the Call button does nothing at all. -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+
         <!-- UPI. Razorpay's checkout enumerates installed UPI apps to offer the
              intent flow (GPay, PhonePe, Paytm...). Under Android 11+ package
              visibility it cannot see them without this, so UPI either does not

@@ -9,6 +9,14 @@
 @docs/mobile-ui-guidelines.md
 @docs/admin-ui-guidelines.md
 
+> **Picking up where the last session left off:** read `.claude/HANDOVER.md` first if you are
+> touching the ground owner panel (`adminui/src/pages/owner/**`,
+> `adminui/src/components/owner/**`, `backend-api/src/controllers/ownerPanel.controller.js`).
+> It carries what shipped, what is deliberately deferred, and the local setup — including the
+> one that explains most confusing behaviour: **without Razorpay keys every booking auto-cancels
+> five minutes after it is created**, pay-at-ground included. This file stays the law for how the
+> repo works; the handover is only state, and where they disagree the code wins.
+
 ---
 
 ## 1. What this is

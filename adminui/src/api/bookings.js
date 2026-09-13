@@ -14,4 +14,8 @@ export const bookingsApi = {
   getOwnerBooking: (id) => apiClient.get(`/ground-owner/bookings/${id}`),
   ownerCancel: (id, reason) =>
     apiClient.patch(`/ground-owner/bookings/${id}/cancel`, { reason, cancellation_reason: reason }),
+  // Records the balance taken in cash at the gate. Owner-only and additive —
+  // the customer app has no equivalent call. Answers 409 on a second attempt
+  // rather than writing a second payment row.
+  ownerCollect: (id) => apiClient.post(`/ground-owner/bookings/${id}/collect`),
 }

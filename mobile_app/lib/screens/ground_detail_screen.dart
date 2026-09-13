@@ -14,6 +14,7 @@ import '../widgets/error_view.dart';
 import '../widgets/review_card.dart';
 import '../widgets/shimmer_loader.dart';
 import '../widgets/sport_glyph.dart';
+import '../widgets/venue_contact_bar.dart';
 import '../widgets/write_review_sheet.dart';
 
 class GroundDetailScreen extends ConsumerStatefulWidget {
@@ -398,6 +399,18 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                       ),
                     ),
 
+                  // Directions and the venue's own number. Placed with the
+                  // address rather than in a tab: a player deciding on a venue
+                  // wants to know how far it is and that someone picks up,
+                  // before they get as far as choosing a slot.
+                  if (!ground.venueContact.isEmpty) ...[
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: VenueContactBar(contact: ground.venueContact),
+                    ),
+                  ],
+
                   const SizedBox(height: 20),
 
                   // Stats row
@@ -689,6 +702,10 @@ class _GroundDetailScreenState extends ConsumerState<GroundDetailScreen> {
                   'groundName': ground.name,
                   'groundLocality': ground.locality,
                   'groundImage': ground.primaryImageUrl,
+                  // Directions and the venue's number, for the same reason:
+                  // checkout is where a player checks how they will get there
+                  // and who to ring, and it has no ground of its own to ask.
+                  'venueContact': ground.venueContact,
                 },
               ),
             ),

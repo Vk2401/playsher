@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:playsher_app/core/theme.dart';
+import 'package:playsher_app/core/venue_contact.dart';
 import 'package:playsher_app/models/ground_sport_model.dart';
 import 'package:playsher_app/models/sport_model.dart';
 import 'package:playsher_app/screens/booking_flow_screen.dart';
@@ -21,7 +22,8 @@ Widget _host(Map<String, dynamic> extra, {Brightness brightness = Brightness.dar
   );
 }
 
-Map<String, dynamic> _extra({bool longName = false}) => {
+Map<String, dynamic> _extra({bool longName = false, VenueContact? contact}) => {
+      if (contact != null) 'venueContact': contact,
       'groundSport': const GroundSportModel(
         id: 10,
         groundId: 1,
@@ -72,6 +74,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('carries the venue contact through from the detail screen',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_host(_extra(
+      contact: const VenueContact(
+        phone: '044 4567 8900',
+        latitude: 13.0827,
+        longitude: 80.2707,
+      ),
+    )));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Directions'), findsOneWidget);
+    expect(find.text('Call venue'), findsOneWidget);
+    expect(find.text('044 4567 8900'), findsOneWidget);
+  });
+
+  testWidgets('a checkout reached without a venue contact shows no bar',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_host(_extra()));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Directions'), findsNothing);
+    expect(find.text('Call venue'), findsNothing);
   });
 
   testWidgets('pay-at-ground shows the advance and the balance due',

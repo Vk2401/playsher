@@ -7,13 +7,13 @@ import '../core/api_client.dart';
 import '../core/api_error.dart';
 import '../core/app_colors.dart';
 import '../core/booking_share.dart';
-import '../core/map_links.dart';
 import '../models/booking_model.dart';
 import '../providers/bookings_provider.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/error_view.dart';
 import '../widgets/sport_glyph.dart';
 import '../widgets/shimmer_loader.dart';
+import '../widgets/venue_contact_bar.dart';
 
 class BookingDetailScreen extends ConsumerStatefulWidget {
   final String bookingId;
@@ -80,17 +80,6 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
     } finally {
       if (mounted) setState(() => _cancelling = false);
     }
-  }
-
-  Future<void> _openDirections(BookingModel booking) async {
-    final opened = await MapLinks.openDirections(
-      latitude: booking.groundLatitude,
-      longitude: booking.groundLongitude,
-    );
-    if (!mounted || opened) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open a maps app.')),
-    );
   }
 
   Future<void> _share(BookingModel booking) async {
@@ -173,20 +162,12 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                 // what day, and what time. Given their own card at the top
                 // rather than buried among ids and money.
                 _WhenWhereCard(booking: booking),
-                if (booking.hasDirections) ...[
+                // Directions and the venue's number. The number matters most
+                // here — this is the screen a player has open when they are
+                // outside a gate that will not open.
+                if (!booking.venueContact.isEmpty) ...[
                   const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openDirections(booking),
-                      icon: const Icon(Icons.directions_rounded, size: 18),
-                      label: const Text('Get directions'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                      ),
-                    ),
-                  ),
+                  VenueContactBar(contact: booking.venueContact),
                 ],
                 const SizedBox(height: 16),
 

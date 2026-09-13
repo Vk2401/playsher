@@ -3,6 +3,17 @@ const { sequelize, Ground, GroundOwner, GroundImage, Amenity, GroundAmenity, Gro
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta, haversineKm } = require('../utils/helpers');
 const { appNow } = require('../utils/appTime');
+const { normaliseContact } = require('../utils/groundFields');
+
+/**
+ * The one field on this route that needs coercing: a cleared contact number
+ * arrives as '' and has to be stored as NULL, or the app renders a Call button
+ * that dials nothing. Returns an empty patch when the key is absent, so it
+ * never adds a field the caller did not send.
+ */
+const contactPatch = (body) => body.contact_number === undefined
+  ? {}
+  : { contact_number: normaliseContact(body.contact_number) };
 
 // GET /grounds
 /**
@@ -191,7 +202,11 @@ exports.show = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const ownerId = req.user.role === 'ground_owner' ? req.user.id : req.body.owner_id;
-    const ground = await Ground.create({ ...req.body, owner_id: ownerId });
+    const ground = await Ground.create({
+      ...req.body,
+      ...contactPatch(req.body),
+      owner_id: ownerId,
+    });
     return success(res, 'Ground created.', ground, 201);
   } catch (err) {
     return error(res, err.message, 500);
@@ -206,7 +221,7 @@ exports.update = async (req, res) => {
     if (req.user.role === 'ground_owner' && ground.owner_id !== req.user.id) {
       return error(res, 'Forbidden.', 403);
     }
-    await ground.update(req.body);
+    await ground.update({ ...req.body, ...contactPatch(req.body) });
     return success(res, 'Ground updated.', ground);
   } catch (err) {
     return error(res, err.message, 500);

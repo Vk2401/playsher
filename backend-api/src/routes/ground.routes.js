@@ -82,6 +82,7 @@ router.get('/:id', ctrl.show);
  *               longitude:   { type: number }
  *               address:     { type: string }
  *               venue_rules: { type: string }
+ *               contact_number: { type: string, description: "Public phone number for the venue, max 20 chars. Empty string clears it." }
  *     responses:
  *       201: { description: Ground created }
  */

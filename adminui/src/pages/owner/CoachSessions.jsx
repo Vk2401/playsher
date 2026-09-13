@@ -1,128 +1,65 @@
-import React, { useState } from 'react'
-import { Alert, Box, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
+import { useState } from 'react'
+import { Box, Button, Skeleton, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
+import PhoneIcon from '@mui/icons-material/Phone'
+import SportsOutlinedIcon from '@mui/icons-material/SportsOutlined'
 
-import PageHeader from '../../components/ui/PageHeader.jsx'
-import DataTable from '../../components/ui/DataTable.jsx'
-import StatusChip from '../../components/ui/StatusChip.jsx'
+import { Banner, Card, EmptyNote, FilterChips, InfoRow, Pill, ScreenHeader } from '../../components/owner/OwnerBits.jsx'
+import { clock, dayLabel, prettyPhone, rupee, telHref } from '../../components/owner/ownerFormat.js'
 import { coachesApi } from '../../api/coaches.js'
 
 const TABS = [
-  { label: 'Upcoming', params: { upcoming: 'true' } },
-  { label: 'Confirmed', params: { status: 'confirmed' } },
-  { label: 'Completed', params: { status: 'completed' } },
-  { label: 'All', params: {} },
+  { value: 'upcoming', label: 'Upcoming', params: { upcoming: 'true' } },
+  { value: 'confirmed', label: 'Confirmed', params: { status: 'confirmed' } },
+  { value: 'completed', label: 'Completed', params: { status: 'completed' } },
+  { value: 'all', label: 'All', params: {} },
 ]
+const STATUS_TONE = { pending: 'warning', confirmed: 'primary', completed: 'neutral', cancelled: 'error', rejected: 'error' }
 
-const time = (t) => String(t ?? '').slice(0, 5)
-const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`
-
+/** Coaching sessions booked on the owner's grounds. Players pay at the ground. */
 export default function OwnerCoachSessions() {
-  const [tab, setTab] = useState(0)
-  const [date, setDate] = useState('')
+  const [tab, setTab] = useState('upcoming')
+  const params = TABS.find((t) => t.value === tab)?.params ?? {}
 
-  const params = { ...TABS[tab].params, limit: 100, ...(date ? { date } : {}) }
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['owner', 'coach-sessions', params],
-    queryFn: () => coachesApi.getOwnerSessions(params),
+  const q = useQuery({
+    queryKey: ['owner', 'coach-sessions', tab],
+    queryFn: () => coachesApi.getOwnerSessions({ ...params, limit: 100 }),
     select: (res) => res.data?.data ?? [],
   })
-
-  const columns = [
-    {
-      field: 'session_date',
-      headerName: 'When',
-      width: 190,
-      renderCell: ({ row }) => (
-        <Box>
-          <Typography variant="body2" fontWeight={600}>
-            {dayjs(row.session_date).format('DD MMM YYYY')}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {time(row.time_from)} – {time(row.time_to)}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      field: 'ground',
-      headerName: 'Ground',
-      flex: 1,
-      minWidth: 140,
-      sortable: false,
-      valueGetter: (_v, row) => row.ground?.name || '—',
-    },
-    {
-      field: 'coach',
-      headerName: 'Coach',
-      flex: 1,
-      minWidth: 160,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <Box>
-          <Typography variant="body2">{row.coach?.name || '—'}</Typography>
-          <Typography variant="caption" color="text.secondary">{row.coach?.mobile || ''}</Typography>
-        </Box>
-      ),
-    },
-    {
-      field: 'user',
-      headerName: 'Player',
-      flex: 1,
-      minWidth: 150,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <Box>
-          <Typography variant="body2">{row.user?.name || '—'}</Typography>
-          <Typography variant="caption" color="text.secondary">{row.user?.mobile || ''}</Typography>
-        </Box>
-      ),
-    },
-    {
-      field: 'total_amount',
-      headerName: 'Coach fee',
-      width: 110,
-      renderCell: ({ row }) => rupees(row.total_amount),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 130,
-      renderCell: ({ row }) => <StatusChip status={row.status} />,
-    },
-  ]
+  const rows = q.data ?? []
 
   return (
     <Box>
-      <PageHeader
-        title="Coach Sessions"
-        subtitle="Coaching sessions booked on your courts"
-      />
-
-      <Alert severity="info" sx={{ mb: 2 }}>
-        These sessions are arranged between a player and a coach you approved. The
-        fee shown is the coach&rsquo;s, not a ground booking.
-      </Alert>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>Could not load coaching sessions.</Alert>}
-
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} mb={2}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ flex: 1 }}>
-          {TABS.map((t) => <Tab key={t.label} label={t.label} />)}
-        </Tabs>
-        <TextField
-          label="On a date"
-          type="date"
-          size="small"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-      </Stack>
-
-      <DataTable rows={data ?? []} columns={columns} loading={isLoading} error={error} />
+      <ScreenHeader title="Coach sessions" subtitle="Training booked on your grounds. Players pay at the ground." back="/owner/more" />
+      <FilterChips options={TABS} value={tab} onChange={setTab} />
+      <Box mt={2}>
+        {q.isLoading && [0, 1].map((i) => <Skeleton key={i} variant="rounded" height={150} sx={{ mb: 1.25 }} />)}
+        {q.isError && <Banner tone="error">Could not load coach sessions.</Banner>}
+        {q.isSuccess && rows.length === 0 && (
+          <Card><EmptyNote icon={SportsOutlinedIcon} title="No sessions" text="Sessions coaches book at your grounds show here." /></Card>
+        )}
+        {rows.map((s) => (
+          <Card key={s.id} sx={{ p: 2, mb: 1.25 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+              <Typography fontWeight={700}>
+                {dayLabel(s.session_date)} · {clock(s.time_from)} – {clock(s.time_to)}
+              </Typography>
+              <Pill tone={STATUS_TONE[s.status] ?? 'neutral'} label={s.status ? s.status[0].toUpperCase() + s.status.slice(1) : '—'} />
+            </Stack>
+            <Typography variant="body2" color="text.secondary">{dayjs(s.session_date).format('D MMM YYYY')}{s.ground?.name ? ` · ${s.ground.name}` : ''}</Typography>
+            <Box mt={1}>
+              <InfoRow label="Coach" value={`${s.coach?.name || '—'}${s.coach?.mobile ? ` · ${prettyPhone(s.coach.mobile)}` : ''}`} />
+              <InfoRow label="Player" value={`${s.user?.name || '—'}${s.user?.mobile ? ` · ${prettyPhone(s.user.mobile)}` : ''}`} />
+              <InfoRow label="Coach fee" value={rupee(s.total_amount)} last />
+            </Box>
+            <Stack direction="row" spacing={1} mt={1.25}>
+              {s.coach?.mobile && <Button size="small" variant="outlined" startIcon={<PhoneIcon />} href={telHref(s.coach.mobile)}>Coach</Button>}
+              {s.user?.mobile && <Button size="small" variant="outlined" startIcon={<PhoneIcon />} href={telHref(s.user.mobile)}>Player</Button>}
+            </Stack>
+          </Card>
+        ))}
+      </Box>
     </Box>
   )
 }
