@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 32" width="132" height="32" role="img" aria-label="Playsher">
+  <rect width="32" height="32" rx="9" fill="#0061C2"/>
+  <path d="M10 22V10h5.6a3.9 3.9 0 0 1 0 7.8H13V22h-3Zm3-6.6h2.4a1.5 1.5 0 0 0 0-3H13v3Z" fill="#fff"/>
+  <circle cx="22.5" cy="20.5" r="2.5" fill="#fff" fill-opacity=".85"/>
+  <text x="42" y="22" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" font-weight="700" letter-spacing="-.4" fill="#0A0E14">Playsher</text>
+</svg>
