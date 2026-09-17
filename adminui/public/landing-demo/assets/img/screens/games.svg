@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 736" width="340" height="736" role="img" aria-label="App — Open games">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EAF2FC"/><stop offset="1" stop-color="#D3E4F8"/>
+    </linearGradient>
+    <pattern id="p" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="28" stroke="#0061C2" stroke-opacity=".07" stroke-width="10"/>
+    </pattern>
+  </defs>
+  <rect width="340" height="736" fill="url(#g)"/>
+  <rect width="340" height="736" fill="url(#p)"/>
+  <g fill="#0061C2" fill-opacity=".55" font-family="Inter,Segoe UI,Arial,sans-serif" text-anchor="middle">
+    <text x="170" y="368" font-size="15" font-weight="600">App — Open games</text>
+    <text x="170" y="389" font-size="10" fill-opacity=".8">340 × 736</text>
+  </g>
+  <rect x="1" y="1" width="338" height="734" fill="none" stroke="#0061C2" stroke-opacity=".18"/>
+</svg>

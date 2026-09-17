@@ -47,10 +47,20 @@ export default defineConfig({
 
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        // The marketing site under /landing-demo ships its own assets and is
+        // not part of the admin shell — keep it out of the precache.
+        globIgnores: ['landing-demo/**'],
         // The app shell serves every SPA route...
         navigateFallback: '/index.html',
         // ...but must never stand in for the API or the SW itself.
-        navigateFallbackDenylist: [/^\/api\//, /^\/sw\.js$/, /^\/manifest\.webmanifest$/],
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/sw\.js$/,
+          /^\/manifest\.webmanifest$/,
+          // ...nor for the static marketing pages, which must be fetched from
+          // the network rather than answered with the admin shell.
+          /^\/landing-demo/,
+        ],
         clientsClaim: true,
         skipWaiting: false, // the prompt decides when to activate
         cleanupOutdatedCaches: true,
