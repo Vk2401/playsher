@@ -84,6 +84,26 @@ export default function OwnerSettlements() {
             <MoneyRow label="Already sent" hint="To your bank" value={summary.online_paid_out} last />
           </Card>
 
+          {/* Commission, stated plainly. An owner comparing a ₹1,200 booking
+              against ₹1,080 landing in their bank will go looking for the gap;
+              better they find it here than decide the figures cannot be
+              trusted. Hidden when there is nothing online to take a cut of. */}
+          {summary.online_total > 0 && (
+            <Card sx={{ px: 2, py: 0.5, mb: 2 }}>
+              <MoneyRow
+                label="Booked online"
+                hint="What customers paid"
+                value={summary.online_total}
+              />
+              <MoneyRow
+                label="Playsher fee"
+                hint="Deducted before payout"
+                value={summary.commission_total}
+                last
+              />
+            </Card>
+          )}
+
           <SectionTitle>Every payment</SectionTitle>
           {payments.length === 0 ? (
             <EmptyNote

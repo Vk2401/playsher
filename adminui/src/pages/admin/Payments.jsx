@@ -27,6 +27,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import ReplayIcon from '@mui/icons-material/Replay'
+import SendIcon from '@mui/icons-material/Send'
 
 import PageHeader from '../../components/ui/PageHeader.jsx'
 import DataTable from '../../components/ui/DataTable.jsx'
@@ -141,6 +142,19 @@ export default function Payments() {
   }
 
   // ── Columns ────────────────────────────────────────────────────────────────
+  const retryPayout = useMutation({
+    mutationFn: (id) => paymentsApi.retryPayout(id),
+    onSuccess: (res) => {
+      const state = res?.data?.data?.payout?.state
+      if (state === 'transferred') notify.success('Payout sent to the ground owner.')
+      // A refusal is not a failure: no keys yet, or the owner has not onboarded.
+      // Say which, rather than a generic success that implies money moved.
+      else notify.info(`Payout not sent — ${String(state || 'unknown').replace(/_/g, ' ')}.`)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] })
+    },
+    onError: (e) => notify.error(e?.response?.data?.message || 'Could not retry the payout.'),
+  })
+
   const columns = [
     {
       field: 'id',
@@ -229,15 +243,35 @@ export default function Payments() {
       align: 'center',
       headerAlign: 'center',
       renderCell: ({ row }) => (
-        <Tooltip title="Update Status">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => handleOpenEdit(row)}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Box display="flex" justifyContent="center">
+          <Tooltip title="Update Status">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => handleOpenEdit(row)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          {/* Only where there is something to retry: a successful payment whose
+              owner transfer never went through. Anything else either has no
+              money to move or has already moved it, and the server would answer
+              409 — better not to offer the button at all. */}
+          {row.payment_status === 'success' && !row.transfer_id && (
+            <Tooltip title="Retry payout to ground owner">
+              <span>
+                <IconButton
+                  size="small"
+                  color="warning"
+                  disabled={retryPayout.isPending}
+                  onClick={() => retryPayout.mutate(row.id)}
+                >
+                  <SendIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+        </Box>
       ),
     },
   ]

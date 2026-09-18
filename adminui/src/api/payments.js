@@ -6,4 +6,8 @@ export const paymentsApi = {
   // Backend uses payment_status field — send both keys for compatibility
   updateStatus: (id, status) =>
     apiClient.patch(`/admin/payments/${id}/status`, { payment_status: status, status }),
+  // Re-runs the Route transfer for a payout that never went through. The
+  // server refuses a payment that already carries a transfer_id, so pressing
+  // this twice cannot send the money twice.
+  retryPayout: (id) => apiClient.post(`/admin/payments/${id}/retry-payout`),
 }
