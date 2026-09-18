@@ -1,5 +1,5 @@
 {
-  "$comment": "Generated from a live database by database/generate-schema-json.js. Edit this file to change the schema, then apply it from the admin panel (Database \u2192 Schema).",
+  "$comment": "Generated from a live database by database/generate-schema-json.js. Edit this file to change the schema, then apply it from the admin panel (Database → Schema).",
   "version": 1,
   "tables": {
     "admins": {
@@ -1729,6 +1729,12 @@
           "length": 1,
           "nullable": true,
           "default": 0
+        },
+        "razorpay_linked_account_id": {
+          "type": "varchar",
+          "length": 40,
+          "nullable": true,
+          "comment": "Razorpay Route linked account (acc_...). Null until the owner is onboarded."
         },
         "created_at": {
           "type": "datetime",

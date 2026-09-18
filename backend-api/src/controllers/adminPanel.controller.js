@@ -10,10 +10,12 @@ const {
   Sport, Amenity, Coach, Review, User, Booking,
   Payment, Game, RefreshToken,
   CoachGround, CoachBooking, CoachAvailability,
+  BankDetails,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
+const { settleCapturedPayment } = require('../utils/settleBooking');
 const { pickAdminCoachFields } = require('../utils/coachFields');
 const { normaliseContact } = require('../utils/groundFields');
 const { notify } = require('../utils/notify');
@@ -868,4 +870,47 @@ exports.updateGround = async (req, res) => {
     await ground.update(patch);
     return success(res, 'Ground updated.', ground);
   } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * POST /admin/payments/:id/retry-payout
+ *
+ * Re-run settlement for a payment whose transfer never went through — Razorpay
+ * was down, the owner had not onboarded yet, or the keys were not configured at
+ * the time. Without this, a stuck payout stays stuck for ever: nothing else
+ * re-reads an already-successful payment.
+ *
+ * Safe to press twice. settleCapturedPayment refuses a payment that already
+ * carries a transfer_id, so a retry can never send the money a second time.
+ */
+exports.retryPayout = async (req, res) => {
+  try {
+    const payment = await Payment.findByPk(req.params.id);
+    if (!payment) return error(res, 'Payment not found.', 404);
+
+    if (payment.payment_status !== 'success') {
+      return error(res, 'Only a successful payment can be paid out.', 409);
+    }
+    if (payment.transfer_id) {
+      return error(res, 'This payment has already been transferred.', 409);
+    }
+
+    const result = await settleCapturedPayment(
+      { Booking, GroundSport, Ground, GroundOwner, BankDetails },
+      payment,
+    );
+
+    await payment.reload();
+    return success(res, `Payout ${result.state}.`, {
+      payment,
+      payout: {
+        state: result.state,
+        platform_fee: result.platformFee,
+        vendor_payout_amount: result.ownerAmount,
+        transfer_id: result.transferId ?? null,
+      },
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };

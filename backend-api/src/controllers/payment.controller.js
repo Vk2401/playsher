@@ -1,7 +1,11 @@
-const { Payment, Booking, User } = require('../models');
+const {
+  Payment, Booking, User,
+  GroundSport, Ground, GroundOwner, BankDetails,
+} = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { notifyGroundOwnerOfBooking } = require('../utils/notify');
+const { settleCapturedPayment } = require('../utils/settleBooking');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
@@ -214,7 +218,28 @@ exports.verifyRazorpayPayment = async (req, res) => {
       await notifyGroundOwnerOfBooking(booking, 'booked');
     }
 
-    return success(res, 'Payment verified successfully.', { payment, booking });
+    // The money is ours at this point; work out whose it actually is and move
+    // the owner's share. Deliberately not awaited inside a rollback-able block:
+    // the payment is already captured and verified, so a settlement problem is
+    // a thing to retry, never a reason to tell the customer their payment
+    // failed. settleCapturedPayment does not throw.
+    const settlement = await settleCapturedPayment(
+      { Booking, GroundSport, Ground, GroundOwner, BankDetails },
+      payment,
+    );
+    if (settlement.state !== 'transferred') {
+      console.warn('[payment] payout not completed for payment %s: %s', payment.id, settlement.state);
+    }
+
+    return success(res, 'Payment verified successfully.', {
+      payment,
+      booking,
+      payout: {
+        state: settlement.state,
+        platform_fee: settlement.platformFee,
+        vendor_payout_amount: settlement.ownerAmount,
+      },
+    });
   } catch (err) {
     return error(res, err.message, 500);
   }

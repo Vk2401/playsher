@@ -670,20 +670,40 @@ exports.listSettlements = async (req, res) => {
     const all = await Payment.findAll({
       where     : { payment_status: 'success' },
       include   : [{ ...scope, attributes: ['id'] }],
-      attributes: ['amount', 'payment_mode', 'vendor_payout_status'],
+      attributes: ['amount', 'payment_mode', 'vendor_payout_status', 'vendor_payout_amount', 'platform_fee'],
     });
 
     const num = (v) => parseFloat(v) || 0;
     const online = all.filter((p) => p.payment_mode === 'online');
+
+    // What the owner actually receives is the payment minus Playsher's
+    // commission, so every "paid out" and "awaiting" figure below is the NET
+    // amount. `vendor_payout_amount` is written at capture and is the number
+    // that was really transferred; the fallback covers payments taken before
+    // commission existed, where the whole amount was the owner's.
+    const ownerShare = (p) =>
+      p.vendor_payout_amount != null ? num(p.vendor_payout_amount) : num(p.amount);
+
+    const transferred = online.filter((p) => p.vendor_payout_status === 'transferred');
+
     const summary = {
+      // Gross, for reconciliation against the customer's receipt.
       online_total   : online.reduce((t, p) => t + num(p.amount), 0),
-      online_paid_out: online.filter((p) => p.vendor_payout_status === 'transferred')
-                             .reduce((t, p) => t + num(p.amount), 0),
+      // Playsher's cut, shown explicitly. An owner comparing the booking price
+      // with their bank statement must be able to see where the gap went.
+      commission_total: online.reduce((t, p) => t + num(p.platform_fee), 0),
+      online_paid_out: transferred.reduce((t, p) => t + ownerShare(p), 0),
       cash_collected : all.filter((p) => p.payment_mode === 'offline')
                           .reduce((t, p) => t + num(p.amount), 0),
       payment_count  : all.length,
     };
-    summary.online_awaiting = summary.online_total - summary.online_paid_out;
+
+    // Net still to reach them — summed over the untransferred rows rather than
+    // subtracted from the gross, which would have quietly included commission.
+    summary.online_awaiting = online
+      .filter((p) => p.vendor_payout_status !== 'transferred')
+      .reduce((t, p) => t + ownerShare(p), 0);
+    summary.online_net = summary.online_paid_out + summary.online_awaiting;
 
     // `vendor_payout_status` is an admin-written column and nothing sets it
     // automatically, so on its own it reads "pending" for ever — including for
@@ -714,6 +734,9 @@ exports.listSettlements = async (req, res) => {
         vendor_payout_status: p.payment_mode === 'offline'
           ? 'collected_at_ground'
           : (!bank ? 'no_bank_details' : p.vendor_payout_status),
+        // Per row, so a payment can be checked against a bank statement line.
+        platform_fee        : p.platform_fee != null ? num(p.platform_fee) : null,
+        vendor_payout_amount: p.vendor_payout_amount != null ? num(p.vendor_payout_amount) : null,
         booking_id          : b?.id ?? null,
         booking_reference   : b?.booking_reference ?? null,
         slot_date           : b?.slot_date ?? null,

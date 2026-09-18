@@ -877,6 +877,28 @@ router.get   ('/payments/:id',     ...admin, paymentCtrl.show);
  *       200: { description: Status updated }
  */
 router.patch ('/payments/:id/status', ...admin, ap.updatePaymentStatus);
+/**
+ * @swagger
+ * /admin/payments/{id}/retry-payout:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Re-run the Route transfer for a payment whose payout is stuck
+ *     description: >
+ *       Recomputes the commission split and attempts the transfer to the ground
+ *       owner's linked account. Idempotent — a payment that already carries a
+ *       `transfer_id` is refused with 409 rather than paid twice.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Settlement re-run; body reports the resulting state }
+ *       409: { description: Not a successful payment, or already transferred }
+ *       404: { description: Payment not found }
+ */
+router.post  ('/payments/:id/retry-payout', ...admin, ap.retryPayout);
 
 // ── Games ─────────────────────────────────────────────────────────────────────
 /**
