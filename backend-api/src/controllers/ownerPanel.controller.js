@@ -8,6 +8,7 @@ const {
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
   Sport, Amenity, Slot, Booking, BookedSlot, User, Game, Payment,
   Coach, CoachGround, CoachBooking, BankDetails,
+  Review,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
@@ -991,4 +992,74 @@ exports.listCoachSessions = async (req, res) => {
     });
     return success(res, 'Coaching sessions retrieved.', rows, 200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * GET /ground-owner/reviews
+ *
+ * What customers wrote about this owner's grounds. Read-only on purpose: an
+ * owner seeing their reviews is feedback, an owner able to change them is not.
+ * Moderation stays with admins, as it already does.
+ *
+ * Scoped by ownership, not by a ground_id the client sends — an owner must not
+ * be able to read another venue's reviews by guessing an id. Optional
+ * `ground_id` narrows within what they already own.
+ */
+exports.listReviews = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+
+    const owned = await Ground.findAll({
+      where: { owner_id: req.user.id, deleted_at: null },
+      attributes: ['id', 'name'],
+    });
+    const ownedIds = owned.map((g) => g.id);
+    if (!ownedIds.length) {
+      return success(res, 'Reviews retrieved.', { reviews: [], summary: { count: 0, average: null } },
+        200, paginationMeta(0, page, limit));
+    }
+
+    // A ground_id that is not theirs narrows to nothing rather than widening.
+    const requested = req.query.ground_id ? Number(req.query.ground_id) : null;
+    const scopeIds = requested ? ownedIds.filter((id) => id === requested) : ownedIds;
+    if (!scopeIds.length) {
+      return success(res, 'Reviews retrieved.', { reviews: [], summary: { count: 0, average: null } },
+        200, paginationMeta(0, page, limit));
+    }
+
+    const where = { review_type: 'ground', ground_id: scopeIds, is_active: true };
+
+    const { count, rows } = await Review.findAndCountAll({
+      where,
+      include: [{ model: User, as: 'reviewer', attributes: ['id', 'name'], required: false }],
+      order: [['created_at', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset,
+    });
+
+    // Averaged over every review, not just this page — a rating read off page
+    // one of four is not the venue's rating.
+    const all = await Review.findAll({ where, attributes: ['rating'] });
+    const ratings = all.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n));
+    const average = ratings.length
+      ? Math.round((ratings.reduce((t, n) => t + n, 0) / ratings.length) * 10) / 10
+      : null;
+
+    const groundName = new Map(owned.map((g) => [g.id, g.name]));
+
+    return success(res, 'Reviews retrieved.', {
+      reviews: rows.map((r) => ({
+        id: r.id,
+        rating: Number(r.rating),
+        comment: r.comment,
+        created_at: r.created_at,
+        ground_id: r.ground_id,
+        ground_name: groundName.get(r.ground_id) ?? null,
+        reviewer_name: r.reviewer?.name ?? 'A player',
+      })),
+      summary: { count: ratings.length, average },
+    }, 200, paginationMeta(count, page, limit));
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };

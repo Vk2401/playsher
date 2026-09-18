@@ -541,6 +541,33 @@ router.get   ('/bookings/:id',      ...owner, op.getBooking);
 
 /**
  * @swagger
+ * /ground-owner/reviews:
+ *   get:
+ *     tags: [Ground Owner]
+ *     summary: Reviews customers left on this owner's grounds
+ *     description: >
+ *       Read-only. Scoped by ownership rather than by a client-supplied id, so
+ *       an owner cannot read another venue's reviews. `summary.average` is over
+ *       every review, not just the returned page. Moderation stays with admins.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: ground_id
+ *         schema: { type: integer }
+ *         description: Narrow to one of their own grounds
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: "{ reviews[], summary: { count, average } }" }
+ */
+router.get   ('/reviews',           ...owner, op.listReviews);
+
+/**
+ * @swagger
  * /ground-owner/bookings/{id}/cancel:
  *   patch:
  *     tags: [OwnerPanel]

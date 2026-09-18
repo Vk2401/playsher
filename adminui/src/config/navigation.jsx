@@ -89,6 +89,7 @@ const admin = {
     {
       title: 'Account',
       items: [
+        { label: 'Notifications', path: '/admin/notifications', icon: NotificationsNoneIcon, caption: 'Platform events that need you' },
         { label: 'Profile', path: '/admin/profile', icon: PersonOutlineIcon, caption: 'Your details and password' },
       ],
     },
@@ -108,6 +109,12 @@ const coach = {
     { label: 'More', path: '/coach/more', icon: MenuIcon, isMore: true },
   ],
   groups: [
+    {
+      title: 'Money',
+      items: [
+        { label: 'Earnings', path: '/coach/earnings', icon: AccountBalanceWalletOutlinedIcon, caption: 'What your sessions brought in' },
+      ],
+    },
     {
       title: 'Where you coach',
       items: [

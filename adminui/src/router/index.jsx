@@ -29,6 +29,7 @@ import AdminReviews from '../pages/admin/Reviews.jsx'
 import AdminProfile from '../pages/admin/Profile.jsx'
 import AdminSettlements from '../pages/admin/Settlements.jsx'
 import AdminCoachSessions from '../pages/admin/CoachSessions.jsx'
+import AdminNotifications from '../pages/admin/Notifications.jsx'
 
 // Owner
 import OwnerDashboard from '../pages/owner/Dashboard.jsx'
@@ -42,9 +43,11 @@ import OwnerBankDetails from '../pages/owner/BankDetails.jsx'
 import OwnerProfile from '../pages/owner/Profile.jsx'
 import OwnerCoachRequests from '../pages/owner/CoachRequests.jsx'
 import OwnerCoachSessions from '../pages/owner/CoachSessions.jsx'
+import OwnerReviews from '../pages/owner/Reviews.jsx'
 
 // Coach
 import CoachDashboard from '../pages/coach/Dashboard.jsx'
+import CoachEarnings from '../pages/coach/Earnings.jsx'
 import CoachProfile from '../pages/coach/Profile.jsx'
 import CoachAvailability from '../pages/coach/Availability.jsx'
 import CoachGrounds from '../pages/coach/Grounds.jsx'
@@ -106,6 +109,7 @@ export default function AppRouter() {
           <Route path="coaches" element={<AdminCoaches />} />
           <Route path="coach-sessions" element={<AdminCoachSessions />} />
           <Route path="reviews" element={<AdminReviews />} />
+          <Route path="notifications" element={<AdminNotifications />} />
           <Route path="profile" element={<AdminProfile />} />
         </Route>
 
@@ -121,6 +125,9 @@ export default function AppRouter() {
           <Route index element={<Navigate to="/owner/dashboard" replace />} />
           <Route path="dashboard" element={<OwnerDashboard />} />
           <Route path="bookings" element={<OwnerBookings />} />
+          {/* Deep link from a booking notification. Same screen, with that
+              booking's sheet already open. */}
+          <Route path="bookings/:id" element={<OwnerBookings />} />
           <Route path="my-ground" element={<OwnerMyGround />} />
           <Route path="more" element={<OwnerMore />} />
           {/* The old grounds table and ground page now live in My Ground. */}
@@ -133,6 +140,7 @@ export default function AppRouter() {
           <Route path="settlements" element={<OwnerSettlements />} />
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="notifications" element={<OwnerNotifications />} />
+          <Route path="reviews" element={<OwnerReviews />} />
         </Route>
 
         {/* Coach Routes */}
@@ -149,6 +157,7 @@ export default function AppRouter() {
           <Route path="dashboard" element={<CoachDashboard />} />
           <Route path="bookings" element={<CoachBookings />} />
           <Route path="availability" element={<CoachAvailability />} />
+          <Route path="earnings" element={<CoachEarnings />} />
           <Route path="grounds" element={<CoachGrounds />} />
           <Route path="notifications" element={<CoachNotifications />} />
           <Route path="profile" element={<CoachProfile />} />

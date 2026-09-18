@@ -20,7 +20,10 @@ const { notifyGroundOwnerOfBooking } = require('../utils/notify');
  */
 function bookingIncludes({ withUser = true } = {}) {
   return [
-    ...(withUser ? [{ model: User, as: 'user', attributes: ['id', 'name', 'mobile'] }] : []),
+    // `email` is additive: the customer app already receives this object and
+    // ignores keys it does not read. The admin booking sheet showed a dash for
+    // it because the field was never selected, not because it was missing.
+    ...(withUser ? [{ model: User, as: 'user', attributes: ['id', 'name', 'mobile', 'email'] }] : []),
     {
       model  : GroundSport,
       as     : 'groundSport',
@@ -70,7 +73,7 @@ exports.list = async (req, res) => {
               { model: Sport,  as: 'sport'  },
             ],
           },
-          { model: User, as: 'user', attributes: ['id', 'name', 'mobile'] },
+          { model: User, as: 'user', attributes: ['id', 'name', 'mobile', 'email'] },
           { model: Slot, as: 'slots', through: { attributes: [] } },
         ],
         order: BOOKING_ORDER,

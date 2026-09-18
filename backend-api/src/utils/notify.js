@@ -75,9 +75,10 @@ async function notify(payload, transaction) {
  * away if that payment never lands, so notifying on create would fill the
  * owner's inbox with bookings that mostly never happened.
  *
- * `action_path` is the bookings *list*, not a detail route: the panel has no
- * `/owner/bookings/:id` page, and the notifications screen navigates to
- * whatever this says.
+ * `action_path` points at the booking itself. The panel serves
+ * `/owner/bookings/:id` as the list with that booking's sheet already open, so
+ * tapping the notification lands on the thing it is about rather than on a list
+ * the owner then has to search.
  *
  * @param {object} booking                    a Booking instance
  * @param {'booked'|'cancelled'} event        which sentence to write
@@ -122,7 +123,7 @@ async function notifyGroundOwnerOfBooking(booking, event, transaction) {
       message      : `${who} ${spec.verb} ${when}.`,
       referenceType: 'booking',
       referenceId  : booking.id,
-      actionPath   : '/owner/bookings',
+      actionPath   : `/owner/bookings/${booking.id}`,
     }, transaction);
   } catch (err) {
     // Same contract as notify(): an inbox row must never fail the booking.
