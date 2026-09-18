@@ -41,6 +41,13 @@ async function start() {
     app.listen(PORT, () => {
       console.log(`Playsher API running on port ${PORT}`);
       console.log(`Swagger docs: http://localhost:${PORT}/api-docs`);
+
+      // Not awaited, and never fatal: an SMS provider that is misconfigured
+      // must not stop the API serving grounds and bookings. It is here at all
+      // because MSG91 answers "success" to a send made with an invalid key, so
+      // without this a wrong key is invisible until users start complaining
+      // that no OTP arrives. See utils/sms.utils.
+      require('./src/utils/sms.utils').checkMsg91Health().catch(() => {});
     });
   } catch (err) {
     console.error('Unable to start server:', err);

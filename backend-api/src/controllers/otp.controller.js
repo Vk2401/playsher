@@ -9,7 +9,7 @@ const { User, RefreshToken, Otp } = require('../models');
 const { generateAccessToken, generateRefreshToken } = require('../utils/jwt.utils');
 const { success, error } = require('../utils/response');
 const { REFRESH_EXPIRES_DAYS } = require('../config/jwt');
-const { sendSms } = require('../utils/sms.utils');
+const { sendOtpSms } = require('../utils/sms.utils');
 const { generateUniqueUsername, ensureUsername, isUsernameConflict } = require('../utils/username');
 
 const SALT_ROUNDS = 12;
@@ -83,7 +83,16 @@ exports.sendOtp = async (req, res) => {
     }
 
     console.log(`[OTP] mobile=${mobile}  otp=${otp}`);
-    await sendSms(mobile, `Your Playsher OTP is ${otp}. Valid for 5 minutes.`);
+
+    // Reporting success when the SMS did not go out leaves the caller staring
+    // at an entry box for a code that is never arriving. The row is already
+    // written, so a retry reuses it rather than stacking another.
+    try {
+      await sendOtpSms(mobile, otp);
+    } catch (smsErr) {
+      console.error('[OTP] delivery failed for %s: %s', mobile, smsErr.message);
+      return error(res, 'Could not send the OTP right now. Please try again.', 502);
+    }
 
     return success(res, 'OTP sent successfully.');
   } catch (err) {
