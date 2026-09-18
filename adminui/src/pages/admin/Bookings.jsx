@@ -368,7 +368,7 @@ export default function Bookings() {
           placeholder="Search by customer or ground…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 320 }}
+          sx={{ width: { xs: '100%', sm: 320 } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

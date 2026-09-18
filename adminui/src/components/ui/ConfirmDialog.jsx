@@ -1,10 +1,18 @@
 import React from 'react'
 import {
   Dialog, DialogTitle, DialogContent, DialogContentText,
-  DialogActions, Button, CircularProgress,
+  DialogActions, Button, CircularProgress, Box, useMediaQuery, useTheme,
 } from '@mui/material'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
+/**
+ * The gate in front of every destructive action. Never `window.confirm`.
+ *
+ * Rises from the bottom on a phone, matching DrawerForm and the owner panel's
+ * ConfirmSheet, and the confirm button is the one that sits under the thumb.
+ * The cancel button is ordered last in the DOM but reversed visually, so the
+ * destructive option is never the one a rushed tap lands on first.
+ */
 export default function ConfirmDialog({
   open,
   onClose,
@@ -15,17 +23,49 @@ export default function ConfirmDialog({
   confirmColor = 'error',
   loading = false,
 }) {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: isMobile
+          ? {
+              position: 'fixed', bottom: 0, left: 0, right: 0, m: 0,
+              width: '100%', maxWidth: '100%',
+              borderRadius: '20px 20px 0 0',
+              pb: 'env(safe-area-inset-bottom)',
+            }
+          : { borderRadius: 3 },
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: isMobile ? 3 : 2 }}>
         <WarningAmberIcon color="warning" />
         {title}
       </DialogTitle>
+
       <DialogContent>
         <DialogContentText>{message}</DialogContentText>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="outlined" onClick={onClose} disabled={loading}>
+
+      <DialogActions
+        sx={{
+          px: 3, pb: 2, gap: 1,
+          flexDirection: { xs: 'column-reverse', md: 'row' },
+          '& > :not(style) ~ :not(style)': { ml: { xs: 0, md: 1 } },
+        }}
+      >
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          disabled={loading}
+          fullWidth={isMobile}
+          sx={{ py: { xs: 1.25, md: 'auto' } }}
+        >
           Cancel
         </Button>
         <Button
@@ -33,11 +73,15 @@ export default function ConfirmDialog({
           color={confirmColor}
           onClick={onConfirm}
           disabled={loading}
+          fullWidth={isMobile}
+          sx={{ py: { xs: 1.25, md: 'auto' } }}
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
         >
           {confirmLabel}
         </Button>
       </DialogActions>
+
+      {isMobile && <Box sx={{ height: 4 }} />}
     </Dialog>
   )
 }
