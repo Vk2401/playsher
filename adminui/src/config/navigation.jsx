@@ -128,4 +128,4 @@ export const PANELS = { admin, coach }
 
 // The pure reads live in navSelectors.js (no icon imports, so they can be
 // exercised on their own). Re-exported here so callers have one import.
-export { visibleTabs, visibleGroups, moreChildPaths, activeTabIndex } from './navSelectors.js'
+export { visibleTabs, visibleGroups, moreChildPaths, activeTabIndex, hasInbox } from './navSelectors.js'

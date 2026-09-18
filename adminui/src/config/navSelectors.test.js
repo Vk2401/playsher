@@ -8,7 +8,7 @@
  * the More tab lit for a page opened from it.
  */
 import assert from 'node:assert/strict'
-import { visibleTabs, visibleGroups, moreChildPaths, activeTabIndex } from './navSelectors.js'
+import { visibleTabs, visibleGroups, moreChildPaths, activeTabIndex, hasInbox } from './navSelectors.js'
 
 const panel = {
   tabs: [
@@ -97,5 +97,24 @@ assert.equal(activeTabIndex(panel, '/admin/nonsense'), 0)
 
 // ── misc ──────────────────────────────────────────────────────────────────
 assert.equal(moreChildPaths(panel).length, 4)
+
+// ── inbox ─────────────────────────────────────────────────────────────────
+// This panel has no notifications page, so nothing should badge the More tab.
+assert.equal(hasInbox(panel), false)
+{
+  const withInbox = {
+    ...panel,
+    groups: [...panel.groups, { title: 'Account', items: [{ label: 'Notifications', path: '/coach/notifications' }] }],
+  }
+  assert.equal(hasInbox(withInbox), true)
+
+  // Hiding the page hides the badge with it — otherwise the dot points nowhere.
+  const hiddenInbox = {
+    ...withInbox,
+    groups: withInbox.groups.map((g) =>
+      g.title === 'Account' ? { ...g, items: g.items.map((i) => ({ ...i, hidden: true })) } : g),
+  }
+  assert.equal(hasInbox(hiddenInbox), false)
+}
 
 console.log('navSelectors: all checks passed')

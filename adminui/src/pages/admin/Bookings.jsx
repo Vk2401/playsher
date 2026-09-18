@@ -50,6 +50,9 @@ const STATUS_COLORS = {
 
 // ── Booking Detail Modal ──────────────────────────────────────────────────────
 
+/** See the Booked On column: this endpoint serialises the timestamp camelCase. */
+const bookedOn = (row) => row?.created_at || row?.createdAt || null
+
 function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
   const notify = useNotify()
   const [newStatus, setNewStatus] = useState(booking?.status ?? '')
@@ -105,7 +108,10 @@ function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
             label="Amount"
             value={amount != null ? `₹ ${Number(amount).toLocaleString()}` : '—'}
           />
-          <DetailRow label="Booked On" value={booking.created_at ? dayjs(booking.created_at).format('DD MMM YYYY, hh:mm A') : '—'} />
+          <DetailRow
+            label="Booked On"
+            value={bookedOn(booking) ? dayjs(bookedOn(booking)).format('DD MMM YYYY, hh:mm A') : '—'}
+          />
 
           <Divider sx={{ my: 1.5 }} />
           <SectionLabel>Update Status</SectionLabel>
@@ -302,9 +308,14 @@ export default function Bookings() {
       field: 'created_at',
       headerName: 'Booked On',
       width: 140,
-      renderCell: ({ value }) => (
+      // Sequelize is `underscored: true` for columns but still names the
+      // timestamp attribute `createdAt`, so this endpoint serialises that one
+      // key in camelCase while every other is snake. Reading only `created_at`
+      // is why the column was empty on every row.
+      valueGetter: (_value, row) => bookedOn(row),
+      renderCell: ({ row }) => (
         <Typography variant="body2" color="text.secondary">
-          {value ? dayjs(value).format('DD MMM YYYY') : '—'}
+          {bookedOn(row) ? dayjs(bookedOn(row)).format('DD MMM YYYY') : '—'}
         </Typography>
       ),
     },

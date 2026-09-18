@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  Avatar, Box, ButtonBase, Divider, Paper, Stack, Typography,
+  Avatar, Badge, Box, ButtonBase, Divider, Paper, Stack, Tooltip, Typography,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +10,9 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useIsSuperAdmin } from '../../hooks/useIsSuperAdmin.js'
 import { visibleGroups } from '../../config/navigation.jsx'
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications.js'
+import { useThemeContext } from '../../contexts/ThemeContext.jsx'
+import { PALETTE_SWATCHES } from '../../theme/index.js'
 
 /**
  * The More screen, generated from a panel's navigation config.
@@ -22,6 +25,8 @@ export default function MorePage({ panel }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const isSuperAdmin = useIsSuperAdmin()
+  const unread = useUnreadNotifications()
+  const { primaryColor, setPrimaryColor } = useThemeContext()
 
   const groups = visibleGroups(panel, { isSuperAdmin })
 
@@ -91,7 +96,14 @@ export default function MorePage({ panel }) {
                         <Icon sx={{ fontSize: 21 }} />
                       </Box>
                       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography fontWeight={600} noWrap>{item.label}</Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography fontWeight={600} noWrap>{item.label}</Typography>
+                          {/* The bell used to live in the top bar. Its count moves
+                              here with it, rather than quietly disappearing. */}
+                          {item.path.endsWith('/notifications') && unread > 0 && (
+                            <Badge badgeContent={unread} color="error" max={99} sx={{ ml: 1.5 }} />
+                          )}
+                        </Stack>
                         {item.caption && (
                           <Typography variant="caption" color="text.secondary" noWrap display="block">
                             {item.caption}
@@ -106,6 +118,43 @@ export default function MorePage({ panel }) {
             </Paper>
           </Box>
         ))}
+
+        {/* Carried over from the old top bar, where the swatches sat beside the
+            bell. It is a per-browser preference, so it belongs with Account. */}
+        <Box>
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block', mb: 1, ml: 0.5, fontWeight: 700,
+              letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary',
+            }}
+          >
+            Appearance
+          </Typography>
+          <Paper sx={{ borderRadius: 2, p: 2 }}>
+            <Typography variant="body2" color="text.secondary" mb={1.5}>
+              Accent colour
+            </Typography>
+            <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+              {PALETTE_SWATCHES.map((sw) => {
+                const on = primaryColor === sw.hex
+                return (
+                  <Tooltip key={sw.hex} title={sw.name}>
+                    <ButtonBase
+                      onClick={() => setPrimaryColor(sw.hex)}
+                      aria-label={sw.name}
+                      sx={{
+                        width: 32, height: 32, borderRadius: '50%', bgcolor: sw.hex,
+                        outline: on ? '2px solid' : 'none',
+                        outlineColor: 'text.primary', outlineOffset: 2,
+                      }}
+                    />
+                  </Tooltip>
+                )
+              })}
+            </Stack>
+          </Paper>
+        </Box>
 
         <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
           <ButtonBase

@@ -55,3 +55,13 @@ export function activeTabIndex(panel, pathname) {
 
   return onMore ? moreIndex : 0
 }
+
+/**
+ * Whether this panel has a notifications screen you can actually open.
+ *
+ * Admin has an inbox server-side but no page for it, so the old top bar's bell
+ * pointed at the dashboard. A badge with nowhere to go is worse than no badge:
+ * callers use this to stay quiet rather than advertise a dead end.
+ */
+export const hasInbox = (panel) =>
+  panel.groups.some((g) => g.items.some((i) => !i.hidden && i.path.endsWith('/notifications')))

@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  BottomNavigation, BottomNavigationAction, Box, ButtonBase, Paper, Stack,
+  Badge, BottomNavigation, BottomNavigationAction, Box, ButtonBase, Paper, Stack,
   Typography, useMediaQuery,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -9,7 +9,8 @@ import SportsSoccerIcon from '@mui/icons-material/SportsSoccer'
 
 import OfflineBanner from '../ui/OfflineBanner.jsx'
 import InstallAppButton from '../ui/InstallAppButton.jsx'
-import { visibleTabs, activeTabIndex } from '../../config/navigation.jsx'
+import { visibleTabs, activeTabIndex, hasInbox } from '../../config/navigation.jsx'
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications.js'
 
 /**
  * The app-style layout, for any panel.
@@ -34,6 +35,17 @@ export default function PanelShell({ panel }) {
 
   const tabs = visibleTabs(panel)
   const current = activeTabIndex(panel, pathname)
+  const unread = useUnreadNotifications()
+
+  // The inbox lives under More, so an unread message has to reach the tab or
+  // nothing tells you it arrived. A dot, not a count: the number belongs on
+  // the row itself, where there is room to read it.
+  const tabIcon = (tab) => {
+    const Icon = tab.icon
+    return tab.isMore && unread > 0 && hasInbox(panel)
+      ? <Badge color="error" variant="dot"><Icon /></Badge>
+      : <Icon />
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -68,7 +80,6 @@ export default function PanelShell({ panel }) {
           <Stack spacing={0.5}>
             {tabs.map((t, i) => {
               const on = i === current
-              const Icon = t.icon
               return (
                 <ButtonBase
                   key={t.path}
@@ -80,7 +91,7 @@ export default function PanelShell({ panel }) {
                     '&:hover': { bgcolor: alpha(theme.palette.primary.main, on ? 0.16 : 0.06) },
                   }}
                 >
-                  <Icon />
+                  {tabIcon(t)}
                   <Typography fontWeight={on ? 700 : 500} color="inherit">
                     {t.label}
                   </Typography>
@@ -123,13 +134,11 @@ export default function PanelShell({ panel }) {
             onChange={(_e, i) => navigate(tabs[i].path)}
             sx={{ height: 64, bgcolor: 'transparent' }}
           >
-            {tabs.map((t) => {
-              const Icon = t.icon
-              return (
+            {tabs.map((t) => (
                 <BottomNavigationAction
                   key={t.path}
                   label={t.label}
-                  icon={<Icon />}
+                  icon={tabIcon(t)}
                   sx={{
                     minWidth: 0,
                     '&.Mui-selected': { color: 'primary.main' },
@@ -137,8 +146,7 @@ export default function PanelShell({ panel }) {
                     '& .MuiBottomNavigationAction-label.Mui-selected': { fontWeight: 700, fontSize: 12 },
                   }}
                 />
-              )
-            })}
+            ))}
           </BottomNavigation>
         </Paper>
       )}
