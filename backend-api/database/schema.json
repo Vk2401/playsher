@@ -1,5 +1,5 @@
 {
-  "$comment": "Generated from a live database by database/generate-schema-json.js. Edit this file to change the schema, then apply it from the admin panel (Database \u2192 Schema).",
+  "$comment": "Generated from a live database by database/generate-schema-json.js. Edit this file to change the schema, then apply it from the admin panel (Database → Schema).",
   "version": 1,
   "tables": {
     "admins": {
@@ -1730,6 +1730,18 @@
           "nullable": true,
           "default": 0
         },
+        "razorpay_linked_account_id": {
+          "type": "varchar",
+          "length": 40,
+          "nullable": true,
+          "comment": "Razorpay Route linked account (acc_...). Null until the owner is onboarded."
+        },
+        "razorpay_account_status": {
+          "type": "varchar",
+          "length": 32,
+          "nullable": true,
+          "comment": "Route account state: created | activated | needs_clarification | suspended"
+        },
         "created_at": {
           "type": "datetime",
           "nullable": false
@@ -2275,7 +2287,9 @@
             "pending",
             "transferred",
             "no_bank_details",
-            "no_vendor"
+            "no_vendor",
+            "failed",
+            "reversed"
           ],
           "nullable": true,
           "default": "pending"
@@ -3151,6 +3165,55 @@
         }
       },
       "foreignKeys": {}
+    },
+    "platform_settings": {
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "setting_key": {
+          "type": "varchar",
+          "length": 64,
+          "nullable": false,
+          "comment": "Stable identifier, e.g. platform_commission_rate"
+        },
+        "value": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": false,
+          "comment": "Stored as text; each reader parses and validates its own type"
+        },
+        "updated_by": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true,
+          "comment": "admins.id of whoever last changed it"
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uniq_platform_settings_key": {
+          "columns": [
+            "setting_key"
+          ],
+          "unique": true
+        }
+      }
     }
   }
 }

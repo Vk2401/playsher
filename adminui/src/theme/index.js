@@ -1,6 +1,10 @@
 import { createTheme, alpha } from '@mui/material/styles'
 
 export const PALETTE_SWATCHES = [
+  // Playsher is the customer app's own brand blue (mobile_app/lib/core/app_colors.dart).
+  // It leads the list and is the default: the panel and the app are one product,
+  // and an admin who has never opened the picker should see the product's colour.
+  { name: 'Playsher', hex: '#0061C2' },
   { name: 'Sage',   hex: '#6B9E7A' },
   { name: 'Forest', hex: '#4A7C59' },
   { name: 'Slate',  hex: '#5B7FA6' },
@@ -9,7 +13,7 @@ export const PALETTE_SWATCHES = [
   { name: 'Teal',   hex: '#4A8B8B' },
 ]
 
-export const DEFAULT_COLOR = '#6B9E7A'
+export const DEFAULT_COLOR = '#0061C2'
 
 export function createAppTheme(primaryColor = DEFAULT_COLOR) {
   return createTheme({
@@ -22,14 +26,14 @@ export function createAppTheme(primaryColor = DEFAULT_COLOR) {
         contrastText: '#fff',
       },
       background: {
-        default: '#F4F7F5',
-        paper: 'rgba(255,255,255,0.88)',
+        default: '#F4F7FB',
+        paper: '#FFFFFF',
       },
       text: {
-        primary: '#1A2B22',
-        secondary: '#5A7060',
+        primary: '#0F1B2D',
+        secondary: '#5A6B80',
       },
-      divider: alpha(primaryColor, 0.15),
+      divider: '#E3E8EF',
     },
     typography: {
       fontFamily: "'Inter', sans-serif",
@@ -40,15 +44,17 @@ export function createAppTheme(primaryColor = DEFAULT_COLOR) {
       button: { fontWeight: 600, textTransform: 'none' },
     },
     shape: {
-      borderRadius: 14,
+      borderRadius: 10,
     },
+    // Surfaces are defined by a hairline border, not by depth. Only the two
+    // genuinely floating things (menu, dialog) get a shadow at all.
     shadows: [
       'none',
-      '0 1px 4px rgba(0,0,0,0.06)',
-      '0 2px 8px rgba(0,0,0,0.08)',
-      '0 4px 16px rgba(0,0,0,0.10)',
-      '0 8px 24px rgba(0,0,0,0.12)',
-      ...Array(20).fill('0 8px 32px rgba(0,0,0,0.14)'),
+      'none',
+      'none',
+      'none',
+      '0 4px 16px rgba(15,27,45,0.08)',
+      ...Array(20).fill('0 8px 28px rgba(15,27,45,0.10)'),
     ],
     components: {
       MuiButton: {
@@ -59,11 +65,9 @@ export function createAppTheme(primaryColor = DEFAULT_COLOR) {
             paddingRight: 20,
           },
           containedPrimary: {
-            background: `linear-gradient(135deg, ${primaryColor} 0%, ${darken(primaryColor, 0.15)} 100%)`,
-            boxShadow: `0 4px 14px ${alpha(primaryColor, 0.35)}`,
-            '&:hover': {
-              boxShadow: `0 6px 20px ${alpha(primaryColor, 0.5)}`,
-            },
+            background: primaryColor,
+            boxShadow: 'none',
+            '&:hover': { background: darken(primaryColor, 0.15), boxShadow: 'none' },
           },
         },
       },
@@ -71,25 +75,18 @@ export function createAppTheme(primaryColor = DEFAULT_COLOR) {
         styleOverrides: {
           root: {
             backgroundImage: 'none',
-            backdropFilter: 'blur(8px)',
-            border: `1px solid ${alpha(primaryColor, 0.15)}`,
+            border: '1px solid #E3E8EF',
           },
         },
       },
       MuiCard: {
         styleOverrides: {
-          root: {
-            border: `1px solid ${alpha(primaryColor, 0.15)}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-          },
+          root: { border: '1px solid #E3E8EF', boxShadow: 'none' },
         },
       },
       MuiDrawer: {
         styleOverrides: {
-          paper: {
-            border: 'none',
-            boxShadow: '-8px 0 32px rgba(0,0,0,0.12)',
-          },
+          paper: { border: 'none', boxShadow: 'none' },
         },
       },
       MuiTableCell: {

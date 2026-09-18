@@ -12,6 +12,7 @@
 
 const router = require('express').Router();
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { requireSuperAdmin } = require('../middleware/superAdmin');
 const {
   uploadSport, uploadAmenity, uploadCoach,
 } = require('../middleware/upload');
@@ -31,6 +32,9 @@ const validate = require('../middleware/validate');
 const { upsertVersion } = require('../validators/appVersion.validator');
 
 const admin = [verifyToken, requireRole('admin')];
+// The commission rate decides what every ground owner is paid, so changing it
+// sits behind the same tier that manages admin accounts.
+const superAdmin = [...admin, requireSuperAdmin];
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
 /**
@@ -877,6 +881,97 @@ router.get   ('/payments/:id',     ...admin, paymentCtrl.show);
  *       200: { description: Status updated }
  */
 router.patch ('/payments/:id/status', ...admin, ap.updatePaymentStatus);
+/**
+ * @swagger
+ * /admin/payments/{id}/retry-payout:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Re-run the Route transfer for a payment whose payout is stuck
+ *     description: >
+ *       Recomputes the commission split and attempts the transfer to the ground
+ *       owner's linked account. Idempotent — a payment that already carries a
+ *       `transfer_id` is refused with 409 rather than paid twice.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Settlement re-run; body reports the resulting state }
+ *       409: { description: Not a successful payment, or already transferred }
+ *       404: { description: Payment not found }
+ */
+router.post  ('/payments/:id/retry-payout', ...admin, ap.retryPayout);
+
+/**
+ * @swagger
+ * /admin/settings/commission:
+ *   get:
+ *     tags: [Admin]
+ *     summary: The platform commission rate currently in force
+ *     description: >
+ *       Reports the rate and its source — `database` when a super admin has set
+ *       one, `environment` when it comes from PLATFORM_COMMISSION_RATE, or
+ *       `default` when neither is set.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: "{ rate, percent, source }" }
+ *   put:
+ *     tags: [Admin]
+ *     summary: Change the platform commission rate (super admin only)
+ *     description: >
+ *       Takes `rate` (0.10) or `percent` (10). Applies to payments settled from
+ *       now on; past payments keep the fee frozen onto them at capture, so an
+ *       owner's earnings history is never restated.
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rate:    { type: number, example: 0.12 }
+ *               percent: { type: number, example: 12 }
+ *     responses:
+ *       200: { description: Updated }
+ *       422: { description: Out of range or missing }
+ *       403: { description: Not a super admin }
+ */
+/**
+ * @swagger
+ * /admin/payments/{id}/refund:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Refund a payment, reversing the ground owner's share first
+ *     description: >
+ *       Pulls the owner's transferred share back before refunding the customer.
+ *       Answers 409 without refunding if that share cannot be recovered — pass
+ *       `force: true` to refund anyway and have the platform absorb it.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount: { type: number, description: Partial refund in rupees; omit for full }
+ *               reason: { type: string }
+ *               force:  { type: boolean }
+ *     responses:
+ *       200: { description: Refunded or partially refunded }
+ *       409: { description: Owner's share could not be recovered; nothing refunded }
+ *       422: { description: Not refundable }
+ */
+router.post  ('/payments/:id/refund', ...superAdmin, ap.refundPayment);
+
+router.get   ('/settings/commission', ...admin, ap.getCommission);
+router.put   ('/settings/commission', ...superAdmin, ap.setCommission);
 
 // ── Games ─────────────────────────────────────────────────────────────────────
 /**

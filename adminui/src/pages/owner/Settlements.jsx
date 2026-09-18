@@ -62,6 +62,19 @@ export default function OwnerSettlements() {
               {rupee(summary.online_awaiting)} is waiting — add your bank details so it can be sent.
             </Banner>
           )}
+          {/* Their bank details are in, but Razorpay has not cleared the account
+              yet. Said plainly and with the reason, because 'needs
+              clarification' is the one state the owner can actually resolve —
+              and without this their money is simply held with no explanation. */}
+          {String(summary.payout_state || '').startsWith('account_') && (
+            <Banner tone="warning" icon={AccountBalanceOutlinedIcon}>
+              {summary.payout_account_status === 'needs_clarification'
+                ? `${rupee(summary.online_awaiting)} is on hold — your payment account needs a few more details. Check your email from Razorpay.`
+                : summary.payout_account_status === 'suspended'
+                  ? `${rupee(summary.online_awaiting)} is on hold — your payment account has been suspended. Contact support.`
+                  : `${rupee(summary.online_awaiting)} is on hold — your payment account is still being verified. This usually takes a day or two.`}
+            </Banner>
+          )}
           {summary.payout_state === 'settled' && summary.online_total > 0 && (
             <Banner tone="primary" icon={CheckCircleOutlineIcon}>
               Everything paid online has reached your bank.
@@ -83,6 +96,26 @@ export default function OwnerSettlements() {
             />
             <MoneyRow label="Already sent" hint="To your bank" value={summary.online_paid_out} last />
           </Card>
+
+          {/* Commission, stated plainly. An owner comparing a ₹1,200 booking
+              against ₹1,080 landing in their bank will go looking for the gap;
+              better they find it here than decide the figures cannot be
+              trusted. Hidden when there is nothing online to take a cut of. */}
+          {summary.online_total > 0 && (
+            <Card sx={{ px: 2, py: 0.5, mb: 2 }}>
+              <MoneyRow
+                label="Booked online"
+                hint="What customers paid"
+                value={summary.online_total}
+              />
+              <MoneyRow
+                label="Playsher fee"
+                hint="Deducted before payout"
+                value={summary.commission_total}
+                last
+              />
+            </Card>
+          )}
 
           <SectionTitle>Every payment</SectionTitle>
           {payments.length === 0 ? (

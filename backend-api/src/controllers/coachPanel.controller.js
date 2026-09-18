@@ -573,3 +573,75 @@ function normaliseTime(value) {
 }
 
 module.exports.releaseSessionSlots = releaseSessionSlots;
+
+/**
+ * GET /coach/earnings
+ *
+ * What a coach has earned from their sessions.
+ *
+ * Coaching is pay-at-venue: the customer pays the coach at the ground, no
+ * gateway is involved and no `payments` row is written — which is exactly why
+ * this money was invisible everywhere in the product until now. The figures
+ * here come from the sessions themselves, which is the only record there is.
+ *
+ * `collected` is sessions that actually happened (`completed`). `upcoming` is
+ * confirmed but not yet played, so it is money expected, not money held — kept
+ * separate because an earnings figure that quietly counts future bookings is
+ * one a coach will plan around and then not receive.
+ *
+ * Cancelled and rejected sessions are excluded entirely; nothing was earned.
+ */
+exports.earnings = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+
+    const where = {
+      coach_id: req.user.id,
+      status: { [Op.in]: ['confirmed', 'completed'] },
+    };
+
+    const { count, rows } = await CoachBooking.findAndCountAll({
+      where,
+      include: SESSION_INCLUDES,
+      order: [['session_date', 'DESC'], ['time_from', 'DESC']],
+      limit,
+      offset,
+    });
+
+    // Totals span every session, not just this page — a coach reading their
+    // earnings off page one of four would be reading a quarter of them.
+    const all = await CoachBooking.findAll({
+      where,
+      attributes: ['total_amount', 'status', 'session_date'],
+    });
+
+    const num = (v) => parseFloat(v) || 0;
+    const completed = all.filter((b) => b.status === 'completed');
+    const upcoming = all.filter((b) => b.status === 'confirmed');
+
+    return success(res, 'Earnings retrieved.', {
+      summary: {
+        collected: completed.reduce((t, b) => t + num(b.total_amount), 0),
+        upcoming: upcoming.reduce((t, b) => t + num(b.total_amount), 0),
+        session_count: all.length,
+        completed_count: completed.length,
+        // Said plainly so the client never has to infer it: none of this passed
+        // through Playsher, so there is nothing to pay out and nothing owed.
+        paid_at_venue: true,
+      },
+      sessions: rows.map((b) => ({
+        id: b.id,
+        session_date: b.session_date,
+        time_from: b.time_from,
+        time_to: b.time_to,
+        status: b.status,
+        total_amount: num(b.total_amount),
+        player_name: b.user?.name ?? 'A player',
+        ground_name: b.ground?.name ?? null,
+        booking_reference: b.booking_reference ?? null,
+      })),
+    }, 200, paginationMeta(count, page, limit));
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};

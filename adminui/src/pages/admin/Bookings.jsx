@@ -4,7 +4,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -32,6 +31,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx'
 import DataTable from '../../components/ui/DataTable.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'
+import ResponsiveDialog from '../../components/ui/ResponsiveDialog.jsx'
 import { useNotify } from '../../hooks/useNotify.js'
 import { bookingsApi } from '../../api/bookings.js'
 
@@ -50,6 +50,19 @@ const STATUS_COLORS = {
 
 // ── Booking Detail Modal ──────────────────────────────────────────────────────
 
+/**
+ * The ground behind a booking. `bookingIncludes` nests it under groundSport, so
+ * `row.ground` is always undefined — the later fallbacks are for older payloads.
+ */
+const groundNameOf = (row) =>
+  row?.groundSport?.ground?.name || row?.ground?.name || row?.ground_name || '—'
+
+/** See the Booked On column: this endpoint serialises the timestamp camelCase. */
+const bookedOn = (row) => row?.created_at || row?.createdAt || null
+
+/** '10:00:00' -> '10:00'. Times come back as full TIME values. */
+const hhmm = (t) => (t ? String(t).slice(0, 5) : null)
+
 function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
   const notify = useNotify()
   const [newStatus, setNewStatus] = useState(booking?.status ?? '')
@@ -67,15 +80,17 @@ function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
   if (!booking) return null
 
   const customer = booking.user ?? {}
-  const ground = booking.ground ?? {}
   const payment = booking.payment ?? {}
-  const date = booking.slot_date || booking.booked_slot?.date || booking.date
-  const startTime = booking.slot_time || booking.booked_slot?.start_time || booking.start_time
-  const endTime = booking.booked_slot?.end_time || booking.end_time
-  const amount = payment.amount ?? booking.total_amount ?? booking.amount
+  const date = booking.slot_date
+  // `slot_time_from` / `slot_time_to` are the columns; the old `slot_time` and
+  // `booked_slot.start_time` this read never existed on the wire, which is why
+  // every time in this dialog rendered as a dash.
+  const startTime = hhmm(booking.slot_time_from)
+  const endTime = hhmm(booking.slot_time_to)
+  const amount = booking.total_amount ?? payment.amount ?? booking.amount
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+    <ResponsiveDialog open onClose={onClose} maxWidth="sm">
       <DialogTitle>
         Booking #{booking.id}
         <Chip
@@ -90,11 +105,11 @@ function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
           <SectionLabel>Customer</SectionLabel>
           <DetailRow label="Name" value={customer.name} />
           <DetailRow label="Email" value={customer.email} />
-          <DetailRow label="Phone" value={customer.phone} />
+          <DetailRow label="Phone" value={customer.mobile ?? customer.phone} />
 
           <Divider sx={{ my: 1.5 }} />
           <SectionLabel>Ground & Slot</SectionLabel>
-          <DetailRow label="Ground" value={ground.name ?? booking.ground_name} />
+          <DetailRow label="Ground" value={groundNameOf(booking)} />
           <DetailRow label="Slot Date" value={date ? dayjs(date).format('DD MMM YYYY') : '—'} />
           <DetailRow label="Start Time" value={startTime ?? '—'} />
           <DetailRow label="End Time" value={endTime ?? '—'} />
@@ -105,7 +120,10 @@ function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
             label="Amount"
             value={amount != null ? `₹ ${Number(amount).toLocaleString()}` : '—'}
           />
-          <DetailRow label="Booked On" value={booking.created_at ? dayjs(booking.created_at).format('DD MMM YYYY, hh:mm A') : '—'} />
+          <DetailRow
+            label="Booked On"
+            value={bookedOn(booking) ? dayjs(bookedOn(booking)).format('DD MMM YYYY, hh:mm A') : '—'}
+          />
 
           <Divider sx={{ my: 1.5 }} />
           <SectionLabel>Update Status</SectionLabel>
@@ -138,7 +156,7 @@ function BookingDetailModal({ booking, onClose, onStatusUpdated }) {
           Update Status
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   )
 }
 
@@ -178,9 +196,6 @@ export default function Bookings() {
 
   // Bookings arrive with the ground nested under groundSport; older admin
   // endpoints occasionally flatten it, so accept both.
-  const groundNameOf = (row) =>
-    row.groundSport?.ground?.name || row.ground?.name || row.ground_name || '—'
-
   // ── Query ──────────────────────────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'bookings'],
@@ -240,7 +255,7 @@ export default function Bookings() {
       headerName: 'Customer',
       flex: 1,
       minWidth: 170,
-      valueGetter: ({ row }) => row.user?.name || row.user?.mobile || '—',
+      valueGetter: (_value, row) => row.user?.name || row.user?.mobile || '—',
       renderCell: ({ row }) => (
         <Box>
           <Typography variant="body2" fontWeight={600} noWrap>{row.user?.name || '—'}</Typography>
@@ -253,7 +268,7 @@ export default function Bookings() {
       headerName: 'Ground',
       flex: 1,
       minWidth: 150,
-      valueGetter: ({ row }) => groundNameOf(row),
+      valueGetter: (_value, row) => groundNameOf(row),
       renderCell: ({ row }) => (
         <Typography variant="body2" fontWeight={500} noWrap>
           {groundNameOf(row)}
@@ -302,9 +317,14 @@ export default function Bookings() {
       field: 'created_at',
       headerName: 'Booked On',
       width: 140,
-      renderCell: ({ value }) => (
+      // Sequelize is `underscored: true` for columns but still names the
+      // timestamp attribute `createdAt`, so this endpoint serialises that one
+      // key in camelCase while every other is snake. Reading only `created_at`
+      // is why the column was empty on every row.
+      valueGetter: (_value, row) => bookedOn(row),
+      renderCell: ({ row }) => (
         <Typography variant="body2" color="text.secondary">
-          {value ? dayjs(value).format('DD MMM YYYY') : '—'}
+          {bookedOn(row) ? dayjs(bookedOn(row)).format('DD MMM YYYY') : '—'}
         </Typography>
       ),
     },
@@ -357,7 +377,7 @@ export default function Bookings() {
           placeholder="Search by customer or ground…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 320 }}
+          sx={{ width: { xs: '100%', sm: 320 } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

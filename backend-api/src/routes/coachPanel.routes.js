@@ -73,6 +73,31 @@ router.put   ('/profile',                ...coach, uploadCoach, cp.updateProfile
  */
 router.get   ('/dashboard',              ...coach, cp.dashboard);
 
+/**
+ * @swagger
+ * /coach/earnings:
+ *   get:
+ *     tags: [Coach]
+ *     summary: What this coach has earned from their sessions
+ *     description: >
+ *       Coaching is pay-at-venue, so no `payments` row exists for any of it and
+ *       these figures come from the sessions themselves. `collected` is
+ *       completed sessions; `upcoming` is confirmed but not yet played, kept
+ *       separate because it is money expected rather than money held. Cancelled
+ *       and rejected sessions are excluded.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: "{ summary, sessions[] }" }
+ */
+router.get   ('/earnings',               ...coach, cp.earnings);
+
 // ── Availability ──────────────────────────────────────────────────────────────
 
 /**

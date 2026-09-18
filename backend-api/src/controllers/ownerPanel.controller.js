@@ -8,6 +8,7 @@ const {
   Ground, GroundOwner, GroundImage, GroundSport, GroundAmenity,
   Sport, Amenity, Slot, Booking, BookedSlot, User, Game, Payment,
   Coach, CoachGround, CoachBooking, BankDetails,
+  Review,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { pickGroundFields } = require('../utils/groundFields');
@@ -670,20 +671,40 @@ exports.listSettlements = async (req, res) => {
     const all = await Payment.findAll({
       where     : { payment_status: 'success' },
       include   : [{ ...scope, attributes: ['id'] }],
-      attributes: ['amount', 'payment_mode', 'vendor_payout_status'],
+      attributes: ['amount', 'payment_mode', 'vendor_payout_status', 'vendor_payout_amount', 'platform_fee'],
     });
 
     const num = (v) => parseFloat(v) || 0;
     const online = all.filter((p) => p.payment_mode === 'online');
+
+    // What the owner actually receives is the payment minus Playsher's
+    // commission, so every "paid out" and "awaiting" figure below is the NET
+    // amount. `vendor_payout_amount` is written at capture and is the number
+    // that was really transferred; the fallback covers payments taken before
+    // commission existed, where the whole amount was the owner's.
+    const ownerShare = (p) =>
+      p.vendor_payout_amount != null ? num(p.vendor_payout_amount) : num(p.amount);
+
+    const transferred = online.filter((p) => p.vendor_payout_status === 'transferred');
+
     const summary = {
+      // Gross, for reconciliation against the customer's receipt.
       online_total   : online.reduce((t, p) => t + num(p.amount), 0),
-      online_paid_out: online.filter((p) => p.vendor_payout_status === 'transferred')
-                             .reduce((t, p) => t + num(p.amount), 0),
+      // Playsher's cut, shown explicitly. An owner comparing the booking price
+      // with their bank statement must be able to see where the gap went.
+      commission_total: online.reduce((t, p) => t + num(p.platform_fee), 0),
+      online_paid_out: transferred.reduce((t, p) => t + ownerShare(p), 0),
       cash_collected : all.filter((p) => p.payment_mode === 'offline')
                           .reduce((t, p) => t + num(p.amount), 0),
       payment_count  : all.length,
     };
-    summary.online_awaiting = summary.online_total - summary.online_paid_out;
+
+    // Net still to reach them — summed over the untransferred rows rather than
+    // subtracted from the gross, which would have quietly included commission.
+    summary.online_awaiting = online
+      .filter((p) => p.vendor_payout_status !== 'transferred')
+      .reduce((t, p) => t + ownerShare(p), 0);
+    summary.online_net = summary.online_paid_out + summary.online_awaiting;
 
     // `vendor_payout_status` is an admin-written column and nothing sets it
     // automatically, so on its own it reads "pending" for ever — including for
@@ -696,9 +717,28 @@ exports.listSettlements = async (req, res) => {
       attributes: ['id'],
     });
     summary.has_bank_details = Boolean(bank);
+
+    // Razorpay verifies a linked account after it is created, and a transfer to
+    // one that is not `activated` fails. The owner is the only person who can
+    // resolve a `needs_clarification`, so telling them is the whole point —
+    // otherwise their money sits held with no explanation anywhere.
+    const ownerRow = await GroundOwner.findByPk(req.user.id, {
+      attributes: ['razorpay_linked_account_id', 'razorpay_account_status'],
+    });
+    summary.payout_account_status = ownerRow?.razorpay_linked_account_id
+      ? (ownerRow.razorpay_account_status || 'created')
+      : null;
+    const accountBlocked = summary.payout_account_status
+      && summary.payout_account_status !== 'activated';
+
     summary.payout_state = !bank && summary.online_awaiting > 0
       ? 'no_bank_details'
-      : (summary.online_awaiting > 0 ? 'pending' : 'settled');
+      : (accountBlocked && summary.online_awaiting > 0
+        // Named after the state rather than folded into 'pending': an owner
+        // whose account needs clarification has something to *do*, and pending
+        // reads as "nothing to see here, it is on its way".
+        ? `account_${summary.payout_account_status}`
+        : (summary.online_awaiting > 0 ? 'pending' : 'settled'));
 
     const payments = rows.map((p) => {
       const b  = p.bookingRecord;
@@ -714,6 +754,9 @@ exports.listSettlements = async (req, res) => {
         vendor_payout_status: p.payment_mode === 'offline'
           ? 'collected_at_ground'
           : (!bank ? 'no_bank_details' : p.vendor_payout_status),
+        // Per row, so a payment can be checked against a bank statement line.
+        platform_fee        : p.platform_fee != null ? num(p.platform_fee) : null,
+        vendor_payout_amount: p.vendor_payout_amount != null ? num(p.vendor_payout_amount) : null,
         booking_id          : b?.id ?? null,
         booking_reference   : b?.booking_reference ?? null,
         slot_date           : b?.slot_date ?? null,
@@ -968,4 +1011,74 @@ exports.listCoachSessions = async (req, res) => {
     });
     return success(res, 'Coaching sessions retrieved.', rows, 200, paginationMeta(count, page, limit));
   } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * GET /ground-owner/reviews
+ *
+ * What customers wrote about this owner's grounds. Read-only on purpose: an
+ * owner seeing their reviews is feedback, an owner able to change them is not.
+ * Moderation stays with admins, as it already does.
+ *
+ * Scoped by ownership, not by a ground_id the client sends — an owner must not
+ * be able to read another venue's reviews by guessing an id. Optional
+ * `ground_id` narrows within what they already own.
+ */
+exports.listReviews = async (req, res) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query);
+
+    const owned = await Ground.findAll({
+      where: { owner_id: req.user.id, deleted_at: null },
+      attributes: ['id', 'name'],
+    });
+    const ownedIds = owned.map((g) => g.id);
+    if (!ownedIds.length) {
+      return success(res, 'Reviews retrieved.', { reviews: [], summary: { count: 0, average: null } },
+        200, paginationMeta(0, page, limit));
+    }
+
+    // A ground_id that is not theirs narrows to nothing rather than widening.
+    const requested = req.query.ground_id ? Number(req.query.ground_id) : null;
+    const scopeIds = requested ? ownedIds.filter((id) => id === requested) : ownedIds;
+    if (!scopeIds.length) {
+      return success(res, 'Reviews retrieved.', { reviews: [], summary: { count: 0, average: null } },
+        200, paginationMeta(0, page, limit));
+    }
+
+    const where = { review_type: 'ground', ground_id: scopeIds, is_active: true };
+
+    const { count, rows } = await Review.findAndCountAll({
+      where,
+      include: [{ model: User, as: 'reviewer', attributes: ['id', 'name'], required: false }],
+      order: [['created_at', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset,
+    });
+
+    // Averaged over every review, not just this page — a rating read off page
+    // one of four is not the venue's rating.
+    const all = await Review.findAll({ where, attributes: ['rating'] });
+    const ratings = all.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n));
+    const average = ratings.length
+      ? Math.round((ratings.reduce((t, n) => t + n, 0) / ratings.length) * 10) / 10
+      : null;
+
+    const groundName = new Map(owned.map((g) => [g.id, g.name]));
+
+    return success(res, 'Reviews retrieved.', {
+      reviews: rows.map((r) => ({
+        id: r.id,
+        rating: Number(r.rating),
+        comment: r.comment,
+        created_at: r.created_at,
+        ground_id: r.ground_id,
+        ground_name: groundName.get(r.ground_id) ?? null,
+        reviewer_name: r.reviewer?.name ?? 'A player',
+      })),
+      summary: { count: ratings.length, average },
+    }, 200, paginationMeta(count, page, limit));
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };

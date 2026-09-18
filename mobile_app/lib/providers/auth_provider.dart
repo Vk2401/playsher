@@ -61,16 +61,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
     invalidateUserScopedProviders(_ref);
   }
 
-  /// Sends OTP. Navigates to OTP screen regardless of API result.
+  /// Sends an OTP. Throws on failure, like [verifyOtp].
+  ///
+  /// This used to swallow every error and send the user to the OTP screen
+  /// anyway, which meant they sat entering a code for a message that was never
+  /// sent. The server now answers 502 when delivery fails — and the SMS
+  /// provider can fail silently on a bad key — so the one place that learns
+  /// about it has to pass it on.
   Future<void> sendOtp(String mobile) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await ApiClient.sendOtp(mobile);
+      state = state.copyWith(isLoading: false);
+    } on DioException catch (e) {
+      final errorMsg = _extractError(e);
+      if (kDebugMode) debugPrint('[Auth] sendOtp error: $errorMsg');
+      state = state.copyWith(isLoading: false, error: errorMsg);
+      throw Exception(errorMsg);
     } catch (e) {
-      if (kDebugMode) debugPrint('[Auth] sendOtp error: $e');
-      // Proceed anyway — user still goes to OTP screen
+      final errorMsg = apiErrorMessage(e);
+      state = state.copyWith(isLoading: false, error: errorMsg);
+      throw Exception(errorMsg);
     }
-    state = state.copyWith(isLoading: false);
   }
 
   /// Returns true = existing user (go home), false = new user (go register).

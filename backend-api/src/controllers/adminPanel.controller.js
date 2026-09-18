@@ -10,10 +10,16 @@ const {
   Sport, Amenity, Coach, Review, User, Booking,
   Payment, Game, RefreshToken,
   CoachGround, CoachBooking, CoachAvailability,
+  BankDetails,
 } = require('../models');
 const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
+const { settleCapturedPayment } = require('../utils/settleBooking');
+const { refundPayment } = require('../utils/refundBooking');
+const {
+  getCommissionRate, setCommissionRate, commissionSource,
+} = require('../utils/platformSettings');
 const { pickAdminCoachFields } = require('../utils/coachFields');
 const { normaliseContact } = require('../utils/groundFields');
 const { notify } = require('../utils/notify');
@@ -868,4 +874,136 @@ exports.updateGround = async (req, res) => {
     await ground.update(patch);
     return success(res, 'Ground updated.', ground);
   } catch (err) { return error(res, err.message, 500); }
+};
+
+/**
+ * POST /admin/payments/:id/retry-payout
+ *
+ * Re-run settlement for a payment whose transfer never went through — Razorpay
+ * was down, the owner had not onboarded yet, or the keys were not configured at
+ * the time. Without this, a stuck payout stays stuck for ever: nothing else
+ * re-reads an already-successful payment.
+ *
+ * Safe to press twice. settleCapturedPayment refuses a payment that already
+ * carries a transfer_id, so a retry can never send the money a second time.
+ */
+exports.retryPayout = async (req, res) => {
+  try {
+    const payment = await Payment.findByPk(req.params.id);
+    if (!payment) return error(res, 'Payment not found.', 404);
+
+    if (payment.payment_status !== 'success') {
+      return error(res, 'Only a successful payment can be paid out.', 409);
+    }
+    if (payment.transfer_id) {
+      return error(res, 'This payment has already been transferred.', 409);
+    }
+
+    const result = await settleCapturedPayment(
+      { Booking, GroundSport, Ground, GroundOwner, BankDetails },
+      payment,
+    );
+
+    await payment.reload();
+    return success(res, `Payout ${result.state}.`, {
+      payment,
+      payout: {
+        state: result.state,
+        platform_fee: result.platformFee,
+        vendor_payout_amount: result.ownerAmount,
+        transfer_id: result.transferId ?? null,
+      },
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+/**
+ * GET /admin/settings/commission
+ *
+ * The rate in force, and where it came from — a super admin changing it needs
+ * to know whether they are about to override a stored value or an env var.
+ */
+exports.getCommission = async (req, res) => {
+  try {
+    const rate = await getCommissionRate();
+    return success(res, 'Commission retrieved.', {
+      rate,
+      percent: Math.round(rate * 10000) / 100,
+      source: await commissionSource(),
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+/**
+ * PUT /admin/settings/commission — super admin only.
+ *
+ * Accepts either `rate` (0.10) or `percent` (10). Changing it affects payments
+ * settled from now on; every past payment keeps the fee that was frozen onto it
+ * at capture, so an owner's earnings history never moves under them.
+ */
+exports.setCommission = async (req, res) => {
+  try {
+    const { rate, percent } = req.body;
+
+    if (rate === undefined && percent === undefined) {
+      return error(res, 'Provide either rate (0–0.99) or percent (0–99).', 422);
+    }
+    const value = rate !== undefined ? Number(rate) : Number(percent) / 100;
+
+    const result = await setCommissionRate(value, req.user?.id ?? null);
+    if (!result.ok) return error(res, result.reason, 422);
+
+    return success(res, 'Commission updated.', {
+      rate: result.rate,
+      percent: Math.round(result.rate * 10000) / 100,
+      source: 'database',
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+/**
+ * POST /admin/payments/:id/refund — super admin only.
+ *
+ * Reverses the ground owner's share first, then refunds the customer. If the
+ * owner's money cannot be recovered the refund is refused rather than issued:
+ * refusing is recoverable, refunding money we cannot claw back is not. An admin
+ * who has decided the platform will absorb it passes `force: true`, which is
+ * logged.
+ *
+ * Body: { amount?: number, reason?: string, force?: boolean }
+ */
+exports.refundPayment = async (req, res) => {
+  try {
+    const payment = await Payment.findByPk(req.params.id);
+    if (!payment) return error(res, 'Payment not found.', 404);
+
+    const result = await refundPayment(payment, {
+      amount: req.body?.amount,
+      reason: req.body?.reason,
+      force: req.body?.force === true,
+    });
+
+    if (!result.ok) {
+      const status = result.state === 'reversal_failed' ? 409 : 422;
+      return error(res, result.message || `Refund not issued: ${result.state}.`, status);
+    }
+
+    await payment.reload();
+    return success(res, `Payment ${result.state}.`, {
+      payment,
+      refund: {
+        state: result.state,
+        refund_id: result.refundId ?? null,
+        owner_share_reversed: result.reversed ?? 0,
+      },
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };

@@ -24,7 +24,10 @@ module.exports = (sequelize) => {
       razorpay_payment_id:    { type: DataTypes.STRING(255), allowNull: true },
       razorpay_signature:     { type: DataTypes.STRING(255), allowNull: true },
       vendor_payout_status:   {
-        type: DataTypes.ENUM('pending', 'transferred', 'no_bank_details', 'no_vendor'),
+        // `failed` and `reversed` are written only by the Razorpay webhook:
+        // creating a transfer is not the same as it landing, and a refund can
+        // pull one back after it has.
+        type: DataTypes.ENUM('pending', 'transferred', 'no_bank_details', 'no_vendor', 'failed', 'reversed'),
         defaultValue: 'pending',
       },
       vendor_payout_amount:   { type: DataTypes.DECIMAL(10, 2), allowNull: true },

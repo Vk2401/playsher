@@ -28,7 +28,7 @@ const TABS = [
 
 // Screens opened from "More" keep the More tab lit.
 const MORE_CHILDREN = ['/owner/coach-requests', '/owner/coach-sessions', '/owner/games',
-  '/owner/bank-details', '/owner/profile', '/owner/notifications']
+  '/owner/bank-details', '/owner/profile', '/owner/notifications', '/owner/reviews']
 
 const RAIL = 232
 

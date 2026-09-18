@@ -11,7 +11,7 @@ export default function StatCard({ title, value, icon: Icon, trend, trendLabel, 
 
   if (loading) {
     return (
-      <Card sx={{ height: 130 }}>
+      <Card sx={{ minHeight: 120 }}>
         <CardContent>
           <Skeleton variant="text" width="60%" />
           <Skeleton variant="text" width="40%" height={40} />
@@ -24,17 +24,17 @@ export default function StatCard({ title, value, icon: Icon, trend, trendLabel, 
   return (
     <Card
       sx={{
-        height: 130,
+        // minHeight, not height: a two-line label used to be clipped rather
+        // than growing the tile, which read as a rendering bug on a phone.
+        minHeight: 120,
         position: 'relative',
         overflow: 'hidden',
-        background: `rgba(255,255,255,0.88)`,
         '&::before': {
           content: '""',
           position: 'absolute',
           top: 0, left: 0,
           width: 4, height: '100%',
           background: primary,
-          borderRadius: '14px 0 0 14px',
         },
       }}
     >
@@ -45,14 +45,19 @@ export default function StatCard({ title, value, icon: Icon, trend, trendLabel, 
               sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {title}
             </Typography>
-            <Typography variant="h4" fontWeight={700} color="text.primary" sx={{ mt: 0.5 }}>
+            <Typography
+              variant="h4"
+              fontWeight={800}
+              color="text.primary"
+              sx={{ mt: 0.5, fontVariantNumeric: 'tabular-nums' }}
+            >
               {value ?? '—'}
             </Typography>
           </Box>
           {Icon && (
             <Box sx={{
-              width: 48, height: 48,
-              borderRadius: 3,
+              width: 44, height: 44, flexShrink: 0,
+              borderRadius: 2,
               background: alpha(primary, 0.12),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>

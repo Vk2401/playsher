@@ -12,6 +12,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import CheckIcon from '@mui/icons-material/Check'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import StarOutlineIcon from '@mui/icons-material/StarOutline'
 
 import InstallAppButton from '../../components/ui/InstallAppButton.jsx'
 import { Card, ListRow, ScreenHeader } from '../../components/owner/OwnerBits.jsx'
@@ -85,6 +86,11 @@ export default function OwnerMore() {
         <ListRow icon={GroupsOutlinedIcon} label="Coach requests" badge={pendingCoach || undefined} onClick={() => navigate('/owner/coach-requests')} />
         <ListRow icon={SportsOutlinedIcon} label="Coach sessions" onClick={() => navigate('/owner/coach-sessions')} />
         <ListRow icon={EmojiEventsOutlinedIcon} label="Games at your grounds" onClick={() => navigate('/owner/games')} last />
+      </Group>
+
+      <Group title="Your grounds">
+        {/* Read-only: feedback for the owner, moderation stays with admins. */}
+        <ListRow icon={StarOutlineIcon} label="Reviews" onClick={() => navigate('/owner/reviews')} last />
       </Group>
 
       <Group title="Account">

@@ -1,6 +1,9 @@
 const router = require('express').Router();
 
 // Public / cross-role routes
+// Razorpay calls this, not a client: no bearer token, authenticated by the
+// signature header instead. Mounted first so nothing else can shadow it.
+router.use('/webhooks',      require('./webhook.routes'));
 router.use('/auth',          require('./auth.routes'));
 router.use('/grounds',       require('./ground.routes'));
 router.use('/sports',        require('./sport.routes'));

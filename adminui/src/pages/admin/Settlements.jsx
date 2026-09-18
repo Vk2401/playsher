@@ -36,6 +36,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx'
 import DataTable from '../../components/ui/DataTable.jsx'
 import DrawerForm from '../../components/ui/DrawerForm.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'
+import CommissionCard from '../../components/admin/CommissionCard.jsx'
 import { useNotify } from '../../hooks/useNotify.js'
 import { settlementsApi } from '../../api/settlements.js'
 
@@ -45,8 +46,8 @@ const SUMMARY_CONFIG = [
   {
     key: 'transferred',
     label: 'Total Transferred',
-    color: '#6B9E7A',
-    bgColor: 'rgba(107,158,122,0.08)',
+    color: '#2E7D4F',
+    bgColor: 'rgba(46,125,79,0.08)',
     icon: CheckCircleOutlineIcon,
   },
   {
@@ -253,6 +254,10 @@ export default function Settlements() {
         ]}
       />
 
+      {/* The rate that produced every figure below, so an admin reading a
+          payout can see the number it was derived from without leaving. */}
+      <CommissionCard />
+
       {/* -- Summary Cards */}
       <Grid container spacing={2} mb={3}>
         {SUMMARY_CONFIG.map(({ key, label, color, bgColor, icon: Icon }) => (
@@ -329,7 +334,7 @@ export default function Settlements() {
           placeholder="Search by vendor name, email or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 340 }}
+          sx={{ width: { xs: '100%', sm: 340 } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

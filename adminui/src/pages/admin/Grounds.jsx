@@ -434,7 +434,7 @@ export default function AdminGrounds() {
           placeholder="Search by name, city or owner…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 340 }}
+          sx={{ width: { xs: '100%', sm: 340 } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

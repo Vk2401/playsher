@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Box, IconButton, InputAdornment, Skeleton, TextField, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -37,6 +38,35 @@ export default function OwnerBookings() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(null)
+
+  // Deep link from a notification. The booking is very unlikely to be on the
+  // day the strip happens to be showing, so it is fetched directly rather than
+  // hunted for in the current page of results.
+  const { id: deepLinkId } = useParams()
+  const navigate = useNavigate()
+
+  const deepLinkQ = useQuery({
+    queryKey: ['owner', 'booking', deepLinkId],
+    queryFn: () => bookingsApi.getOwnerBooking(deepLinkId),
+    select: (res) => res.data?.data ?? null,
+    enabled: Boolean(deepLinkId),
+  })
+
+  useEffect(() => {
+    const booking = deepLinkQ.data
+    if (!booking) return
+    setOpen(booking)
+    // Move the strip to the booking's own day, so closing the sheet leaves the
+    // owner looking at the date they were sent to rather than back at today.
+    if (booking.slot_date) setDate(booking.slot_date)
+  }, [deepLinkQ.data])
+
+  // Closing a deep-linked sheet drops the id from the URL, otherwise going
+  // back to /owner/bookings and forward again silently reopens it.
+  const closeSheet = () => {
+    setOpen(null)
+    if (deepLinkId) navigate('/owner/bookings', { replace: true })
+  }
 
   const term = search.trim()
   const searching = term.length >= 2
@@ -158,7 +188,7 @@ export default function OwnerBookings() {
         </Card>
       )}
 
-      <BookingSheet booking={open} onClose={() => setOpen(null)} />
+      <BookingSheet booking={open} onClose={closeSheet} />
     </Box>
   )
 }
