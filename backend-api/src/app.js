@@ -39,7 +39,14 @@ app.use(
 app.use("/uploads", require("express").static(require("path").join(process.cwd(), "uploads")));
 
 // Body parsers
-app.use(express.json({ limit: '10mb' }));
+// Keep the exact bytes of every request body. Razorpay signs the raw payload,
+// and JSON.stringify of the parsed object is not byte-identical to what was
+// sent — key order and whitespace differ — so a webhook signature can only be
+// verified against this. Costs one buffer reference per request.
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Logging
@@ -55,6 +62,11 @@ app.use(
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' },
+    // Razorpay delivers every webhook from a small pool of addresses, so a busy
+    // day would trip a per-IP limit meant for browsers and queue the ledger
+    // behind 429s. The endpoint is not unprotected: it is authenticated by an
+    // HMAC over the raw body and does nothing at all without a valid one.
+    skip: (req) => req.path.startsWith('/api/v1/webhooks/'),
   })
 );
 

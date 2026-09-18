@@ -938,6 +938,38 @@ router.post  ('/payments/:id/retry-payout', ...admin, ap.retryPayout);
  *       422: { description: Out of range or missing }
  *       403: { description: Not a super admin }
  */
+/**
+ * @swagger
+ * /admin/payments/{id}/refund:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Refund a payment, reversing the ground owner's share first
+ *     description: >
+ *       Pulls the owner's transferred share back before refunding the customer.
+ *       Answers 409 without refunding if that share cannot be recovered — pass
+ *       `force: true` to refund anyway and have the platform absorb it.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount: { type: number, description: Partial refund in rupees; omit for full }
+ *               reason: { type: string }
+ *               force:  { type: boolean }
+ *     responses:
+ *       200: { description: Refunded or partially refunded }
+ *       409: { description: Owner's share could not be recovered; nothing refunded }
+ *       422: { description: Not refundable }
+ */
+router.post  ('/payments/:id/refund', ...superAdmin, ap.refundPayment);
+
 router.get   ('/settings/commission', ...admin, ap.getCommission);
 router.put   ('/settings/commission', ...superAdmin, ap.setCommission);
 

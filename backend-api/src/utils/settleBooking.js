@@ -14,7 +14,7 @@
  */
 const { splitCommission } = require('./commission');
 const { getCommissionRate } = require('./platformSettings');
-const { ensureLinkedAccount, transferOwnerShare, isConfigured } = require('./razorpayRoute');
+const { ensureLinkedAccount, transferOwnerShare, isConfigured, ACTIVATED } = require('./razorpayRoute');
 
 /**
  * Record the split for a captured payment and move the owner's share if it can.
@@ -84,7 +84,16 @@ async function settleCapturedPayment(models, payment, { transaction } = {}) {
       return { state: account.reason, platformFee, ownerAmount };
     }
 
-    const result = await transferOwnerShare(payment, account.accountId);
+    // An account exists but Razorpay has not verified it yet. Their share stays
+    // with us, and the account.activated webhook is what releases it.
+    if ((account.status || 'created') !== ACTIVATED) {
+      await payment.update({ ...ledger, vendor_payout_status: 'pending' }, { transaction });
+      return { state: 'account_not_activated', platformFee, ownerAmount };
+    }
+
+    const result = await transferOwnerShare(payment, account.accountId, {
+      accountStatus: account.status,
+    });
     if (!result.ok) {
       // Left 'pending' on purpose: the share is genuinely still ours to send,
       // and a retry should pick it up rather than skip it.
@@ -92,13 +101,17 @@ async function settleCapturedPayment(models, payment, { transaction } = {}) {
       return { state: result.reason, platformFee, ownerAmount };
     }
 
+    // The transfer id is recorded, but the status stays 'pending' on purpose.
+    // Creating a transfer is a request, not an outcome — Razorpay can still
+    // fail it. Only the transfer.processed webhook writes 'transferred', so the
+    // column never claims money has moved when it has not.
     await payment.update({
       ...ledger,
       transfer_id: result.transferId,
-      vendor_payout_status: 'transferred',
+      vendor_payout_status: 'pending',
     }, { transaction });
 
-    return { state: 'transferred', platformFee, ownerAmount, transferId: result.transferId };
+    return { state: 'transfer_created', platformFee, ownerAmount, transferId: result.transferId };
   } catch (err) {
     console.error('[settle] failed for payment', payment.id, err.message);
     // Still record what is owed. An unsettled payment we can see is recoverable;

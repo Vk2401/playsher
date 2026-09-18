@@ -16,6 +16,7 @@ const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { settleCapturedPayment } = require('../utils/settleBooking');
+const { refundPayment } = require('../utils/refundBooking');
 const {
   getCommissionRate, setCommissionRate, commissionSource,
 } = require('../utils/platformSettings');
@@ -960,6 +961,47 @@ exports.setCommission = async (req, res) => {
       rate: result.rate,
       percent: Math.round(result.rate * 10000) / 100,
       source: 'database',
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+/**
+ * POST /admin/payments/:id/refund — super admin only.
+ *
+ * Reverses the ground owner's share first, then refunds the customer. If the
+ * owner's money cannot be recovered the refund is refused rather than issued:
+ * refusing is recoverable, refunding money we cannot claw back is not. An admin
+ * who has decided the platform will absorb it passes `force: true`, which is
+ * logged.
+ *
+ * Body: { amount?: number, reason?: string, force?: boolean }
+ */
+exports.refundPayment = async (req, res) => {
+  try {
+    const payment = await Payment.findByPk(req.params.id);
+    if (!payment) return error(res, 'Payment not found.', 404);
+
+    const result = await refundPayment(payment, {
+      amount: req.body?.amount,
+      reason: req.body?.reason,
+      force: req.body?.force === true,
+    });
+
+    if (!result.ok) {
+      const status = result.state === 'reversal_failed' ? 409 : 422;
+      return error(res, result.message || `Refund not issued: ${result.state}.`, status);
+    }
+
+    await payment.reload();
+    return success(res, `Payment ${result.state}.`, {
+      payment,
+      refund: {
+        state: result.state,
+        refund_id: result.refundId ?? null,
+        owner_share_reversed: result.reversed ?? 0,
+      },
     });
   } catch (err) {
     return error(res, err.message, 500);

@@ -1736,6 +1736,12 @@
           "nullable": true,
           "comment": "Razorpay Route linked account (acc_...). Null until the owner is onboarded."
         },
+        "razorpay_account_status": {
+          "type": "varchar",
+          "length": 32,
+          "nullable": true,
+          "comment": "Route account state: created | activated | needs_clarification | suspended"
+        },
         "created_at": {
           "type": "datetime",
           "nullable": false
@@ -2281,7 +2287,9 @@
             "pending",
             "transferred",
             "no_bank_details",
-            "no_vendor"
+            "no_vendor",
+            "failed",
+            "reversed"
           ],
           "nullable": true,
           "default": "pending"
