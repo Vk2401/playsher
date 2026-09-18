@@ -12,6 +12,7 @@
 
 const router = require('express').Router();
 const { verifyToken, requireRole } = require('../middleware/auth');
+const { requireSuperAdmin } = require('../middleware/superAdmin');
 const {
   uploadSport, uploadAmenity, uploadCoach,
 } = require('../middleware/upload');
@@ -31,6 +32,9 @@ const validate = require('../middleware/validate');
 const { upsertVersion } = require('../validators/appVersion.validator');
 
 const admin = [verifyToken, requireRole('admin')];
+// The commission rate decides what every ground owner is paid, so changing it
+// sits behind the same tier that manages admin accounts.
+const superAdmin = [...admin, requireSuperAdmin];
 
 // ── Grounds ───────────────────────────────────────────────────────────────────
 /**
@@ -899,6 +903,43 @@ router.patch ('/payments/:id/status', ...admin, ap.updatePaymentStatus);
  *       404: { description: Payment not found }
  */
 router.post  ('/payments/:id/retry-payout', ...admin, ap.retryPayout);
+
+/**
+ * @swagger
+ * /admin/settings/commission:
+ *   get:
+ *     tags: [Admin]
+ *     summary: The platform commission rate currently in force
+ *     description: >
+ *       Reports the rate and its source — `database` when a super admin has set
+ *       one, `environment` when it comes from PLATFORM_COMMISSION_RATE, or
+ *       `default` when neither is set.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: "{ rate, percent, source }" }
+ *   put:
+ *     tags: [Admin]
+ *     summary: Change the platform commission rate (super admin only)
+ *     description: >
+ *       Takes `rate` (0.10) or `percent` (10). Applies to payments settled from
+ *       now on; past payments keep the fee frozen onto them at capture, so an
+ *       owner's earnings history is never restated.
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rate:    { type: number, example: 0.12 }
+ *               percent: { type: number, example: 12 }
+ *     responses:
+ *       200: { description: Updated }
+ *       422: { description: Out of range or missing }
+ *       403: { description: Not a super admin }
+ */
+router.get   ('/settings/commission', ...admin, ap.getCommission);
+router.put   ('/settings/commission', ...superAdmin, ap.setCommission);
 
 // ── Games ─────────────────────────────────────────────────────────────────────
 /**

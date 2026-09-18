@@ -13,6 +13,7 @@
  * flagged for a retry, rather than unaccounted for.
  */
 const { splitCommission } = require('./commission');
+const { getCommissionRate } = require('./platformSettings');
 const { ensureLinkedAccount, transferOwnerShare, isConfigured } = require('./razorpayRoute');
 
 /**
@@ -30,7 +31,11 @@ const { ensureLinkedAccount, transferOwnerShare, isConfigured } = require('./raz
 async function settleCapturedPayment(models, payment, { transaction } = {}) {
   const { Booking, GroundSport, Ground, GroundOwner, BankDetails } = models;
 
-  const { platformFee, ownerAmount } = splitCommission(payment.amount);
+  // The rate in force at the moment of capture. It is applied here and then
+  // frozen onto the payment as platform_fee, so a super admin changing the
+  // rate tomorrow never restates what an owner already earned today.
+  const rate = await getCommissionRate();
+  const { platformFee, ownerAmount } = splitCommission(payment.amount, rate);
 
   // Persist the split whatever happens next. This is the number the owner's
   // Earnings screen and any later reconciliation both read.

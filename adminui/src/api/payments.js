@@ -11,3 +11,12 @@ export const paymentsApi = {
   // this twice cannot send the money twice.
   retryPayout: (id) => apiClient.post(`/admin/payments/${id}/retry-payout`),
 }
+
+/**
+ * Platform-wide settings. Reading the commission is open to any admin; changing
+ * it is gated on the super-admin tier by the server, not by this client.
+ */
+export const settingsApi = {
+  getCommission: () => apiClient.get('/admin/settings/commission'),
+  setCommission: (percent) => apiClient.put('/admin/settings/commission', { percent }),
+}

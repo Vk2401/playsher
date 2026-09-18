@@ -36,6 +36,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx'
 import DataTable from '../../components/ui/DataTable.jsx'
 import DrawerForm from '../../components/ui/DrawerForm.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'
+import CommissionCard from '../../components/admin/CommissionCard.jsx'
 import { useNotify } from '../../hooks/useNotify.js'
 import { settlementsApi } from '../../api/settlements.js'
 
@@ -252,6 +253,10 @@ export default function Settlements() {
           { label: 'Settlements' },
         ]}
       />
+
+      {/* The rate that produced every figure below, so an admin reading a
+          payout can see the number it was derived from without leaving. */}
+      <CommissionCard />
 
       {/* -- Summary Cards */}
       <Grid container spacing={2} mb={3}>

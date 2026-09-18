@@ -32,6 +32,7 @@ const Otp              = require('./Otp')(sequelize);
 const BankDetails      = require('./BankDetails')(sequelize);
 const ScheduleTemplate = require('./ScheduleTemplate')(sequelize);
 const AppVersion       = require('./AppVersion')(sequelize);
+const PlatformSetting  = require('./PlatformSetting')(sequelize);
 
 // ── Associations ──────────────────────────────────────────────────────────────
 
@@ -197,6 +198,7 @@ BankDetails.belongsTo(GroundOwner, { foreignKey: 'user_id', as: 'owner', constra
 // ─────────────────────────────────────────────────────────────────────────────
 
 module.exports = {
+  PlatformSetting,
   sequelize,
   Admin,
   User,

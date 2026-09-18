@@ -105,7 +105,16 @@ async function transferOwnerShare(payment, accountId) {
   if (!accountId) return { ok: false, reason: 'no_linked_account' };
   if (!payment.razorpay_payment_id) return { ok: false, reason: 'not_a_gateway_payment' };
 
-  const { platformFee, ownerAmount } = splitCommission(payment.amount);
+  // Prefer the amount already recorded on the payment over recomputing it.
+  // settleCapturedPayment writes vendor_payout_amount before calling this, and
+  // a retry days later must send exactly that figure — not whatever the rate
+  // happens to be now. The recompute is only for a payment written before the
+  // ledger columns were populated.
+  const recorded = payment.vendor_payout_amount != null ? Number(payment.vendor_payout_amount) : null;
+  const fallback = splitCommission(payment.amount);
+  const ownerAmount = recorded != null && recorded > 0 ? recorded : fallback.ownerAmount;
+  const platformFee = payment.platform_fee != null ? Number(payment.platform_fee) : fallback.platformFee;
+
   if (!(ownerAmount > 0)) return { ok: false, reason: 'nothing_to_transfer' };
 
   const razorpay = getRazorpay();

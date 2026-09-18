@@ -3157,6 +3157,55 @@
         }
       },
       "foreignKeys": {}
+    },
+    "platform_settings": {
+      "columns": {
+        "id": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": false,
+          "autoIncrement": true
+        },
+        "setting_key": {
+          "type": "varchar",
+          "length": 64,
+          "nullable": false,
+          "comment": "Stable identifier, e.g. platform_commission_rate"
+        },
+        "value": {
+          "type": "varchar",
+          "length": 255,
+          "nullable": false,
+          "comment": "Stored as text; each reader parses and validates its own type"
+        },
+        "updated_by": {
+          "type": "int",
+          "length": 10,
+          "unsigned": true,
+          "nullable": true,
+          "comment": "admins.id of whoever last changed it"
+        },
+        "created_at": {
+          "type": "datetime",
+          "nullable": false
+        },
+        "updated_at": {
+          "type": "datetime",
+          "nullable": false
+        }
+      },
+      "primaryKey": [
+        "id"
+      ],
+      "indexes": {
+        "uniq_platform_settings_key": {
+          "columns": [
+            "setting_key"
+          ],
+          "unique": true
+        }
+      }
     }
   }
 }

@@ -16,6 +16,9 @@ const { success, error } = require('../utils/response');
 const { getPagination, paginationMeta } = require('../utils/helpers');
 const { completeFinishedBookings } = require('../utils/bookingCompletion');
 const { settleCapturedPayment } = require('../utils/settleBooking');
+const {
+  getCommissionRate, setCommissionRate, commissionSource,
+} = require('../utils/platformSettings');
 const { pickAdminCoachFields } = require('../utils/coachFields');
 const { normaliseContact } = require('../utils/groundFields');
 const { notify } = require('../utils/notify');
@@ -909,6 +912,54 @@ exports.retryPayout = async (req, res) => {
         vendor_payout_amount: result.ownerAmount,
         transfer_id: result.transferId ?? null,
       },
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+/**
+ * GET /admin/settings/commission
+ *
+ * The rate in force, and where it came from — a super admin changing it needs
+ * to know whether they are about to override a stored value or an env var.
+ */
+exports.getCommission = async (req, res) => {
+  try {
+    const rate = await getCommissionRate();
+    return success(res, 'Commission retrieved.', {
+      rate,
+      percent: Math.round(rate * 10000) / 100,
+      source: await commissionSource(),
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+/**
+ * PUT /admin/settings/commission — super admin only.
+ *
+ * Accepts either `rate` (0.10) or `percent` (10). Changing it affects payments
+ * settled from now on; every past payment keeps the fee that was frozen onto it
+ * at capture, so an owner's earnings history never moves under them.
+ */
+exports.setCommission = async (req, res) => {
+  try {
+    const { rate, percent } = req.body;
+
+    if (rate === undefined && percent === undefined) {
+      return error(res, 'Provide either rate (0–0.99) or percent (0–99).', 422);
+    }
+    const value = rate !== undefined ? Number(rate) : Number(percent) / 100;
+
+    const result = await setCommissionRate(value, req.user?.id ?? null);
+    if (!result.ok) return error(res, result.reason, 422);
+
+    return success(res, 'Commission updated.', {
+      rate: result.rate,
+      percent: Math.round(result.rate * 10000) / 100,
+      source: 'database',
     });
   } catch (err) {
     return error(res, err.message, 500);
