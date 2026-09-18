@@ -53,10 +53,24 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Future<void> _resend() async {
     if (_resending || _verifying) return;
     setState(() => _resending = true);
-    await ref.read(authProvider.notifier).sendOtp(widget.mobile);
-    if (!mounted) return;
-    _startTimer();
-    setState(() => _resending = false);
+    try {
+      await ref.read(authProvider.notifier).sendOtp(widget.mobile);
+      if (!mounted) return;
+      // The cooldown starts only on a send that actually went out. Starting it
+      // after a failure makes the user wait thirty seconds before they can
+      // retry the thing that just did not work.
+      _startTimer();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(apiErrorMessage(e)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
   }
 
   Future<void> _verify(String otp) async {

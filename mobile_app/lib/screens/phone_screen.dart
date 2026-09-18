@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
+import '../core/api_error.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/kit_scatter.dart';
 import '../widgets/playsher_logo.dart';
@@ -37,12 +38,24 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     setState(() => _submitting = true);
     final mobile = '+91${_ctrl.text.trim()}';
 
-    // Fire the request, then move on — the OTP screen owns the retry/resend.
-    ref.read(authProvider.notifier).sendOtp(mobile);
-
-    if (!mounted) return;
-    setState(() => _submitting = false);
-    context.push('/otp', extra: mobile);
+    // Awaited, not fired and forgotten. Sending used to navigate regardless of
+    // the result, so a failed send left the user entering a code for a message
+    // that was never on its way. The loader stays up until we know.
+    try {
+      await ref.read(authProvider.notifier).sendOtp(mobile);
+      if (!mounted) return;
+      context.push('/otp', extra: mobile);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(apiErrorMessage(e)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
