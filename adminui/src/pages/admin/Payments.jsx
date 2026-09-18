@@ -32,8 +32,10 @@ import SendIcon from '@mui/icons-material/Send'
 import PageHeader from '../../components/ui/PageHeader.jsx'
 import DataTable from '../../components/ui/DataTable.jsx'
 import DrawerForm from '../../components/ui/DrawerForm.jsx'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'
 import { useNotify } from '../../hooks/useNotify.js'
+import { useIsSuperAdmin } from '../../hooks/useIsSuperAdmin.js'
 import { paymentsApi } from '../../api/payments.js'
 
 const PAYMENT_STATUSES = ['pending', 'success', 'failed', 'refunded']
@@ -140,6 +142,37 @@ export default function Payments() {
     if (!editTarget || !newStatus) return
     updateStatusMutation.mutate({ id: editTarget.id, status: newStatus })
   }
+
+  // ── Refund ─────────────────────────────────────────────────────────────────
+  const [refundTarget, setRefundTarget] = useState(null)
+  const [refundForce, setRefundForce] = useState(false)
+
+  const isSuperAdmin = useIsSuperAdmin()
+
+  const refund = useMutation({
+    mutationFn: ({ id, force }) => paymentsApi.refund(id, force ? { force: true } : {}),
+    onSuccess: (res) => {
+      const r = res?.data?.data?.refund
+      const back = Number(r?.owner_share_reversed) || 0
+      notify.success(
+        back > 0
+          ? `Refunded. ₹${back.toLocaleString()} pulled back from the ground owner.`
+          : 'Refunded.',
+      )
+      setRefundTarget(null)
+      setRefundForce(false)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] })
+    },
+    onError: (e) => {
+      const status = e?.response?.status
+      const msg = e?.response?.data?.message || 'Could not refund this payment.'
+      // 409 means the owner's share could not be recovered and NOTHING was
+      // refunded. Offering force here is the whole point of the dialog: the
+      // admin decides whether the platform absorbs it.
+      if (status === 409) { setRefundForce(true); notify.warning(msg) }
+      else notify.error(msg)
+    },
+  })
 
   // ── Columns ────────────────────────────────────────────────────────────────
   const retryPayout = useMutation({
@@ -257,6 +290,19 @@ export default function Payments() {
               owner transfer never went through. Anything else either has no
               money to move or has already moved it, and the server would answer
               409 — better not to offer the button at all. */}
+          {row.payment_status === 'success' && isSuperAdmin && (
+            <Tooltip title="Refund this payment">
+              <span>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => { setRefundForce(false); setRefundTarget(row) }}
+                >
+                  <ReplayIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           {row.payment_status === 'success' && !row.transfer_id && (
             <Tooltip title="Retry payout to ground owner">
               <span>
@@ -483,6 +529,28 @@ export default function Payments() {
           )}
         </Stack>
       </DrawerForm>
+
+      {/* Refund. Spelled out rather than a bare "are you sure": the reversal is
+          the part nobody expects, and after a 409 the only remaining choice is
+          whether the platform absorbs the owner's share. */}
+      <ConfirmDialog
+        open={Boolean(refundTarget)}
+        onClose={() => { setRefundTarget(null); setRefundForce(false) }}
+        onConfirm={() => refund.mutate({ id: refundTarget.id, force: refundForce })}
+        loading={refund.isPending}
+        title={refundForce ? 'Refund anyway?' : `Refund payment #${refundTarget?.id}?`}
+        confirmLabel={refundForce ? 'Refund and absorb the loss' : 'Refund'}
+        confirmColor="error"
+        message={
+          refundForce
+            ? 'The ground owner’s share could not be recovered — it has probably already '
+              + 'settled to their bank. Refunding now means Playsher covers that share. '
+              + 'This is recorded in the server log.'
+            : `The customer gets ₹${Number(refundTarget?.amount || 0).toLocaleString()} back. `
+              + 'The ground owner’s share is pulled back from their account first — if that '
+              + 'fails, nothing is refunded and you will be asked again.'
+        }
+      />
     </Box>
   )
 }

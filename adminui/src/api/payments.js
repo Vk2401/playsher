@@ -10,6 +10,10 @@ export const paymentsApi = {
   // server refuses a payment that already carries a transfer_id, so pressing
   // this twice cannot send the money twice.
   retryPayout: (id) => apiClient.post(`/admin/payments/${id}/retry-payout`),
+  // Reverses the ground owner's share before refunding the customer. Answers
+  // 409 without refunding if that share cannot be recovered; `force` refunds
+  // anyway and has the platform absorb it. Super admin only, server-enforced.
+  refund: (id, body) => apiClient.post(`/admin/payments/${id}/refund`, body),
 }
 
 /**

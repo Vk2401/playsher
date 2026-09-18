@@ -717,9 +717,28 @@ exports.listSettlements = async (req, res) => {
       attributes: ['id'],
     });
     summary.has_bank_details = Boolean(bank);
+
+    // Razorpay verifies a linked account after it is created, and a transfer to
+    // one that is not `activated` fails. The owner is the only person who can
+    // resolve a `needs_clarification`, so telling them is the whole point —
+    // otherwise their money sits held with no explanation anywhere.
+    const ownerRow = await GroundOwner.findByPk(req.user.id, {
+      attributes: ['razorpay_linked_account_id', 'razorpay_account_status'],
+    });
+    summary.payout_account_status = ownerRow?.razorpay_linked_account_id
+      ? (ownerRow.razorpay_account_status || 'created')
+      : null;
+    const accountBlocked = summary.payout_account_status
+      && summary.payout_account_status !== 'activated';
+
     summary.payout_state = !bank && summary.online_awaiting > 0
       ? 'no_bank_details'
-      : (summary.online_awaiting > 0 ? 'pending' : 'settled');
+      : (accountBlocked && summary.online_awaiting > 0
+        // Named after the state rather than folded into 'pending': an owner
+        // whose account needs clarification has something to *do*, and pending
+        // reads as "nothing to see here, it is on its way".
+        ? `account_${summary.payout_account_status}`
+        : (summary.online_awaiting > 0 ? 'pending' : 'settled'));
 
     const payments = rows.map((p) => {
       const b  = p.bookingRecord;
