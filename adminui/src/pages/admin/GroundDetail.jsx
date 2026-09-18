@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -53,6 +52,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx'
 import StatusChip from '../../components/ui/StatusChip.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx'
 import DrawerForm from '../../components/ui/DrawerForm.jsx'
+import ResponsiveDialog from '../../components/ui/ResponsiveDialog.jsx'
 import { useNotify } from '../../hooks/useNotify.js'
 import { groundsApi } from '../../api/grounds.js'
 import { sportsApi } from '../../api/sports.js'
@@ -475,7 +475,11 @@ export default function AdminGroundDetail() {
                 No sports assigned to this ground yet.
               </Typography>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
+              <TableContainer
+                component={Paper}
+                variant="outlined"
+                sx={{ overflowX: 'auto', '& table': { minWidth: 560 } }}
+              >
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: (t) => alpha(t.palette.primary.main, 0.06) } }}>
@@ -538,7 +542,11 @@ export default function AdminGroundDetail() {
                 No amenities listed for this ground.
               </Typography>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
+              <TableContainer
+                component={Paper}
+                variant="outlined"
+                sx={{ overflowX: 'auto', '& table': { minWidth: 560 } }}
+              >
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: (t) => alpha(t.palette.primary.main, 0.06) } }}>
@@ -615,7 +623,7 @@ export default function AdminGroundDetail() {
       </Paper>
 
       {/* ── Add Sport Dialog ─────────────────────────────────────────────── */}
-      <Dialog open={addSportOpen} onClose={() => setAddSportOpen(false)} maxWidth="sm" fullWidth>
+      <ResponsiveDialog open={addSportOpen} onClose={() => setAddSportOpen(false)} maxWidth="sm">
         <DialogTitle>Add Sport to Ground</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} mt={1}>
@@ -662,7 +670,7 @@ export default function AdminGroundDetail() {
             Add
           </Button>
         </DialogActions>
-      </Dialog>
+      </ResponsiveDialog>
 
       <ConfirmDialog
         open={Boolean(deleteSportTarget)}
@@ -675,7 +683,7 @@ export default function AdminGroundDetail() {
       />
 
       {/* ── Add Amenity Dialog ───────────────────────────────────────────── */}
-      <Dialog open={addAmenityOpen} onClose={() => setAddAmenityOpen(false)} maxWidth="xs" fullWidth>
+      <ResponsiveDialog open={addAmenityOpen} onClose={() => setAddAmenityOpen(false)} maxWidth="xs">
         <DialogTitle>Add Amenity</DialogTitle>
         <DialogContent>
           <FormControl size="small" fullWidth sx={{ mt: 1 }}>
@@ -704,7 +712,7 @@ export default function AdminGroundDetail() {
             Add
           </Button>
         </DialogActions>
-      </Dialog>
+      </ResponsiveDialog>
 
       <ConfirmDialog
         open={Boolean(deleteAmenityTarget)}

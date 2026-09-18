@@ -4,7 +4,7 @@ import {
   Box, Paper, Stack, Typography, Button, Chip, Alert, AlertTitle, Divider,
   Table, TableBody, TableCell, TableHead, TableRow, LinearProgress, Skeleton,
   Accordion, AccordionSummary, AccordionDetails, FormControlLabel, Checkbox,
-  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Tooltip,
+  DialogTitle, DialogContent, DialogActions, CircularProgress, Tooltip,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -22,6 +22,7 @@ import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import PageHeader from '../../components/ui/PageHeader.jsx'
 import EmptyState from '../../components/ui/EmptyState.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx'
+import ResponsiveDialog from '../../components/ui/ResponsiveDialog.jsx'
 import { schemaApi } from '../../api/schema.js'
 import { useNotify } from '../../hooks/useNotify.js'
 
@@ -559,7 +560,7 @@ export default function DatabaseSchema() {
       />
 
       {/* ── Confirmation ───────────────────────────────────────────────────── */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth>
+      <ResponsiveDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm">
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <WarningAmberIcon color="warning" />
           Apply schema to the database?
@@ -646,7 +647,7 @@ export default function DatabaseSchema() {
             </span>
           </Tooltip>
         </DialogActions>
-      </Dialog>
+      </ResponsiveDialog>
     </Box>
   )
 }

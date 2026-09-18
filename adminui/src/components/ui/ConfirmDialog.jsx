@@ -1,9 +1,10 @@
 import React from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogContentText,
-  DialogActions, Button, CircularProgress, Box, useMediaQuery, useTheme,
+  DialogTitle, DialogContent, DialogContentText,
+  DialogActions, Button, CircularProgress, useMediaQuery, useTheme,
 } from '@mui/material'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import ResponsiveDialog from './ResponsiveDialog.jsx'
 
 /**
  * The gate in front of every destructive action. Never `window.confirm`.
@@ -27,23 +28,8 @@ export default function ConfirmDialog({
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{
-        sx: isMobile
-          ? {
-              position: 'fixed', bottom: 0, left: 0, right: 0, m: 0,
-              width: '100%', maxWidth: '100%',
-              borderRadius: '20px 20px 0 0',
-              pb: 'env(safe-area-inset-bottom)',
-            }
-          : { borderRadius: 3 },
-      }}
-    >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: isMobile ? 3 : 2 }}>
+    <ResponsiveDialog open={open} onClose={onClose} maxWidth="xs">
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <WarningAmberIcon color="warning" />
         {title}
       </DialogTitle>
@@ -80,8 +66,6 @@ export default function ConfirmDialog({
           {confirmLabel}
         </Button>
       </DialogActions>
-
-      {isMobile && <Box sx={{ height: 4 }} />}
-    </Dialog>
+    </ResponsiveDialog>
   )
 }
