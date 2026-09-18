@@ -22,7 +22,7 @@ import BookOnlineIcon from '@mui/icons-material/BookOnline'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 
 const PAYMENT_COLORS = {
-  success: '#6B9E7A',
+  success: '#2E7D4F',
   pending: '#F4A261',
   failed: '#E76F51',
   refunded: '#5B7FA6',

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import {
+  alpha,
   Box,
   Button,
   Chip,
@@ -477,7 +478,7 @@ export default function AdminGroundDetail() {
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: 'rgba(107,158,122,0.06)' } }}>
+                    <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: (t) => alpha(t.palette.primary.main, 0.06) } }}>
                       <TableCell>#</TableCell>
                       <TableCell>Sport Name</TableCell>
                       <TableCell>Icon</TableCell>
@@ -540,7 +541,7 @@ export default function AdminGroundDetail() {
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: 'rgba(107,158,122,0.06)' } }}>
+                    <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: (t) => alpha(t.palette.primary.main, 0.06) } }}>
                       <TableCell>#</TableCell>
                       <TableCell>Amenity Name</TableCell>
                       <TableCell>Icon</TableCell>

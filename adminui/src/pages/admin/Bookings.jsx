@@ -240,7 +240,7 @@ export default function Bookings() {
       headerName: 'Customer',
       flex: 1,
       minWidth: 170,
-      valueGetter: ({ row }) => row.user?.name || row.user?.mobile || '—',
+      valueGetter: (_value, row) => row.user?.name || row.user?.mobile || '—',
       renderCell: ({ row }) => (
         <Box>
           <Typography variant="body2" fontWeight={600} noWrap>{row.user?.name || '—'}</Typography>
@@ -253,7 +253,7 @@ export default function Bookings() {
       headerName: 'Ground',
       flex: 1,
       minWidth: 150,
-      valueGetter: ({ row }) => groundNameOf(row),
+      valueGetter: (_value, row) => groundNameOf(row),
       renderCell: ({ row }) => (
         <Typography variant="body2" fontWeight={500} noWrap>
           {groundNameOf(row)}

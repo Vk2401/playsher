@@ -8,7 +8,10 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 // `npm run lint` failed outright. This is that config, using the plugins
 // already present in devDependencies.
 export default [
-  { ignores: ['dist', 'dev-dist', 'node_modules'] },
+  // `public/landing-demo` is the marketing site's built output, copied in whole
+  // from the playsher-landing project. It is not adminui source and is not
+  // written to this config's rules — linting it only reports its CDN globals.
+  { ignores: ['dist', 'dev-dist', 'node_modules', 'public/landing-demo'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx}'],

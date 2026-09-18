@@ -45,8 +45,8 @@ const SUMMARY_CONFIG = [
   {
     key: 'transferred',
     label: 'Total Transferred',
-    color: '#6B9E7A',
-    bgColor: 'rgba(107,158,122,0.08)',
+    color: '#2E7D4F',
+    bgColor: 'rgba(46,125,79,0.08)',
     icon: CheckCircleOutlineIcon,
   },
   {

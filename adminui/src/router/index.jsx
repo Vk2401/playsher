@@ -1,8 +1,10 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import AppShell from '../components/layout/AppShell.jsx'
 import OwnerShell from '../components/owner/OwnerShell.jsx'
+import PanelShell from '../components/layout/PanelShell.jsx'
+import MorePage from '../components/layout/MorePage.jsx'
+import { PANELS } from '../config/navigation.jsx'
 
 // Pages
 import Login from '../pages/Login.jsx'
@@ -81,11 +83,12 @@ export default function AppRouter() {
           path="/admin"
           element={
             <ProtectedRoute requiredRole="admin">
-              <AppShell />
+              <PanelShell panel={PANELS.admin} />
             </ProtectedRoute>
           }
         >
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="more" element={<MorePage panel={PANELS.admin} />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="ground-owners" element={<AdminGroundOwners />} />
@@ -137,11 +140,12 @@ export default function AppRouter() {
           path="/coach"
           element={
             <ProtectedRoute requiredRole="coach">
-              <AppShell />
+              <PanelShell panel={PANELS.coach} />
             </ProtectedRoute>
           }
         >
           <Route index element={<Navigate to="/coach/dashboard" replace />} />
+          <Route path="more" element={<MorePage panel={PANELS.coach} />} />
           <Route path="dashboard" element={<CoachDashboard />} />
           <Route path="bookings" element={<CoachBookings />} />
           <Route path="availability" element={<CoachAvailability />} />

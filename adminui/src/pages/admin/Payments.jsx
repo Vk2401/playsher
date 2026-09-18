@@ -41,8 +41,8 @@ const SUMMARY_CONFIG = [
   {
     key: 'success',
     label: 'Successful',
-    color: '#6B9E7A',
-    bgColor: 'rgba(107,158,122,0.08)',
+    color: '#2E7D4F',
+    bgColor: 'rgba(46,125,79,0.08)',
     icon: CheckCircleOutlineIcon,
   },
   {
@@ -170,7 +170,7 @@ export default function Payments() {
       headerName: 'Customer',
       flex: 1,
       minWidth: 170,
-      valueGetter: ({ row }) => row.user?.name || row.user?.email || '—',
+      valueGetter: (_value, row) => row.user?.name || row.user?.email || '—',
       renderCell: ({ row }) => (
         <Box>
           <Typography variant="body2" fontWeight={600} noWrap>
